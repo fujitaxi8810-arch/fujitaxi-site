@@ -1,0 +1,281 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const faqs = [
+  {
+    category: '配車・予約',
+    items: [
+      {
+        q: '南相馬市でタクシーを呼ぶにはどうすればいいですか？',
+        a: '富士タクシー本社（0244-44-2543）または原町待機所（0244-32-0030）にお電話ください。現着通知サービスにより、車が到着する前に音声でお知らせします。',
+      },
+      {
+        q: '事前予約はできますか？',
+        a: 'はい、お電話にて事前予約を承っております。特にジャンボタクシー（最大9名）は事前予約制となっておりますので、お早めにご連絡ください。',
+      },
+      {
+        q: '深夜や早朝でも乗れますか？',
+        a: '年中無休・7:00〜24:00で営業しております。時間外の対応については、事前にお電話にてご相談ください。',
+      },
+    ],
+  },
+  {
+    category: '料金・支払い',
+    items: [
+      {
+        q: '初乗り料金はいくらですか？',
+        a: '普通車タクシーは初乗り700円、ジャンボタクシー（特大車）は980円です。貸切料金は利用時間・行先によってお見積りします。',
+      },
+      {
+        q: 'クレジットカードや電子マネーは使えますか？',
+        a: 'はい、クレジットカード・PayPay等のQR決済・交通系ICカードなどの電子マネー・JTBタクシーチケットなど10種類以上の決済に対応しています。',
+      },
+      {
+        q: '県外への長距離移動はできますか？',
+        a: '小高区・原町区を出発地として、仙台・県外への長距離移動も対応しています。料金は利用時間・行先によってお見積りしますので、お電話またはメールでお問い合わせください。',
+      },
+    ],
+  },
+  {
+    category: '車両・サービス',
+    items: [
+      {
+        q: 'ジャンボタクシーは何名まで乗れますか？',
+        a: '最大9名様までご乗車いただけます。冠婚葬祭・家族旅行・空港送迎・観光などにご利用ください。事前予約が必要です。',
+      },
+      {
+        q: '車椅子でも乗れますか？',
+        a: '車椅子のままご乗車いただける車両については、事前にお電話にてご相談ください。介護タクシーの手配についてもご案内いたします。',
+      },
+      {
+        q: 'デイサービスの送迎も対応していますか？',
+        a: 'はい、デイサービス・通院・リハビリなどの定期送迎に対応しております。時間貸切・定額制のプランをご用意しています。詳しくはデイサービス送迎ページをご覧ください。',
+      },
+    ],
+  },
+  {
+    category: '法人・観光',
+    items: [
+      {
+        q: '法人契約はできますか？',
+        a: '法人様向けの契約・チケット対応を承っております。従業員送迎・取引先の送迎などに多くの法人様にご利用いただいています。詳しくは法人の方へのページをご覧ください。',
+      },
+      {
+        q: '観光タクシーはありますか？',
+        a: '南相馬の復興の歩み・請戸の火祭り・浮船神社など地元ゆかりのスポットをご案内する観光タクシーに対応しています。コースのご相談はお電話にて承ります。',
+      },
+    ],
+  },
+];
+---
+
+<Layout
+  title="よくある質問（FAQ）"
+  description="富士タクシーへのよくある質問をまとめました。料金・予約・支払い・車両・法人利用など、ご不明な点はまずこちらをご確認ください。"
+>
+
+  <section class="page-hero bg-black">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="パンくずリスト">
+        <ol>
+          <li><a href="/">ホーム</a></li>
+          <li aria-hidden="true">›</li>
+          <li aria-current="page">よくある質問</li>
+        </ol>
+      </nav>
+      <p class="eyebrow reveal">FAQ</p>
+      <h1 class="reveal">よくある<span class="text-yellow">ご質問</span></h1>
+      <p class="hero-lead reveal">解決しない場合はお電話またはメールでお気軽にご相談ください。</p>
+    </div>
+  </section>
+
+  <section class="section bg-soft">
+    <div class="container faq-container">
+
+      {faqs.map((group, gi) => (
+        <div class="faq-group reveal" style={`transition-delay:${gi * 80}ms`}>
+          <h2 class="faq-group__title">{group.category}</h2>
+          <div class="faq-list">
+            {group.items.map((item, i) => (
+              <details class="faq-item" style={`transition-delay:${(gi * 3 + i) * 40}ms`}>
+                <summary class="faq-question">
+                  <span class="faq-q-mark" aria-hidden="true">Q</span>
+                  <span>{item.q}</span>
+                  <svg class="faq-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
+                </summary>
+                <div class="faq-answer">
+                  <span class="faq-a-mark" aria-hidden="true">A</span>
+                  <p>{item.a}</p>
+                </div>
+              </details>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div class="faq-cta reveal">
+        <p>解決しない場合はお気軽にご連絡ください</p>
+        <div class="faq-cta__btns">
+          <a href="/contact" class="btn btn--primary">メールで問い合わせ</a>
+          <a href="tel:0244442543" class="btn btn--outline">0244-44-2543</a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</Layout>
+
+<style>
+  .page-hero {
+    padding-block: 5rem 4rem;
+  }
+  .page-hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 900;
+    color: var(--fuji-white);
+    margin-block: 1rem;
+  }
+  .hero-lead {
+    color: var(--fuji-gray-muted);
+    font-size: var(--text-sm);
+    margin-top: 0.5rem;
+  }
+  .breadcrumb ol {
+    display: flex;
+    gap: 0.5rem;
+    list-style: none;
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a { color: var(--fuji-gray-muted); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--fuji-yellow); }
+
+  .faq-container {
+    max-width: 800px;
+  }
+
+  .faq-group {
+    margin-bottom: 3rem;
+  }
+  .faq-group__title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--fuji-yellow-dark);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--fuji-yellow);
+    display: inline-block;
+  }
+
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .faq-item {
+    background: var(--fuji-white);
+    border-bottom: 1px solid var(--fuji-gray-light);
+  }
+  .faq-item:first-child {
+    border-top: 1px solid var(--fuji-gray-light);
+  }
+  .faq-item[open] {
+    background: #fafafa;
+  }
+  .faq-question {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem 1rem;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+    font-size: var(--text-base);
+    color: var(--fuji-black);
+    transition: background 0.15s;
+  }
+  .faq-question:hover { background: rgba(245,200,0,0.06); }
+  .faq-question::-webkit-details-marker { display: none; }
+
+  .faq-q-mark {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    background: var(--fuji-yellow);
+    color: var(--fuji-black);
+    font-weight: 900;
+    font-size: 0.8rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .faq-chevron {
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: transform 0.25s;
+    color: var(--fuji-gray-muted);
+  }
+  .faq-item[open] .faq-chevron { transform: rotate(180deg); }
+
+  .faq-answer {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0 1rem 1.25rem 1rem;
+    align-items: flex-start;
+  }
+  .faq-a-mark {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--fuji-gray-light);
+    color: #666;
+    font-weight: 900;
+    font-size: 0.8rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .faq-answer p {
+    font-size: var(--text-sm);
+    color: #555;
+    line-height: 1.8;
+    padding-top: 0.3rem;
+  }
+
+  .faq-cta {
+    margin-top: 3rem;
+    padding: 2.5rem;
+    background: var(--fuji-black);
+    border-radius: var(--radius-lg);
+    text-align: center;
+    color: var(--fuji-white);
+  }
+  .faq-cta p {
+    margin-bottom: 1.5rem;
+    font-size: var(--text-base);
+  }
+  .faq-cta__btns {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+</style>

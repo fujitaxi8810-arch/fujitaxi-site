@@ -92,14 +92,20 @@ const mergedStructuredData = structuredData ?? localBusinessSchema;
 const currentPath = Astro.url.pathname;
 
 const navItems = [
-  { href: '/',            label: 'ホーム',           en: 'Home' },
-  { href: '/about',       label: '企業情報',         en: 'About' },
-  { href: '/services',    label: 'サービス・料金',   en: 'Services' },
-  { href: '/community',   label: '地域への取り組み', en: 'Community' },
-  { href: '/corporate',   label: '法人の方へ',       en: 'Corporate' },
-  { href: '/dayservice',  label: 'デイサービス送迎', en: 'Day Service' },
-  { href: '/news',        label: 'お知らせ',         en: 'News' },
-  { href: '/recruit',     label: '採用情報',         en: 'Recruit' },
+  { href: '/',           label: 'ホーム',           en: 'Home' },
+  { href: '/about',      label: '企業情報',         en: 'About' },
+  {
+    label: 'サービス', en: 'Services',
+    children: [
+      { href: '/services',   label: 'サービス・料金',   en: 'Services' },
+      { href: '/corporate',  label: '法人の方へ',       en: 'Corporate' },
+      { href: '/dayservice', label: 'デイサービス送迎', en: 'Day Service' },
+      { href: '/faq',        label: 'よくある質問',     en: 'FAQ' },
+    ],
+  },
+  { href: '/community',  label: '地域への取り組み', en: 'Community' },
+  { href: '/news',       label: 'お知らせ',         en: 'News' },
+  { href: '/recruit',    label: '採用情報',         en: 'Recruit' },
 ];
 ---
 
@@ -183,15 +189,41 @@ const navItems = [
       <!-- デスクトップリンク -->
       <ul class="nav__links" role="list">
         {navItems.map(item => (
-          <li>
-            <a
-              href={item.href}
-              class={`nav__link${currentPath === item.href || (item.href !== '/' && currentPath.startsWith(item.href)) ? ' nav__link--active' : ''}`}
-              aria-current={currentPath === item.href ? 'page' : undefined}
-            >
-              <span class="nav__link-en">{item.en}</span>
-              <span class="nav__link-ja">{item.label}</span>
-            </a>
+          <li class={item.children ? 'nav__dropdown-wrap' : ''}>
+            {item.children ? (
+              <>
+                <button
+                  class={`nav__link nav__dropdown-btn${item.children.some(c => currentPath.startsWith(c.href)) ? ' nav__link--active' : ''}`}
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                >
+                  <span class="nav__link-en">{item.en}</span>
+                  <span class="nav__link-ja">{item.label}<svg class="nav__chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+                </button>
+                <ul class="nav__dropdown" role="list">
+                  {item.children.map(child => (
+                    <li>
+                      <a
+                        href={child.href}
+                        class={`nav__dropdown-link${currentPath.startsWith(child.href) ? ' nav__link--active' : ''}`}
+                        aria-current={currentPath === child.href ? 'page' : undefined}
+                      >
+                        {child.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <a
+                href={item.href}
+                class={`nav__link${currentPath === item.href || (item.href !== '/' && currentPath.startsWith(item.href)) ? ' nav__link--active' : ''}`}
+                aria-current={currentPath === item.href ? 'page' : undefined}
+              >
+                <span class="nav__link-en">{item.en}</span>
+                <span class="nav__link-ja">{item.label}</span>
+              </a>
+            )}
           </li>
         ))}
       </ul>
@@ -219,13 +251,28 @@ const navItems = [
     <!-- モバイルメニュー -->
     <div class="nav__mobile" id="mobile-menu" role="navigation" aria-label="モバイルメニュー">
       {navItems.map(item => (
-        <a
-          href={item.href}
-          class={`nav__mobile-link${currentPath === item.href ? ' nav__link--active' : ''}`}
-          aria-current={currentPath === item.href ? 'page' : undefined}
-        >
-          {item.label}
-        </a>
+        item.children ? (
+          <>
+            <span class="nav__mobile-group">{item.label}</span>
+            {item.children.map(child => (
+              <a
+                href={child.href}
+                class={`nav__mobile-link nav__mobile-link--child${currentPath === child.href ? ' nav__link--active' : ''}`}
+                aria-current={currentPath === child.href ? 'page' : undefined}
+              >
+                {child.label}
+              </a>
+            ))}
+          </>
+        ) : (
+          <a
+            href={item.href}
+            class={`nav__mobile-link${currentPath === item.href ? ' nav__link--active' : ''}`}
+            aria-current={currentPath === item.href ? 'page' : undefined}
+          >
+            {item.label}
+          </a>
+        )
       ))}
       <a href="/contact" class="btn btn--primary nav__mobile-cta">
         予約・お問い合わせ
@@ -465,6 +512,20 @@ const navItems = [
 
 <!-- ── スクリプト ── -->
 <script>
+  /* ── ドロップダウンナビ ── */
+  document.querySelectorAll('.nav__dropdown-wrap').forEach(wrap => {
+    const dropdown = wrap.querySelector('.nav__dropdown');
+    if (!dropdown) return;
+    wrap.addEventListener('mouseenter', () => dropdown.classList.add('is-open'));
+    wrap.addEventListener('mouseleave', () => dropdown.classList.remove('is-open'));
+    wrap.addEventListener('focusin',    () => dropdown.classList.add('is-open'));
+    wrap.addEventListener('focusout',   (e) => {
+      if (!wrap.contains((e as FocusEvent).relatedTarget as Node)) {
+        dropdown.classList.remove('is-open');
+      }
+    });
+  });
+
   /* ── モバイルナビ ── */
   const hamburger = document.getElementById('hamburger');
   const mobileMenu = document.getElementById('mobile-menu');

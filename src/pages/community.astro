@@ -1,0 +1,732 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const sdgGoals = [
+  {
+    num: '3',
+    goalEn: 'GOOD HEALTH AND WELL-BEING',
+    nameJa1: 'すべての人に',
+    nameJa2: '健康と福祉を',
+    body: 'デマンドタクシーで高齢者・交通弱者の通院移動を支援。誰もが医療にアクセスできる環境を守ります。',
+    color: '#4C9F38',
+    icon: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M32 54 C32 54 8 38 8 22 C8 13 15 7 23 7 C27.5 7 31 10 32 12 C33 10 36.5 7 41 7 C49 7 56 13 56 22 C56 38 32 54 32 54Z" fill="rgba(255,255,255,0.25)" stroke="white" stroke-width="2"/><rect x="28" y="16" width="8" height="22" rx="3" fill="white"/><rect x="21" y="23" width="22" height="8" rx="3" fill="white"/></svg>`,
+  },
+  {
+    num: '4',
+    goalEn: 'QUALITY EDUCATION',
+    nameJa1: '質の高い教育を',
+    nameJa2: 'みんなに',
+    body: 'スクールタクシーで遠距離通学の子どもたちの教育機会を確保。安全な通学環境を毎日提供しています。',
+    color: '#C5192D',
+    icon: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="8" y="16" width="48" height="34" rx="3" fill="rgba(255,255,255,0.2)" stroke="white" stroke-width="2"/><line x1="32" y1="16" x2="32" y2="50" stroke="white" stroke-width="2"/><line x1="14" y1="26" x2="28" y2="26" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="33" x2="28" y2="33" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="40" x2="28" y2="40" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="36" y1="26" x2="50" y2="26" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="36" y1="33" x2="50" y2="33" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="36" y1="40" x2="50" y2="40" stroke="white" stroke-width="2" stroke-linecap="round"/><rect x="8" y="10" width="48" height="8" rx="2" fill="rgba(255,255,255,0.6)"/></svg>`,
+  },
+  {
+    num: '10',
+    goalEn: 'REDUCED INEQUALITIES',
+    nameJa1: '人や国の不平等を',
+    nameJa2: 'なくそう',
+    body: '交通弱者・移動困難者へのサービス提供を通じて、地域内の移動格差をなくす取り組みを続けています。',
+    color: '#DD1367',
+    icon: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="18" cy="20" r="6" fill="rgba(255,255,255,0.7)"/><path d="M6 46 C6 36 30 36 30 46" fill="rgba(255,255,255,0.7)"/><circle cx="32" cy="16" r="7" fill="white"/><path d="M18 46 C18 34 46 34 46 46" fill="white"/><circle cx="46" cy="20" r="6" fill="rgba(255,255,255,0.7)"/><path d="M34 46 C34 36 58 36 58 46" fill="rgba(255,255,255,0.7)"/></svg>`,
+  },
+  {
+    num: '11',
+    goalEn: 'SUSTAINABLE CITIES AND COMMUNITIES',
+    nameJa1: '住み続けられる',
+    nameJa2: 'まちづくりを',
+    body: '地域の移動インフラを担い、南相馬市・小高区が住み続けられる街であり続けるための基盤を支えます。',
+    color: '#FD9D24',
+    icon: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><polygon points="32,8 56,28 52,28 52,54 36,54 36,40 28,40 28,54 12,54 12,28 8,28" fill="rgba(255,255,255,0.25)" stroke="white" stroke-width="2"/><rect x="23" y="18" width="8" height="8" rx="1.5" fill="rgba(255,255,255,0.8)"/><rect x="33" y="18" width="8" height="8" rx="1.5" fill="rgba(255,255,255,0.8)"/><rect x="28" y="40" width="8" height="14" rx="1.5" fill="rgba(255,255,255,0.9)"/></svg>`,
+  },
+];
+
+const sdgWheelColors = ['#E5243B','#DDA63A','#4C9F38','#C5192D','#FF3A21','#26BDE2','#FCC30B','#A21942','#FD6925','#DD1367','#FD9D24','#BF8B2E','#3F7E44','#0A97D9','#56C02B','#00689D','#19486A'];
+const WCX = 90, WCY = 90, WR = 82, WN = 17;
+const wheelSegments = sdgWheelColors.map((color, i) => {
+  const a1 = (-90 + i * 360 / WN) * Math.PI / 180;
+  const a2 = (-90 + (i + 1) * 360 / WN) * Math.PI / 180;
+  const x1 = (WCX + WR * Math.cos(a1)).toFixed(2);
+  const y1 = (WCY + WR * Math.sin(a1)).toFixed(2);
+  const x2 = (WCX + WR * Math.cos(a2)).toFixed(2);
+  const y2 = (WCY + WR * Math.sin(a2)).toFixed(2);
+  return { color, d: `M ${WCX} ${WCY} L ${x1} ${y1} A ${WR} ${WR} 0 0 1 ${x2} ${y2} Z` };
+});
+---
+
+<Layout
+  title="地域への取り組み"
+  description="富士タクシーは南相馬市小高区でスクールタクシー・デマンド乗合タクシーを運行。高齢者・交通弱者の移動を支え、SDGsに取り組む地域密着モビリティ企業です。"
+>
+
+  <!-- ページヒーロー -->
+  <section class="page-hero bg-black">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="パンくずリスト">
+        <ol>
+          <li><a href="/">ホーム</a></li>
+          <li aria-hidden="true">›</li>
+          <li aria-current="page">地域への取り組み</li>
+        </ol>
+      </nav>
+      <p class="eyebrow reveal">Community</p>
+      <h1 class="reveal">地域のために、<span class="text-yellow">タクシーができること</span>。</h1>
+      <p class="page-hero__lead reveal">
+        「移動を通じて人と地域をつなぐ」をブランドコンセプトに、<wbr /><span style="white-space:nowrap;">富士タクシーは地域課題の解決に取り組んでいます。</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- スクールタクシー -->
+  <section class="section bg-black" id="school">
+    <div class="container">
+
+      <!-- タイトル・説明 -->
+      <div class="reveal" style="margin-bottom: var(--space-12);">
+        <p class="eyebrow">School Taxi</p>
+        <h2 class="school-heading">
+          スクールタクシー<span class="text-yellow">事業</span>
+        </h2>
+        <div class="divider"></div>
+        <p class="school-lead">
+          令和3年度から小高区の小学校が統合され、遠距離通学が必要な児童が増えました。<br />
+          富士タクシーは<strong style="color:var(--fuji-white);">教育委員会と連携</strong>し、安全・安心な通学をサポートしています。
+        </p>
+      </div>
+
+      <!-- 特徴3点 -->
+      <div class="school-features reveal">
+        <div class="school-feature">
+          <div class="school-feature__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="school-feature__body">
+            <p class="school-feature__title">登校・下校を毎日運行</p>
+            <p class="school-feature__desc">学校登校日に登校・下校の両便を毎日運行。雨の日も安心してお任せください。</p>
+          </div>
+        </div>
+        <div class="school-feature">
+          <div class="school-feature__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <div class="school-feature__body">
+            <p class="school-feature__title">部活動終了時にも対応</p>
+            <p class="school-feature__desc">中学生の部活動終了時間に合わせた送迎にも柔軟に対応しています。</p>
+          </div>
+        </div>
+        <div class="school-feature">
+          <div class="school-feature__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <div class="school-feature__body">
+            <p class="school-feature__title">地元熟知のドライバーが安全送迎</p>
+            <p class="school-feature__desc">小高区の道路・地域事情を知り尽くしたドライバーが責任をもって担当します。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- お問い合わせカード -->
+      <div class="school-contact reveal">
+        <div class="school-contact__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6 6l.54-.54a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.28 16.92z"/>
+          </svg>
+        </div>
+        <div class="school-contact__body">
+          <p class="school-contact__label">利用お問い合わせ</p>
+          <p class="school-contact__text">
+            <strong>南相馬市教育委員会 学校教育課</strong>
+            <span class="school-contact__sep">または</span>
+            <strong>富士タクシー</strong>
+          </p>
+          <a href="tel:0244442543" class="school-contact__tel">0244-44-2543</a>
+        </div>
+        <a href="/contact" class="btn btn--primary school-contact__btn">ウェブで問い合わせる</a>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- デマンドタクシー -->
+  <section class="section bg-black">
+    <div class="container">
+      <div class="initiative-split initiative-split--reverse reveal">
+        <div class="initiative-split__highlight">
+          <div class="highlight-card highlight-card--dark">
+            <p class="highlight-card__num text-yellow" style="font-family: var(--font-en);">乗合</p>
+            <p class="highlight-card__label" style="color: var(--fuji-gray-muted);">最大9名対応</p>
+          </div>
+          <div class="highlight-card highlight-card--dark">
+            <p class="highlight-card__num text-yellow" style="font-family: var(--font-en); font-size: 2rem;">小高⇔原町</p>
+            <p class="highlight-card__label" style="color: var(--fuji-gray-muted);">エリア間移動</p>
+          </div>
+        </div>
+        <div class="initiative-split__text">
+          <p class="eyebrow">Demand Taxi</p>
+          <h2 style="color: var(--fuji-white);">デマンドタクシー事業</h2>
+          <div class="divider"></div>
+          <p style="color: var(--fuji-gray-muted);">旧避難指示区域内へ帰還した住民や高齢者の方々の日常的な移動手段として、乗合タクシーを運行しています。ジャンボタクシー（最大9名）で通院・買い物・日常移動をサポート。</p>
+          <ul class="initiative-list initiative-list--dark">
+            <li>運行範囲: 小高区内・小高区⇔原町区</li>
+            <li>事前予約制（ジャンボタクシー予約センター）</li>
+            <li>通院・買い物・日常移動の足として</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SDGsセクション -->
+  <section class="section bg-black" id="sdgs">
+    <div class="container">
+
+      <!-- ヘッダー：タイトル左＋ホイール右 -->
+      <div class="sdg-header reveal">
+        <div class="sdg-header__text">
+          <p class="eyebrow">SDGs</p>
+          <h2 style="color:var(--fuji-white); font-size:clamp(1.75rem,3.5vw,2.5rem); font-weight:900; margin-block:0.75rem;">
+            富士タクシーの<span class="text-yellow">SDGsへの取り組み</span>
+          </h2>
+          <p style="color:var(--fuji-gray-muted); max-width:520px; line-height:1.8;">
+            タクシー事業を通じて、持続可能な地域社会づくりに貢献します。
+          </p>
+        </div>
+        <div class="sdg-wheel-wrap" aria-label="SDGs持続可能な開発目標ホイール">
+          <svg viewBox="0 0 180 180" width="200" height="200" xmlns="http://www.w3.org/2000/svg" role="img">
+            {wheelSegments.map(s => (
+              <path d={s.d} fill={s.color} stroke="#fff" stroke-width="1" />
+            ))}
+            <circle cx="90" cy="90" r="34" fill="#fff" />
+            <text x="90" y="83" text-anchor="middle" font-size="7.5" font-weight="900" fill="#333" font-family="sans-serif" letter-spacing="0.5">SUSTAINABLE</text>
+            <text x="90" y="93" text-anchor="middle" font-size="7.5" font-weight="900" fill="#333" font-family="sans-serif" letter-spacing="0.5">DEVELOPMENT</text>
+            <text x="90" y="103" text-anchor="middle" font-size="7.5" font-weight="900" fill="#333" font-family="sans-serif" letter-spacing="0.5">GOALS</text>
+          </svg>
+          <p class="sdg-wheel-caption">SDGs<br />持続可能な開発目標</p>
+        </div>
+      </div>
+
+      <!-- カードグリッド -->
+      <div class="sdg-grid">
+        {sdgGoals.map((g, i) => (
+          <div class="sdg-card reveal" style={`transition-delay:${i * 80}ms; --sdg-color: ${g.color};`}>
+            <div class="sdg-card__header">
+              <div class="sdg-card__num-block" aria-label={`SDGs ゴール${g.num}`}>
+                <span class="sdg-card__goal-label">GOAL</span>
+                <span class="sdg-card__goal-num">{g.num}</span>
+              </div>
+              <div class="sdg-card__icon-wrap" aria-hidden="true" set:html={g.icon} />
+            </div>
+            <div class="sdg-card__title-block">
+              <p class="sdg-card__title-line">{g.nameJa1}</p>
+              <p class="sdg-card__title-line">{g.nameJa2}</p>
+              <p class="sdg-card__goal-en">{g.goalEn}</p>
+            </div>
+            <div class="sdg-card__body">
+              <p class="sdg-card__body-text">{g.body}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p class="sdg-note reveal">※ SDGsカラーは国連が定める公式ガイドラインに準拠しています。</p>
+
+    </div>
+  </section>
+
+  <!-- DX・新サービス -->
+  <section class="section bg-soft">
+    <div class="container">
+      <div class="reveal" style="text-align: center; margin-bottom: var(--space-12);">
+        <p class="eyebrow">Digital Transformation</p>
+        <h2>便利になった、富士タクシーの新サービス。</h2>
+        <div class="divider" style="margin: 1rem auto;"></div>
+      </div>
+      <div class="dx-grid reveal">
+        <div class="dx-card">
+          <div class="dx-card__icon">🔔</div>
+          <h3 class="dx-card__title">現着通知サービス</h3>
+          <p class="dx-card__text">タクシー到着時に自動音声でお知らせ（050-3102-4350）。外で待たずに室内でお待ちいただけます。</p>
+        </div>
+        <div class="dx-card">
+          <div class="dx-card__icon">💳</div>
+          <h3 class="dx-card__title">キャッシュレス決済</h3>
+          <p class="dx-card__text">クレカ・QR・電子マネー・JTBチケットなど10種以上に対応。お財布いらずで便利にご利用いただけます。</p>
+        </div>
+        <div class="dx-card">
+          <div class="dx-card__icon">📱</div>
+          <h3 class="dx-card__title">多様な予約方法</h3>
+          <p class="dx-card__text">ご予約はお電話にて承ります。お問い合わせはお電話またはWebフォームからどうぞ。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 観光・地域連携 -->
+  <section class="section bg-offwhite">
+    <div class="container">
+      <div class="reveal" style="text-align: center; margin-bottom: var(--space-12);">
+        <p class="eyebrow" style="color: var(--fuji-yellow-dark);">Tourism & Local</p>
+        <h2 style="color: var(--fuji-black);">小高・南相馬の魅力を、一緒に発信する。</h2>
+        <div class="divider" style="margin: 1rem auto;"></div>
+      </div>
+      <div class="tourism-content reveal">
+        <p style="color: #444; line-height: 1.9; margin-bottom: 1.5rem;">
+          相馬野馬追をはじめとする国重要無形民俗文化財や、小高の海岸線・神社・イルミネーションなど、南相馬には全国に発信できる魅力が数多くあります。富士タクシーは地元を熟知したドライバーとともに、地域の誇りを移動を通じて発信し続けます。
+        </p>
+        <div class="tourism-links">
+          <a href="https://odakaru.jp/" target="_blank" rel="noopener noreferrer" class="tourism-link-card">
+            <span class="tourism-link-card__label">地元メディア掲載</span>
+            <span class="tourism-link-card__name">おだかぴーぷる</span>
+            <span class="tourism-link-card__arrow">→</span>
+          </a>
+          <a href="https://youtu.be/2L02ZoydCKg" target="_blank" rel="noopener noreferrer" class="tourism-link-card">
+            <span class="tourism-link-card__label">YouTube動画</span>
+            <span class="tourism-link-card__name">富士タクシー紹介動画</span>
+            <span class="tourism-link-card__arrow">→</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTAバナー -->
+  <section class="section bg-yellow">
+    <div class="container">
+      <div class="cta-banner reveal">
+        <h2 class="cta-banner__title" style="color: var(--fuji-black);">地域の移動でお困りのことは、<br />富士タクシーへご相談ください。</h2>
+        <div class="cta-banner__btns">
+          <a href="tel:0244442543" class="btn btn--outline-dark">電話で相談する</a>
+          <a href="/contact" class="btn btn--outline-dark">お問い合わせフォーム</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</Layout>
+
+<style>
+  .page-hero {
+    padding-block: 5rem 4rem;
+  }
+  .page-hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 900;
+    color: var(--fuji-white);
+    margin-block: 1rem;
+  }
+  .page-hero__lead {
+    font-size: var(--text-lg);
+    color: var(--fuji-gray-muted);
+    max-width: 600px;
+  }
+  .text-yellow { color: var(--fuji-yellow); }
+  .breadcrumb ol {
+    display: flex;
+    gap: 0.5rem;
+    list-style: none;
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a { color: var(--fuji-gray-muted); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--fuji-yellow); }
+
+  /* スクールタクシー */
+  .school-heading {
+    color: var(--fuji-white);
+    font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+    font-weight: 900;
+    margin-block: 0.75rem;
+  }
+  .school-lead {
+    color: var(--fuji-gray-muted);
+    line-height: 1.9;
+    max-width: 680px;
+    margin-top: 1rem;
+  }
+  .school-features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 768px) { .school-features { grid-template-columns: 1fr; } }
+
+  .school-feature {
+    background: #1a1a1a;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  .school-feature__icon {
+    width: 48px;
+    height: 48px;
+    background: rgba(245,200,0,0.1);
+    border: 1px solid rgba(245,200,0,0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--fuji-yellow);
+  }
+  .school-feature__icon svg { width: 22px; height: 22px; }
+  .school-feature__title {
+    font-size: var(--text-base);
+    font-weight: 700;
+    color: var(--fuji-white);
+    margin-bottom: 0.4rem;
+  }
+  .school-feature__desc {
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    line-height: 1.7;
+  }
+
+  .school-contact {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    background: #1a1a1a;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-left: 4px solid var(--fuji-yellow);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem 2rem;
+    flex-wrap: wrap;
+  }
+  .school-contact__icon {
+    width: 44px;
+    height: 44px;
+    background: rgba(245,200,0,0.12);
+    border: 1px solid rgba(245,200,0,0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--fuji-yellow);
+  }
+  .school-contact__icon svg { width: 20px; height: 20px; }
+  .school-contact__body { flex: 1; min-width: 0; }
+  .school-contact__label {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .school-contact__text {
+    font-size: var(--text-base);
+    color: var(--fuji-white);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .school-contact__sep { font-size: var(--text-sm); color: var(--fuji-gray-muted); }
+  .school-contact__tel {
+    display: inline-block;
+    font-size: var(--text-xl);
+    font-weight: 900;
+    color: var(--fuji-yellow);
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    margin-top: 0.25rem;
+  }
+  .school-contact__tel:hover { opacity: 0.8; }
+  .school-contact__btn { flex-shrink: 0; }
+
+  /* 取り組みスプリット */
+  .initiative-split {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 3rem;
+    align-items: center;
+  }
+  .initiative-split--reverse {
+    grid-template-columns: 280px 1fr;
+  }
+  @media (max-width: 768px) {
+    .initiative-split,
+    .initiative-split--reverse {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .initiative-split__text h2 {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 900;
+    color: var(--fuji-black);
+    margin-block: 0.75rem;
+  }
+  .initiative-split__text p {
+    color: #444;
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .initiative-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .initiative-list li {
+    padding-left: 1.25rem;
+    position: relative;
+    color: #444;
+    font-size: var(--text-sm);
+  }
+  .initiative-list li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--fuji-yellow-dark);
+  }
+  .initiative-list--dark li { color: var(--fuji-gray-muted); }
+  .initiative-list--dark li::before { color: var(--fuji-yellow); }
+  .initiative-contact {
+    font-size: var(--text-sm);
+    color: #666;
+  }
+
+  /* ハイライトカード */
+  .initiative-split__highlight {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .highlight-card {
+    background: var(--fuji-yellow);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    text-align: center;
+  }
+  .highlight-card--dark {
+    background: var(--fuji-black-card);
+  }
+  .highlight-card__num {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 900;
+    line-height: 1.1;
+  }
+  .highlight-card__label {
+    font-size: var(--text-sm);
+    color: var(--fuji-black);
+    font-weight: 700;
+    margin-top: 0.25rem;
+  }
+
+  /* SDGs ヘッダー */
+  .sdg-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    flex-wrap: wrap;
+  }
+  .sdg-header__text { flex: 1; min-width: 0; }
+  .sdg-wheel-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+  .sdg-wheel-caption {
+    font-size: 0.6875rem;
+    color: var(--fuji-gray-muted);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* SDGsグリッド */
+  .sdg-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  @media (max-width: 900px) { .sdg-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 540px) { .sdg-grid { grid-template-columns: 1fr; } }
+
+  .sdg-card {
+    background: var(--sdg-color, #4C9F38);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  }
+  .sdg-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 48px rgba(0,0,0,0.4);
+  }
+  .sdg-card__header {
+    padding: 1rem 1rem 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .sdg-card__num-block { display: flex; flex-direction: column; line-height: 1; }
+  .sdg-card__goal-label {
+    font-family: var(--font-en);
+    font-size: 0.6rem;
+    font-weight: 900;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 0.15em;
+  }
+  .sdg-card__goal-num {
+    font-family: var(--font-en);
+    font-size: clamp(2.75rem, 5vw, 3.75rem);
+    font-weight: 900;
+    color: #fff;
+    line-height: 0.85;
+  }
+  .sdg-card__icon-wrap { width: 60px; height: 60px; flex-shrink: 0; }
+  .sdg-card__icon-wrap svg { width: 100%; height: 100%; }
+
+  .sdg-card__title-block {
+    padding: 0.5rem 1rem 0.75rem;
+    border-top: 1px solid rgba(255,255,255,0.25);
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+  }
+  .sdg-card__title-line {
+    font-size: var(--text-base);
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.35;
+  }
+  .sdg-card__goal-en {
+    font-family: var(--font-en);
+    font-size: 0.5rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.65);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-top: 0.35rem;
+    line-height: 1.4;
+  }
+  .sdg-card__body {
+    padding: 0.75rem 1rem 1.25rem;
+    flex: 1;
+    background: rgba(0,0,0,0.18);
+  }
+  .sdg-card__body-text {
+    font-size: var(--text-sm);
+    color: rgba(255,255,255,0.9);
+    line-height: 1.8;
+  }
+  .sdg-note {
+    font-size: var(--text-xs);
+    color: var(--fuji-gray-muted);
+    text-align: right;
+  }
+
+  /* DXカード */
+  .dx-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+  }
+  .dx-card {
+    background: var(--fuji-white);
+    border: 1px solid var(--fuji-gray-light);
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+    text-align: center;
+  }
+  .dx-card__icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+  .dx-card__title {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--fuji-black);
+    margin-bottom: 0.75rem;
+  }
+  .dx-card__text {
+    font-size: var(--text-sm);
+    color: #555;
+    line-height: 1.8;
+  }
+
+  /* 観光リンク */
+  .tourism-content {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .tourism-links {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .tourism-link-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: var(--fuji-white);
+    border: 1px solid var(--fuji-gray-light);
+    border-radius: var(--radius-lg);
+    text-decoration: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .tourism-link-card:hover {
+    border-color: var(--fuji-yellow-dark);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  .tourism-link-card__label {
+    font-size: var(--text-xs);
+    color: var(--fuji-yellow-dark);
+    font-weight: 700;
+    min-width: 100px;
+  }
+  .tourism-link-card__name {
+    font-size: var(--text-base);
+    color: var(--fuji-black);
+    font-weight: 700;
+    flex: 1;
+  }
+  .tourism-link-card__arrow {
+    color: var(--fuji-yellow-dark);
+    font-weight: 700;
+  }
+
+  /* CTA */
+  .cta-banner { text-align: center; }
+  .cta-banner__title {
+    font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+    font-weight: 900;
+    margin-bottom: 2rem;
+  }
+  .cta-banner__btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+</style>

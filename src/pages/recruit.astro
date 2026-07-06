@@ -1,0 +1,515 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'JobPosting',
+  title: 'タクシードライバー',
+  description: '南相馬市小高区でタクシードライバーを募集しています。未経験歓迎・資格取得支援・完全週休2日・社会保険完備・賞与年3回。',
+  hiringOrganization: {
+    '@type': 'Organization',
+    name: '有限会社 富士タクシー',
+    sameAs: 'https://fujitaxi-minamisoma.com',
+  },
+  jobLocation: {
+    '@type': 'Place',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: '本町一丁目57番地',
+      addressLocality: '南相馬市小高区',
+      addressRegion: '福島県',
+      postalCode: '979-2124',
+      addressCountry: 'JP',
+    },
+  },
+  employmentType: 'FULL_TIME',
+  baseSalary: {
+    '@type': 'MonetaryAmount',
+    currency: 'JPY',
+    value: {
+      '@type': 'QuantitativeValue',
+      value: 190000,
+      unitText: 'MONTH',
+    },
+  },
+  datePosted: '2025-01-01',
+  validThrough: '2026-12-31',
+};
+---
+
+<Layout
+  title="採用情報"
+  description="富士タクシー（南相馬市小高区）の採用情報。タクシードライバー募集中。未経験歓迎・資格取得支援・完全週休2日・社会保険完備・賞与年3回。地域の仕事で充実したキャリアを。"
+  structuredData={structuredData}
+>
+
+  <!-- ページヒーロー -->
+  <section class="page-hero bg-black">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="パンくずリスト">
+        <ol>
+          <li><a href="/">ホーム</a></li>
+          <li aria-hidden="true">›</li>
+          <li aria-current="page">採用情報</li>
+        </ol>
+      </nav>
+      <p class="eyebrow reveal">Recruit</p>
+      <h1 class="reveal">地域の<span class="text-yellow">未来</span>を、一緒に運ぼう。</h1>
+      <p class="page-hero__lead reveal">
+        富士タクシーは、タクシーを通じて南相馬市の暮らしを支える仲間を募集しています。未経験者大歓迎。あなたの「やってみたい」を全力でサポートします。
+      </p>
+      <div class="hero-badges reveal">
+        <span class="hero-badge">未経験歓迎</span>
+        <span class="hero-badge">週休2日</span>
+        <span class="hero-badge">資格取得支援</span>
+        <span class="hero-badge">賞与年3回</span>
+        <span class="hero-badge">住宅手当あり</span>
+        <span class="hero-badge">資格手当あり</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 富士タクシーで働く魅力 -->
+  <section class="section bg-soft">
+    <div class="container">
+      <div class="reveal" style="text-align: center; margin-bottom: var(--space-12);">
+        <p class="eyebrow">Why Fuji Taxi</p>
+        <h2>富士タクシーで働く魅力</h2>
+        <div class="divider" style="margin: 1rem auto;"></div>
+      </div>
+      <div class="appeal-grid reveal">
+        <div class="appeal-card">
+          <div class="appeal-card__icon">🚖</div>
+          <h3 class="appeal-card__title">地域に必要とされる仕事</h3>
+          <p class="appeal-card__text">スクール・デマンド・観光、地域のあらゆる移動に関わる仕事。毎日、誰かの役に立てる実感があります。</p>
+        </div>
+        <div class="appeal-card">
+          <div class="appeal-card__icon">💰</div>
+          <h3 class="appeal-card__title">しっかりした待遇</h3>
+          <p class="appeal-card__text">基本給<strong class="text-yellow-dark">19万円〜</strong>＋歩合給あり、賞与年3回、社会保険完備、退職金あり。しっかり稼げる環境が整っています。</p>
+        </div>
+        <div class="appeal-card">
+          <div class="appeal-card__icon">📚</div>
+          <h3 class="appeal-card__title">資格取得を会社がサポート</h3>
+          <p class="appeal-card__text">未経験者でも大丈夫。二種免許の取得を会社が全力でサポートします。<strong>教習所費用は全額会社負担。</strong>ゼロから始められます。</p>
+        </div>
+        <div class="appeal-card">
+          <div class="appeal-card__icon">🏖️</div>
+          <h3 class="appeal-card__title">完全週休2日</h3>
+          <p class="appeal-card__text">プライベートとの両立ができる勤務体系。家族との時間も、趣味の時間も大切にできます。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 給与ハイライト -->
+  <section class="section bg-black">
+    <div class="container">
+      <div class="salary-highlight reveal">
+        <div class="salary-highlight__item">
+          <p class="salary-label">月給 基本給</p>
+          <p class="salary-amount text-yellow"><span class="salary-num">19</span>万円〜</p>
+        </div>
+        <div class="salary-divider" aria-hidden="true"></div>
+        <div class="salary-highlight__item">
+          <p class="salary-label">賞与</p>
+          <p class="salary-amount text-yellow">年<span class="salary-num">3</span>回</p>
+        </div>
+        <div class="salary-divider" aria-hidden="true"></div>
+        <div class="salary-highlight__item">
+          <p class="salary-label">週休</p>
+          <p class="salary-amount text-yellow"><span class="salary-num">2</span>日</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 求人票 -->
+  <section class="section bg-soft">
+    <div class="container">
+      <div class="reveal" style="text-align: center; margin-bottom: var(--space-12);">
+        <p class="eyebrow">Job Details</p>
+        <h2>求人票</h2>
+        <div class="divider" style="margin: 1rem auto;"></div>
+      </div>
+      <div class="reveal">
+        <table class="job-table">
+          <tbody>
+            <tr>
+              <th>募集職種</th>
+              <td>タクシー運転手</td>
+            </tr>
+            <tr>
+              <th>採用対象</th>
+              <td>経験者・未経験者</td>
+            </tr>
+            <tr>
+              <th>雇用形態</th>
+              <td>正社員</td>
+            </tr>
+            <tr>
+              <th>求める資格</th>
+              <td>普通二種免許（なくても可・教習所費用全額会社負担）</td>
+            </tr>
+            <tr>
+              <th>仕事内容</th>
+              <td>お客様を目的地へ安全・快適に送迎するタクシー業務</td>
+            </tr>
+            <tr>
+              <th>勤務地</th>
+              <td>福島県南相馬市小高区</td>
+            </tr>
+            <tr>
+              <th>給料</th>
+              <td><strong>月給 基本給19万円〜</strong>＋歩合給あり</td>
+            </tr>
+            <tr>
+              <th>賞与</th>
+              <td>年3回（前年度実績）</td>
+            </tr>
+            <tr>
+              <th>福利厚生</th>
+              <td>社会保険完備・交通費支給・退職金・住宅手当・資格手当・完全週休2日・資格取得支援</td>
+            </tr>
+            <tr>
+              <th>勤務時間</th>
+              <td>8:00〜17:00（業務内容により変更あり）</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- よくある質問 -->
+  <section class="section bg-black">
+    <div class="container">
+      <div class="reveal" style="text-align: center; margin-bottom: var(--space-12);">
+        <p class="eyebrow">FAQ</p>
+        <h2>よくある質問（採用関連）</h2>
+        <div class="divider" style="margin: 1rem auto;"></div>
+      </div>
+      <div class="faq-list reveal">
+        <details class="faq-item">
+          <summary class="faq-item__q">免許がなくても応募できますか？</summary>
+          <div class="faq-item__a">
+            <p>はい、応募できます。普通免許（一種）さえあれば、二種免許の取得を会社が全力でサポートします。<strong>教習所費用は全額会社負担</strong>（教習所費用に限る）。未経験・無資格からスタートした先輩社員も多数活躍中です。</p>
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-item__q">女性ドライバーは働けますか？</summary>
+          <div class="faq-item__a">
+            <p>もちろんです。女性ドライバーも大歓迎です。完全週休2日制で働きやすい環境を整えています。採用についてはお気軽にお問い合わせください。</p>
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-item__q">研修・教育制度はありますか？</summary>
+          <div class="faq-item__a">
+            <p>はい、充実した研修制度があります。入社後は先輩ドライバーが丁寧に指導。地域の道を覚えるところからサポートするので、安心してスタートできます。</p>
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary class="faq-item__q">転居は必要ですか？</summary>
+          <div class="faq-item__a">
+            <p>勤務地は福島県南相馬市小高区です。通勤が難しい場合は転居が必要となりますが、住居についてもご相談ください。詳しくはお問い合わせください。</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- 応募方法 -->
+  <section class="section bg-yellow">
+    <div class="container">
+      <div class="apply-section reveal">
+        <h2 style="color: var(--fuji-black); font-size: clamp(1.5rem, 3.5vw, 2.25rem); font-weight: 900; margin-bottom: 0.75rem; text-align: center;">
+          応募する
+        </h2>
+        <p style="color: var(--fuji-black); text-align: center; margin-bottom: 2rem;">
+          まずはお気軽にご連絡ください。見学・相談だけでも大歓迎です。
+        </p>
+        <div class="apply-options">
+          <div class="apply-option">
+            <p class="apply-option__method">電話で応募</p>
+            <p class="apply-option__value" style="font-family: var(--font-en); font-size: var(--text-2xl); font-weight: 700; color: var(--fuji-black);">0244-44-2543</p>
+            <p class="apply-option__note" style="color: var(--fuji-black);">年中無休 7:00〜24:00</p>
+          </div>
+          <div class="apply-option">
+            <p class="apply-option__method">Webフォームで応募</p>
+            <a href="/contact" class="btn btn--outline-dark" style="display: inline-block; margin-top: 0.75rem;">応募フォームへ</a>
+            <p class="apply-option__note" style="color: var(--fuji-black);">24時間受付</p>
+          </div>
+          <div class="apply-option">
+            <p class="apply-option__method">外部サイトから</p>
+            <a href="http://msjobnavi.jp" target="_blank" rel="noopener noreferrer" class="btn btn--outline-dark" style="display: inline-block; margin-top: 0.75rem;">みなみそうま就職ナビ</a>
+            <p class="apply-option__note" style="color: var(--fuji-black);">外部求人サイト</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 外部求人サイトバナー -->
+  <section class="section bg-soft">
+    <div class="container">
+      <div class="reveal" style="max-width: 600px; margin: 0 auto;">
+        <a href="http://msjobnavi.jp" target="_blank" rel="noopener noreferrer" class="external-job-card">
+          <div class="external-job-card__content">
+            <p class="external-job-card__label">外部求人サイト</p>
+            <p class="external-job-card__name">みなみそうま就職ナビ</p>
+            <p class="external-job-card__desc">南相馬市の求人情報をまとめた就職ナビサイトでも富士タクシーの求人をご覧いただけます。</p>
+          </div>
+          <span class="external-job-card__arrow">→</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+</Layout>
+
+<style>
+  .page-hero {
+    padding-block: 5rem 4rem;
+  }
+  .page-hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 900;
+    color: var(--fuji-white);
+    margin-block: 1rem;
+  }
+  .page-hero__lead {
+    font-size: var(--text-lg);
+    color: var(--fuji-gray-muted);
+    max-width: 640px;
+    margin-bottom: 1.5rem;
+  }
+  .text-yellow { color: var(--fuji-yellow); }
+  .text-yellow-dark { color: var(--fuji-yellow-dark); }
+  .breadcrumb ol {
+    display: flex;
+    gap: 0.5rem;
+    list-style: none;
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a { color: var(--fuji-gray-muted); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--fuji-yellow); }
+
+  .hero-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .hero-badge {
+    display: inline-block;
+    padding: 0.35rem 0.9rem;
+    background: var(--fuji-yellow);
+    color: var(--fuji-black);
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: 700;
+  }
+
+  /* 魅力カード */
+  .appeal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+  }
+  .appeal-card {
+    background: var(--fuji-white);
+    border: 1px solid var(--fuji-gray-light);
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+  }
+  .appeal-card__icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+  .appeal-card__title {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--fuji-black);
+    margin-bottom: 0.75rem;
+  }
+  .appeal-card__text {
+    font-size: var(--text-sm);
+    color: #555;
+    line-height: 1.8;
+  }
+
+  /* 給与ハイライト */
+  .salary-highlight {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 3rem;
+    flex-wrap: wrap;
+  }
+  .salary-highlight__item {
+    text-align: center;
+  }
+  .salary-label {
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    margin-bottom: 0.25rem;
+  }
+  .salary-amount {
+    font-family: var(--font-en);
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+  }
+  .salary-num {
+    font-size: var(--text-5xl);
+    font-weight: 900;
+  }
+  .salary-divider {
+    width: 1px;
+    height: 80px;
+    background: var(--fuji-gray-border);
+  }
+  @media (max-width: 480px) {
+    .salary-divider { display: none; }
+    .salary-highlight { gap: 2rem; }
+  }
+
+  /* 求人票テーブル */
+  .job-table {
+    width: 100%;
+    border-collapse: collapse;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  .job-table th {
+    padding: 1rem 1.5rem;
+    background: var(--fuji-black);
+    color: var(--fuji-yellow);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    text-align: left;
+    width: 180px;
+    border-bottom: 1px solid var(--fuji-gray-border);
+  }
+  .job-table td {
+    padding: 1rem 1.5rem;
+    background: var(--fuji-white);
+    color: #333;
+    font-size: var(--text-base);
+    border-bottom: 1px solid var(--fuji-gray-light);
+  }
+
+  /* FAQ */
+  .faq-list {
+    max-width: 800px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .faq-item {
+    border: 1px solid var(--fuji-gray-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .faq-item__q {
+    padding: 1.25rem 1.5rem;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: var(--text-base);
+    color: var(--fuji-white);
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--fuji-black-card);
+  }
+  .faq-item__q::after {
+    content: '+';
+    font-size: 1.5rem;
+    color: var(--fuji-yellow);
+    transition: transform var(--transition-fast);
+  }
+  .faq-item[open] .faq-item__q::after { transform: rotate(45deg); }
+  .faq-item__a {
+    padding: 1rem 1.5rem 1.5rem;
+    color: var(--fuji-gray-muted);
+    line-height: 1.8;
+    background: var(--fuji-black-soft);
+  }
+
+  /* 応募方法 */
+  .apply-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.5rem;
+  }
+  .apply-option {
+    background: rgba(0,0,0,0.1);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    text-align: center;
+  }
+  .apply-option__method {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--fuji-black);
+    margin-bottom: 0.5rem;
+  }
+  .apply-option__note {
+    font-size: var(--text-xs);
+    margin-top: 0.5rem;
+    opacity: 0.7;
+  }
+
+  /* 外部求人カード */
+  .external-job-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.5rem 2rem;
+    background: var(--fuji-white);
+    border: 2px solid var(--fuji-gray-light);
+    border-radius: var(--radius-xl);
+    text-decoration: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .external-job-card:hover {
+    border-color: var(--fuji-yellow-dark);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  }
+  .external-job-card__label {
+    font-size: var(--text-xs);
+    color: var(--fuji-yellow-dark);
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .external-job-card__name {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--fuji-black);
+    margin-bottom: 0.5rem;
+  }
+  .external-job-card__desc {
+    font-size: var(--text-sm);
+    color: #555;
+    line-height: 1.6;
+  }
+  .external-job-card__arrow {
+    font-size: var(--text-2xl);
+    color: var(--fuji-yellow-dark);
+    flex-shrink: 0;
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+</style>

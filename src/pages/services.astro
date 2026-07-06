@@ -1,0 +1,1987 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name: '富士タクシー サービス一覧',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, item: { '@type': 'Service', name: '一般乗用タクシー', description: '初乗り700円〜、南相馬市全域・県外対応' } },
+    { '@type': 'ListItem', position: 2, item: { '@type': 'Service', name: 'ジャンボタクシー（特大車）', description: '初乗り980円〜、最大9名乗車、7台保有' } },
+    { '@type': 'ListItem', position: 3, item: { '@type': 'Service', name: 'デマンドタクシー（乗合）', description: '小高区内・小高区⇔原町区、要予約' } },
+    { '@type': 'ListItem', position: 4, item: { '@type': 'Service', name: 'スクールタクシー', description: '小高区通学送迎、毎日運行' } },
+    { '@type': 'ListItem', position: 5, item: { '@type': 'Service', name: '観光タクシー', description: '相馬野馬追・小高神社ほか、貸切料金' } },
+    { '@type': 'ListItem', position: 6, item: { '@type': 'Service', name: '法人・空港送迎', description: '冠婚葬祭・ビジネス利用、事前予約制' } },
+  ],
+};
+---
+
+<Layout
+  title="サービス・料金 – 一般乗用・ジャンボ・デマンド・観光タクシー"
+  description="南相馬市のタクシーサービス一覧。一般乗用（初乗り700円〜）・ジャンボタクシー（最大9名）・デマンド乗合・スクール送迎・観光タクシー・法人送迎。クレカ・QR・電子マネー全対応。"
+  structuredData={structuredData}
+>
+
+  <!-- ページヒーロー -->
+  <section class="page-hero bg-black">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="パンくずリスト">
+        <ol>
+          <li><a href="/">ホーム</a></li>
+          <li aria-hidden="true">›</li>
+          <li aria-current="page">サービス・料金</li>
+        </ol>
+      </nav>
+      <p class="eyebrow reveal">Services & Pricing</p>
+      <h1 class="reveal">すべての移動に、<br />富士タクシーがいる。</h1>
+      <p class="page-hero__lead reveal">
+        日常の通院から、VIPの送迎まで。南相馬の地で半世紀以上、あらゆる移動のニーズに応え続けています。
+      </p>
+      <!-- アンカーリンク -->
+      <nav class="service-anchors reveal" aria-label="サービス一覧">
+        <a href="#general">一般乗用</a>
+        <a href="#jumbo">ジャンボ</a>
+        <a href="#demand">デマンド</a>
+        <a href="#school">スクール</a>
+        <a href="#sightseeing">観光</a>
+      </nav>
+    </div>
+  </section>
+
+  <!-- 選ばれる理由 -->
+  <section class="section bg-black" aria-labelledby="why-heading">
+    <div class="container">
+      <div class="reveal" style="text-align:center; margin-bottom:var(--space-12);">
+        <p class="eyebrow">Why Fuji Taxi</p>
+        <h2 id="why-heading" style="color:var(--fuji-white);">富士タクシーが<span style="color:var(--fuji-yellow);">選ばれる理由</span></h2>
+        <div class="divider" style="margin:1rem auto;"></div>
+      </div>
+      <div class="why-grid">
+        <div class="why-card reveal">
+          <div class="why-card__num">50<span class="why-card__unit">年以上</span></div>
+          <h3 class="why-card__title">半世紀の実績と信頼</h3>
+          <p class="why-card__desc">昭和46年創業。地域とともに歩み続けてきた歴史が、富士タクシーの最大の強みです。</p>
+        </div>
+        <div class="why-card reveal" style="transition-delay:80ms">
+          <div class="why-card__num">7<span class="why-card__unit">台</span></div>
+          <h3 class="why-card__title">ジャンボタクシー地域最多</h3>
+          <p class="why-card__desc">最大9名乗車のジャンボタクシーを7台保有。大人数の移動も分乗不要でまとめて対応。</p>
+        </div>
+        <div class="why-card reveal" style="transition-delay:160ms">
+          <div class="why-card__num" style="font-size:clamp(1.8rem,5vw,2.4rem);">7〜24<span class="why-card__unit">時</span></div>
+          <h3 class="why-card__title">年中無休・長時間営業</h3>
+          <p class="why-card__desc">毎日7:00〜24:00営業、365日対応。急な移動や深夜の帰宅も安心してお任せください。</p>
+        </div>
+        <div class="why-card reveal" style="transition-delay:240ms">
+          <div class="why-card__num">10<span class="why-card__unit">種類以上</span></div>
+          <h3 class="why-card__title">あらゆる決済に対応</h3>
+          <p class="why-card__desc">現金・クレカ・QR・IC・各種タクシーチケット。お客様のお財布を選びません。</p>
+        </div>
+        <div class="why-card reveal" style="transition-delay:320ms">
+          <div class="why-card__num" style="font-size:2rem;">VIP</div>
+          <h3 class="why-card__title">著名人・VIP送迎実績</h3>
+          <p class="why-card__desc">有名芸能人・ミュージシャンの送迎実績多数。プライバシーと品格を守る信頼の対応。</p>
+        </div>
+        <div class="why-card reveal" style="transition-delay:400ms">
+          <div class="why-card__num" style="font-size:1.6rem;">📺📰</div>
+          <h3 class="why-card__title">メディア取材実績多数</h3>
+          <p class="why-card__desc">テレビ局・新聞社からの取材対応実績を多数有する、地域で注目されるタクシー会社。</p>
+        </div>
+      </div>
+
+      <!-- 配車システムバナー -->
+      <div class="system-banner reveal" style="margin-top:2rem;">
+        <div class="system-banner__left">
+          <p class="system-banner__eyebrow">Technology</p>
+          <h3 class="system-banner__title">電脳交通「DS」<br class="sp-only" />クラウド配車システム採用</h3>
+          <p class="system-banner__desc">株式会社電脳交通が提供する<strong>クラウド型タクシー配車システム「DS」</strong>を採用。AIを活用したスマートな配車管理で、より迅速・確実にお客様のもとへ向かいます。</p>
+        </div>
+        <div class="system-banner__tags">
+          <span class="why-system-tag">📱 スマート配車</span>
+          <span class="why-system-tag">📍 リアルタイム位置把握</span>
+          <span class="why-system-tag">🔔 現着通知サービス</span>
+          <span class="why-system-tag">☁️ クラウド管理</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 車両紹介 -->
+  <section class="section bg-black" aria-labelledby="fleet-heading">
+    <div class="container">
+      <div class="reveal" style="text-align:center; margin-bottom:var(--space-12);">
+        <p class="eyebrow">Our Fleet</p>
+        <h2 id="fleet-heading" style="color:var(--fuji-white);">富士タクシーの<span style="color:var(--fuji-yellow);">車両紹介</span></h2>
+        <div class="divider" style="margin:1rem auto;"></div>
+        <p style="color:var(--fuji-gray-muted); max-width:600px; margin:0 auto; line-height:1.8;">
+          普通タクシー9台・ジャンボタクシー7台、計16台体制。<br />お客様の用途・人数・荷物量に合わせた最適な車両をご用意しています。
+        </p>
+      </div>
+
+      <!-- 普通タクシー -->
+      <div class="fleet-type-label reveal">
+        <span class="fleet-type-badge">普通タクシー（定員4名）</span>
+        <span class="fleet-type-count">9台保有</span>
+      </div>
+      <div class="fleet-grid reveal">
+        <!-- JP小型 -->
+        <div class="fleet-card">
+          <div class="fleet-card__img-wrap">
+            <img src="/images/uploads/S__2123735048_0.jpg" alt="富士タクシー JPタクシー 南相馬市" class="fleet-card__img" loading="lazy" />
+          </div>
+          <div class="fleet-card__body">
+            <span class="fleet-card__badge">一般乗用</span>
+            <h3 class="fleet-card__title">JP 普通タクシー</h3>
+            <p class="fleet-card__desc">乗車席空間が広く、車内装備も充実。USB充電・シートヒーター完備で長距離移動も快適。</p>
+            <div class="fleet-card__features">
+              <span>🔌 USB充電</span>
+              <span>🌡 シートヒーター</span>
+              <span>↔ 広い乗降口</span>
+            </div>
+            <div class="fleet-card__specs">
+              <span>定員 最大4名</span>
+              <span>初乗り 700円〜</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- NV小型 -->
+        <div class="fleet-card">
+          <div class="fleet-card__img-wrap">
+            <img src="/images/uploads/S__2123735047_0.jpg" alt="富士タクシー NVタクシー 荷室広大 南相馬市" class="fleet-card__img" loading="lazy" />
+          </div>
+          <div class="fleet-card__body">
+            <span class="fleet-card__badge">一般乗用</span>
+            <h3 class="fleet-card__title">NV 普通タクシー</h3>
+            <p class="fleet-card__desc">大型スーツケースを複数積載できる広大な荷室が最大の特徴。空港・駅への送迎や出張利用に最適。自動ステップ・手摺装備で高齢の方にも安心です。</p>
+            <div class="fleet-card__features">
+              <span>🧳 大型スーツケース複数積載</span>
+              <span>🤝 自動ステップ</span>
+              <span>🦯 手摺装備</span>
+            </div>
+            <div class="fleet-card__specs">
+              <span>定員 最大4名</span>
+              <span>初乗り 700円〜</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- シエンタ -->
+        <div class="fleet-card">
+          <div class="fleet-card__img-wrap">
+            <img src="/images/uploads/S__2123735046_0.jpg" alt="富士タクシー シエンタタクシー 低段差 南相馬市" class="fleet-card__img" loading="lazy" />
+          </div>
+          <div class="fleet-card__body">
+            <span class="fleet-card__badge">一般乗用</span>
+            <h3 class="fleet-card__title">シエンタ 普通タクシー</h3>
+            <p class="fleet-card__desc">低段差乗降口でスムーズな乗り降り。USB充電・シートヒーター完備の快適な車内空間。</p>
+            <div class="fleet-card__features">
+              <span>🔌 USB充電</span>
+              <span>🌡 シートヒーター</span>
+              <span>⬇ 低段差</span>
+            </div>
+            <div class="fleet-card__specs">
+              <span>定員 最大4名</span>
+              <span>初乗り 700円〜</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ジャンボタクシー -->
+      <div class="fleet-type-label reveal" style="margin-top:3rem;">
+        <span class="fleet-type-badge fleet-type-badge--yellow">ジャンボタクシー（定員9名）</span>
+        <span class="fleet-type-count">7台保有 / 地域最多</span>
+      </div>
+      <div class="fleet-grid reveal">
+        <!-- 通常 -->
+        <div class="fleet-card">
+          <div class="fleet-card__img-wrap">
+            <img src="/images/uploads/S__2123735044_0.jpg" alt="富士タクシー ジャンボタクシー通常 9名乗車 南相馬市" class="fleet-card__img" loading="lazy" />
+          </div>
+          <div class="fleet-card__body">
+            <span class="fleet-card__badge fleet-card__badge--yellow">ジャンボ</span>
+            <h3 class="fleet-card__title">ジャンボタクシー<br /><small style="font-size:0.85em; font-weight:600;">通常タイプ</small></h3>
+            <p class="fleet-card__desc">荷物の積載能力に優れた大容量モデル。リアモニター・100V電源装備でビジネス利用にも対応。</p>
+            <div class="fleet-card__features">
+              <span>📦 大容量積載</span>
+              <span>📺 リアモニター</span>
+              <span>🔌 100V電源</span>
+            </div>
+            <div class="fleet-card__specs">
+              <span>定員 最大9名</span>
+              <span>初乗り 980円〜</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- プレミアム -->
+        <div class="fleet-card fleet-card--premium">
+          <div class="fleet-card__img-wrap">
+            <img src="/images/uploads/S__2123735045_0.jpg" alt="富士タクシー ジャンボタクシープレミアム リクライニング 南相馬市" class="fleet-card__img" loading="lazy" />
+          </div>
+          <div class="fleet-card__body">
+            <span class="fleet-card__badge fleet-card__badge--gold">✦ プレミアム</span>
+            <h3 class="fleet-card__title">ジャンボタクシー<br /><small style="font-size:0.85em; font-weight:600;">プレミアムタイプ</small></h3>
+            <p class="fleet-card__desc">リクライニング・オットマン・リアモニター装備。座席アレンジで少人数の贅沢な移動にも対応。</p>
+            <div class="fleet-card__features">
+              <span>🛋 リクライニング</span>
+              <span>📺 リアモニター</span>
+              <span>🪑 オットマン</span>
+            </div>
+            <div class="fleet-card__specs">
+              <span>定員 最大9名</span>
+              <span>初乗り 980円〜</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 一般乗用タクシー -->
+  <section id="general" class="section bg-black">
+    <div class="container">
+      <div class="service-split reveal">
+        <div class="service-split__info">
+          <p class="eyebrow">General Taxi</p>
+          <h3 style="color:var(--fuji-white); font-size: clamp(1.75rem, 3.5vw, 2.5rem); font-weight:900; margin-block: 0.75rem;">一般乗用タクシー</h3>
+          <div class="divider"></div>
+          <p style="color:var(--fuji-gray-muted); line-height:1.9; margin-bottom:1.5rem;">
+            電話一本で、どこへでも。南相馬市全域はもちろん、県外・長距離にも対応しています。車両が到着すると「050-3102-4350」より自動音声でお知らせする<strong style="color:var(--fuji-yellow);">現着通知サービス</strong>を完備。外の寒さや雨を気にせず、室内でゆっくりお待ちいただけます。
+          </p>
+          <ul class="general-features">
+            <li>
+              <div class="gf-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="10" r="3"/>
+                  <path d="M12 2a8 8 0 0 1 8 8c0 5.25-8 14-8 14S4 15.25 4 10a8 8 0 0 1 8-8z"/>
+                </svg>
+              </div>
+              <div>
+                <p class="gf-title">対応エリア</p>
+                <p class="gf-desc">南相馬市全域・県外・長距離</p>
+              </div>
+            </li>
+            <li>
+              <div class="gf-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+              </div>
+              <div>
+                <p class="gf-title">現着通知サービス</p>
+                <p class="gf-desc">050-3102-4350より自動音声でお知らせ</p>
+              </div>
+            </li>
+            <li>
+              <div class="gf-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <div>
+                <p class="gf-title">営業時間</p>
+                <p class="gf-desc">年中無休 7:00〜24:00</p>
+              </div>
+            </li>
+          </ul>
+          <div style="margin-top:2rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
+            <a href="tel:0244442543" class="btn btn--primary">📞 電話で予約する</a>
+            <a href="/contact" class="btn btn--outline">お問い合わせ</a>
+          </div>
+        </div>
+        <div class="service-split__price">
+          <div class="price-card">
+            <p class="price-card__label">初乗り</p>
+            <p class="price-card__amount"><span class="price-card__num">700</span>円〜</p>
+            <p class="price-card__note">距離制メーター</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ジャンボタクシー -->
+  <section id="jumbo" class="section bg-black">
+    <div class="container">
+      <div class="service-split reveal">
+        <div class="service-split__info">
+          <p class="eyebrow">Jumbo Taxi</p>
+          <h3 style="color:var(--fuji-white); font-size: clamp(1.75rem, 3.5vw, 2.5rem); font-weight:900; margin-block: 0.75rem;">ジャンボタクシー <span class="badge badge--yellow">7台保有 / 地域最多</span></h3>
+          <div class="divider"></div>
+          <p>1台で9名まで。分乗なし、待ち合わせなし。地域最多7台を誇るジャンボタクシーが、冠婚葬祭・家族旅行・企業研修・グループ送迎など、あらゆる大人数の移動をひとつにまとめます。</p>
+          <ul class="service-features">
+            <li>✓ 最大乗車定員: 9名</li>
+            <li>✓ 保有台数: 7台（地域最多）</li>
+            <li>✓ 用途: 冠婚葬祭・家族旅行・企業研修・空港・駅送迎</li>
+            <li>✓ 事前予約必須</li>
+          </ul>
+          <div class="jumbo-vip-note">
+            <span class="jumbo-vip-note__icon">⭐</span>
+            <p>南相馬を訪れる<strong>有名芸能人・ミュージシャン</strong>の送迎実績も多数。プライバシーと品格を守る、信頼のVIP対応です。</p>
+          </div>
+        </div>
+        <div class="service-split__price">
+          <div class="price-card">
+            <p class="price-card__label">初乗り</p>
+            <p class="price-card__amount"><span class="price-card__num">980</span>円〜</p>
+            <p class="price-card__note">最大9名乗車</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- デマンドタクシー -->
+  <section id="demand" class="section bg-black">
+    <div class="container">
+      <div class="service-split reveal">
+        <div class="service-split__info">
+          <p class="eyebrow">Demand Taxi</p>
+          <h3 style="color:var(--fuji-white); font-size: clamp(1.75rem, 3.5vw, 2.5rem); font-weight:900; margin-block: 0.75rem;">デマンドタクシー（乗合）</h3>
+          <div class="divider"></div>
+          <p style="color:var(--fuji-gray-muted); line-height:1.9; margin-bottom:1.5rem;">
+            故郷に戻った人たちの、日常を守る移動。旧避難指示区域の帰還住民・高齢者の皆さまに向けた乗合タクシーです。通院・買い物など生活に欠かせない移動を、リーズナブルな定額でご提供。<strong style="color:var(--fuji-yellow);">事前予約制</strong>で安心してご利用いただけます。
+          </p>
+          <ul class="general-features">
+            <li>
+              <div class="gf-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="10" r="3"/>
+                  <path d="M12 2a8 8 0 0 1 8 8c0 5.25-8 14-8 14S4 15.25 4 10a8 8 0 0 1 8-8z"/>
+                </svg>
+              </div>
+              <div>
+                <p class="gf-title">運行エリア</p>
+                <p class="gf-desc">小高区内・小高区⇔原町区</p>
+              </div>
+            </li>
+            <li>
+              <div class="gf-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <div>
+                <p class="gf-title">対象</p>
+                <p class="gf-desc">帰還住民・高齢者の方</p>
+              </div>
+            </li>
+            <li>
+              <div class="gf-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                  <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+              </div>
+              <div>
+                <p class="gf-title">用途</p>
+                <p class="gf-desc">通院・買い物・日常移動</p>
+              </div>
+            </li>
+            <li>
+              <div class="gf-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6 6l.54-.54a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.28 16.92z"/>
+                </svg>
+              </div>
+              <div>
+                <p class="gf-title">予約先</p>
+                <p class="gf-desc">ジャンボタクシー予約センター</p>
+                <a href="tel:0244265945" class="gf-tel">0244-26-5945</a>
+              </div>
+            </li>
+          </ul>
+          <div style="margin-top:2rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
+            <a href="tel:0244442543" class="btn btn--primary">📞 電話で予約する</a>
+            <a href="/contact" class="btn btn--outline">お問い合わせ</a>
+          </div>
+        </div>
+        <div class="service-split__price">
+          <div class="demand-fare">
+            <p class="demand-fare__label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              ご乗車料金
+            </p>
+
+            <div class="demand-fare__item">
+              <div class="demand-fare__item-head">
+                <span class="demand-fare__zone">🗺 小高区内</span>
+              </div>
+              <div class="demand-fare__item-price">
+                <span class="demand-fare__num">200</span>
+                <span class="demand-fare__unit">円 / 人</span>
+              </div>
+            </div>
+
+            <div class="demand-fare__item">
+              <div class="demand-fare__item-head">
+                <span class="demand-fare__zone">🗺 小高区 ⇔ 原町区</span>
+              </div>
+              <div class="demand-fare__item-price">
+                <span class="demand-fare__num">500</span>
+                <span class="demand-fare__unit">円 / 人</span>
+              </div>
+            </div>
+
+            <div class="demand-fare__free">
+              <span class="demand-fare__free-badge">FREE</span>
+              <span>中学生以下は<strong>無料</strong></span>
+            </div>
+
+            <div class="demand-how">
+              <p class="demand-how__title">ご利用方法</p>
+              <div class="demand-how__step">
+                <span class="demand-how__num">1</span>
+                <div>
+                  <p class="demand-how__label">事前に電話で予約</p>
+                  <p class="demand-how__desc">乗りたい便の始発時刻<strong style="color:var(--fuji-yellow);">45分前まで</strong>に予約が必要です（受付時間内に限る）</p>
+                </div>
+              </div>
+              <div class="demand-how__step">
+                <span class="demand-how__num">2</span>
+                <div>
+                  <p class="demand-how__label">指定の乗降場所で乗車</p>
+                  <p class="demand-how__desc">他のお客様と相乗りでお送りします</p>
+                </div>
+              </div>
+              <div class="demand-reception">
+                <p class="demand-reception__row">
+                  <span class="demand-reception__key">予約受付時間</span>
+                  <span class="demand-reception__val">月〜金 8:00〜16:00</span>
+                </p>
+                <p class="demand-reception__row">
+                  <span class="demand-reception__key">定休日</span>
+                  <span class="demand-reception__val">12月29日〜1月3日</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- スクールタクシー -->
+  <section id="school" class="section bg-black">
+    <div class="container">
+
+      <div class="reveal" style="margin-bottom: var(--space-12);">
+        <p class="eyebrow">School Taxi</p>
+        <h3 style="color:var(--fuji-white); font-size:clamp(1.75rem,3.5vw,2.5rem); font-weight:900; margin-block:0.75rem;">
+          スクールタクシー<span style="color:var(--fuji-yellow);">事業</span>
+        </h3>
+        <div class="divider"></div>
+        <p style="color:var(--fuji-gray-muted); line-height:1.9; max-width:680px; margin-top:1rem;">
+          子どもたちの「行ってきます」を、毎日届ける。令和3年度の小学校統合で生まれた遠距離通学の課題に、富士タクシーは<strong style="color:var(--fuji-white);">教育委員会と連携</strong>して向き合っています。雨の日も、風の日も、安全・安心の毎日運行。
+        </p>
+      </div>
+
+      <!-- 特徴3点 -->
+      <div class="general-features reveal" style="margin-bottom: var(--space-12);">
+        <div class="gf-item">
+          <div class="gf-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <p class="gf-title">登校・下校を毎日運行</p>
+          <p class="gf-desc">学校登校日に登校・下校の両便を毎日運行。雨の日も安心。</p>
+        </div>
+        <div class="gf-item">
+          <div class="gf-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <p class="gf-title">部活動終了時にも対応</p>
+          <p class="gf-desc">中学生の部活動終了時間に合わせた送迎にも柔軟に対応。</p>
+        </div>
+        <div class="gf-item">
+          <div class="gf-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <p class="gf-title">地元熟知のドライバーが安全送迎</p>
+          <p class="gf-desc">南相馬市全域の道路・地域事情を知り尽くしたドライバーが担当。</p>
+        </div>
+      </div>
+
+      <!-- お問い合わせカード -->
+      <div class="school-contacts reveal">
+
+        <!-- 教育委員会 -->
+        <div class="school-contact-card">
+          <div class="school-contact-card__badge">窓口</div>
+          <p class="school-contact-card__name">南相馬市役所 教育委員会<br /><span>学校教育課</span></p>
+          <address class="school-contact-card__address">
+            〒975-8686 福島県南相馬市原町区本町二丁目27<br />
+            本庁舎2階
+          </address>
+          <a href="tel:0244245283" class="school-contact-card__tel">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6 6l.54-.54a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.28 16.92z"/></svg>
+            0244-24-5283（直通）
+          </a>
+        </div>
+
+        <!-- 富士タクシー -->
+        <div class="school-contact-card school-contact-card--fuji">
+          <div class="school-contact-card__badge school-contact-card__badge--yellow">運行</div>
+          <p class="school-contact-card__name">富士タクシー<br /><span>本社</span></p>
+          <address class="school-contact-card__address">
+            〒979-2124 福島県南相馬市小高区<br />
+            本町一丁目57番地
+          </address>
+          <a href="tel:0244442543" class="school-contact-card__tel school-contact-card__tel--yellow">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6 6l.54-.54a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.28 16.92z"/></svg>
+            0244-44-2543
+          </a>
+          <a href="/contact" class="btn btn--primary" style="margin-top:1rem; width:100%; text-align:center;">ウェブで問い合わせる</a>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 観光タクシー -->
+  <section id="sightseeing" class="section bg-black">
+    <div class="container">
+      <div class="service-split reveal">
+        <div class="service-split__info">
+          <p class="eyebrow">Sightseeing Taxi</p>
+          <h3 style="color:var(--fuji-white); font-size: clamp(1.75rem, 3.5vw, 2.5rem); font-weight:900; margin-block: 0.75rem;">観光タクシー</h3>
+          <div class="divider"></div>
+          <p style="color:var(--fuji-gray-muted); line-height:1.9; margin-bottom:1.5rem;">
+            ガイドブックには載っていない、南相馬の顔がある。長年この地を走り続けたドライバーが、小高・南相馬の本当の魅力へご案内します。<strong style="color:var(--fuji-yellow);">完全貸切</strong>で、あなただけのルートをどうぞ。
+          </p>
+          <ol class="sight-timeline">
+            <li class="sight-timeline__item">
+              <div class="sight-timeline__dot"></div>
+              <div class="sight-timeline__season">通年</div>
+              <div class="sight-timeline__body">
+                <p class="gf-title">小高の海岸線</p>
+                <p class="gf-desc">朝陽・貝塚など古代の歴史も感じられる絶景スポット</p>
+              </div>
+            </li>
+            <li class="sight-timeline__item">
+              <div class="sight-timeline__dot"></div>
+              <div class="sight-timeline__season">4月</div>
+              <div class="sight-timeline__body">
+                <p class="gf-title">小高神社・桜まつり</p>
+                <p class="gf-desc">ソメイヨシノ・しだれ桜が咲き誇る春の絶景スポット</p>
+              </div>
+            </li>
+            <li class="sight-timeline__item">
+              <div class="sight-timeline__dot"></div>
+              <div class="sight-timeline__season">5月</div>
+              <div class="sight-timeline__body">
+                <p class="gf-title">相馬野馬追</p>
+                <p class="gf-desc">国重要無形民俗文化財。勇壮な騎馬武者が集う夏祭り</p>
+              </div>
+            </li>
+            <li class="sight-timeline__item">
+              <div class="sight-timeline__dot"></div>
+              <div class="sight-timeline__season">12〜1月</div>
+              <div class="sight-timeline__body">
+                <p class="gf-title">おだかイルミネーション</p>
+                <p class="gf-desc">平成14年から続く冬の光の祭典。地域の絆を深める</p>
+              </div>
+            </li>
+          </ol>
+          <div style="margin-top:2rem;">
+            <a href="/contact" class="btn btn--primary">観光プランを相談する</a>
+          </div>
+        </div>
+        <div class="service-split__price">
+          <a href="/contact" class="price-card price-card--link" aria-label="観光タクシーのお見積りはお問い合わせページへ">
+            <p class="price-card__label">料金</p>
+            <p class="price-card__amount" style="font-size: var(--text-2xl);">貸切・お見積り</p>
+            <p class="price-card__note">時間・行先による</p>
+            <p class="price-card__cta">お問い合わせはこちら →</p>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 料金表 -->
+  <section class="section bg-black" id="pricing">
+    <div class="container">
+      <div class="reveal" style="text-align: center; margin-bottom: var(--space-12);">
+        <p class="eyebrow">Pricing</p>
+        <h2 style="color:var(--fuji-white);">運賃料金表</h2>
+        <div class="divider" style="margin: 1rem auto;"></div>
+        <p style="color:var(--fuji-gray-muted); font-size:var(--text-sm);">運賃料金には消費税10%が含まれております。</p>
+      </div>
+
+      <!-- 距離制運賃 -->
+      <div class="fare-block reveal">
+        <h3 class="fare-block__title">距離制運賃</h3>
+        <table class="price-table">
+          <thead>
+            <tr>
+              <th>車種</th>
+              <th>初乗り（1.0kmまで）</th>
+              <th>加算運賃</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>普通車</td>
+              <td class="price-table__price">700円</td>
+              <td>260mごとに100円</td>
+            </tr>
+            <tr>
+              <td>大型車</td>
+              <td class="price-table__price">900円</td>
+              <td>177mごとに100円</td>
+            </tr>
+            <tr>
+              <td>特大車（ジャンボ）</td>
+              <td class="price-table__price">980円</td>
+              <td>173mごとに100円</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 時間制運賃 -->
+      <div class="fare-block reveal">
+        <h3 class="fare-block__title">時間制運賃（30分ごと）</h3>
+        <table class="price-table">
+          <thead>
+            <tr>
+              <th>車種</th>
+              <th>料金</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>普通車</td>
+              <td class="price-table__price">3,670円</td>
+            </tr>
+            <tr>
+              <td>大型車</td>
+              <td class="price-table__price">5,390円</td>
+            </tr>
+            <tr>
+              <td>特大車（ジャンボ）</td>
+              <td class="price-table__price">5,530円</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 割増・割引 -->
+      <div class="fare-extras reveal">
+        <div class="fare-extra-card fare-extra-card--up">
+          <p class="fare-extra-card__title">割増料金</p>
+          <ul class="fare-extra-card__list">
+            <li><span>深夜早朝割増</span><span class="fare-extra-card__val">2割増</span></li>
+          </ul>
+        </div>
+        <div class="fare-extra-card fare-extra-card--down">
+          <p class="fare-extra-card__title">割引</p>
+          <ul class="fare-extra-card__list">
+            <li><span>身体障害者割引</span><span class="fare-extra-card__val">1割引</span></li>
+            <li><span>知的障害者割引</span><span class="fare-extra-card__val">1割引</span></li>
+            <li><span>遠距離割引（5,000円超の額）</span><span class="fare-extra-card__val">1割引</span></li>
+            <li><span>運転免許証納者割引</span><span class="fare-extra-card__val">1割引</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="fare-footnote reveal">※ 速度10km以下の走行時は時間距離併用制が適用されます。詳細はお問い合わせください。</p>
+    </div>
+  </section>
+
+  <!-- 決済方法 -->
+  <section class="section bg-black" id="payment">
+    <div class="container">
+      <div class="payment-header reveal">
+        <div>
+          <p class="eyebrow">Payment</p>
+          <h2 style="color: var(--fuji-white);">お財布の形を、<br><span class="text-yellow">選ばせません。</span></h2>
+        </div>
+        <p class="payment-catch">現金・クレカ・QR・IC・チケット、10種以上に完全対応</p>
+      </div>
+
+      <div class="payment-groups reveal">
+        <!-- クレジットカード -->
+        <div class="payment-group">
+          <div class="payment-group__head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            <p class="payment-group__label">クレジットカード</p>
+          </div>
+          <div class="payment-group__tags">
+            <span class="ptag ptag--blue">VISA</span>
+            <span class="ptag ptag--red">Mastercard</span>
+            <span class="ptag ptag--green">JCB</span>
+            <span class="ptag ptag--blue">AMEX</span>
+          </div>
+        </div>
+
+        <!-- QRコード -->
+        <div class="payment-group">
+          <div class="payment-group__head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none"/><rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none"/><rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none"/><path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3"/></svg>
+            <p class="payment-group__label">QRコード決済</p>
+          </div>
+          <div class="payment-group__tags">
+            <span class="ptag ptag--red">PayPay</span>
+            <span class="ptag ptag--red">AEON Pay</span>
+            <span class="ptag ptag--red">メルペイ</span>
+            <span class="ptag ptag--red">d払い</span>
+          </div>
+        </div>
+
+        <!-- 電子マネー・IC -->
+        <div class="payment-group">
+          <div class="payment-group__head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="2"/></svg>
+            <p class="payment-group__label">交通系IC・電子マネー</p>
+          </div>
+          <div class="payment-group__tags">
+            <span class="ptag ptag--teal">交通系IC</span>
+            <span class="ptag ptag--purple">iD</span>
+            <span class="ptag ptag--purple">QUICPay</span>
+          </div>
+        </div>
+
+        <!-- チケット -->
+        <div class="payment-group">
+          <div class="payment-group__head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/><path d="M13 5v14M9 9h1M9 12h1M9 15h1"/></svg>
+            <p class="payment-group__label">タクシーチケット</p>
+          </div>
+          <div class="payment-group__tags">
+            <span class="ptag ptag--yellow">富士タクシーチケット</span>
+            <span class="ptag ptag--yellow">JTBタクシーチケット</span>
+            <span class="ptag ptag--yellow">愛のタクシーチケット</span>
+            <span class="ptag ptag--yellow">NO.1タクシーチケット</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 現金対応バナー -->
+      <div class="payment-cash reveal">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/></svg>
+        <span>もちろん<strong>現金</strong>もご利用いただけます</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 内部リンク -->
+  <section class="section bg-black">
+    <div class="container">
+      <nav class="internal-links reveal" aria-label="関連ページ">
+        <a href="/" class="internal-link">
+          <span class="internal-link__label">会社情報</span>
+          <span class="internal-link__arrow">→</span>
+        </a>
+        <a href="/news" class="internal-link">
+          <span class="internal-link__label">最新ニュース</span>
+          <span class="internal-link__arrow">→</span>
+        </a>
+        <a href="/contact" class="internal-link">
+          <span class="internal-link__label">お問い合わせ・採用情報</span>
+          <span class="internal-link__arrow">→</span>
+        </a>
+      </nav>
+    </div>
+  </section>
+
+  <!-- CTAバナー -->
+  <section class="section bg-yellow">
+    <div class="container">
+      <div class="cta-banner reveal">
+        <h2 class="cta-banner__title" style="color: var(--fuji-black);">いつでも、つながる。</h2>
+        <p style="color: var(--fuji-black); margin-bottom: var(--space-8);">年中無休 7:00〜24:00。どんな移動のご相談も、まずはお気軽にどうぞ。</p>
+        <div class="cta-banner__main-tel">
+          <a href="tel:0244442543" class="cta-banner__tel-link">
+            📞 <span class="cta-banner__tel-num">0244-44-2543</span>
+          </a>
+          <span class="cta-banner__tel-note">本社（小高区・全エリア対応）</span>
+        </div>
+        <div class="cta-banner__btns">
+          <a href="tel:0244320030" class="btn btn--outline-dark btn--sm">
+            📞 0244-32-0030（原町エリアはこちら）
+          </a>
+          <a href="/contact" class="btn btn--outline-dark btn--sm">
+            お問い合わせ
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</Layout>
+
+<style>
+  /* ページヒーロー */
+  .page-hero {
+    padding-block: 5rem 4rem;
+  }
+  .page-hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 900;
+    color: var(--fuji-white);
+    margin-block: 1rem;
+  }
+  .page-hero__lead {
+    font-size: var(--text-lg);
+    color: var(--fuji-gray-muted);
+    max-width: 600px;
+    margin-bottom: 2rem;
+  }
+  .breadcrumb ol {
+    display: flex;
+    gap: 0.5rem;
+    list-style: none;
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--fuji-gray-muted);
+    text-decoration: none;
+  }
+  .breadcrumb a:hover { color: var(--fuji-yellow); }
+
+  .service-anchors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .service-anchors a {
+    display: inline-block;
+    padding: 0.4rem 1rem;
+    border: 1px solid var(--fuji-gray-border);
+    border-radius: var(--radius-full);
+    color: var(--fuji-gray-muted);
+    font-size: var(--text-sm);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+  }
+  .service-anchors a:hover {
+    border-color: var(--fuji-yellow);
+    color: var(--fuji-yellow);
+  }
+
+  /* サービス分割レイアウト */
+  .service-split {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 3rem;
+    align-items: center;
+  }
+  .service-split--reverse {
+    grid-template-columns: 300px 1fr;
+  }
+  .service-split--reverse .service-split__info { order: 2; }
+  .service-split--reverse .service-split__price { order: 1; }
+
+  @media (max-width: 768px) {
+    .service-split,
+    .service-split--reverse {
+      grid-template-columns: 1fr;
+    }
+    .service-split--reverse .service-split__info { order: unset; }
+    .service-split--reverse .service-split__price { order: unset; }
+  }
+
+  .service-split__info h2 {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 900;
+    color: var(--fuji-white);
+    margin-block: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .bg-soft .service-split__info h2 {
+    color: var(--fuji-black);
+  }
+  .service-split__info p {
+    color: var(--fuji-gray-muted);
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+  }
+  .bg-soft .service-split__info p {
+    color: #444;
+  }
+
+  .service-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .service-features li {
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+  }
+  .bg-soft .service-features li {
+    color: #555;
+  }
+
+  /* VIPノート */
+  .jumbo-vip-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: rgba(245,200,0,0.07);
+    border: 1px solid rgba(245,200,0,0.25);
+    border-radius: var(--radius-lg);
+  }
+  .jumbo-vip-note__icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.1rem; }
+  .jumbo-vip-note p { font-size: var(--text-sm); color: var(--fuji-gray-muted); line-height: 1.8; }
+  .jumbo-vip-note strong { color: var(--fuji-yellow); }
+
+  /* デマンド料金 */
+  .demand-fare {
+    background: var(--fuji-black-card);
+    border: 1px solid rgba(245,200,0,0.25);
+    border-radius: var(--radius-xl);
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .demand-fare__label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .demand-fare__item {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+  .demand-fare__zone {
+    font-size: var(--text-sm);
+    color: var(--fuji-white);
+    font-weight: 600;
+  }
+  .demand-fare__item-price {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+  .demand-fare__num {
+    font-family: var(--font-en);
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--fuji-yellow);
+    line-height: 1;
+  }
+  .demand-fare__unit {
+    font-size: var(--text-xs);
+    color: var(--fuji-gray-muted);
+    font-weight: 600;
+  }
+  .demand-fare__free {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.9rem 1.25rem;
+    background: rgba(245,200,0,0.08);
+    border: 1px solid rgba(245,200,0,0.25);
+    border-radius: var(--radius-lg);
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+  }
+  .demand-fare__free strong { color: var(--fuji-yellow); font-weight: 900; }
+  .demand-fare__free-badge {
+    display: inline-block;
+    background: var(--fuji-yellow);
+    color: var(--fuji-black);
+    font-family: var(--font-en);
+    font-size: 0.65rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+  }
+  /* ご利用方法 */
+  .demand-how {
+    margin-top: 1.25rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .demand-how__title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+  }
+  .demand-how__step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .demand-how__num {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--fuji-yellow);
+    color: var(--fuji-black);
+    font-size: 0.7rem;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.1rem;
+  }
+  .demand-how__label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--fuji-white);
+    line-height: 1.3;
+  }
+  .demand-how__desc {
+    font-size: 0.8rem;
+    color: var(--fuji-gray-muted);
+    margin-top: 0.1rem;
+  }
+
+  .demand-reception {
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .demand-reception__row {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+  .demand-reception__key {
+    flex-shrink: 0;
+    color: var(--fuji-gray-muted);
+    min-width: 6em;
+  }
+  .demand-reception__val {
+    color: var(--fuji-white);
+    font-weight: 700;
+  }
+
+  /* 料金カード */
+  .price-card {
+    background: var(--fuji-yellow);
+    border-radius: var(--radius-xl);
+    padding: 2.5rem 2rem;
+    text-align: center;
+  }
+  .price-card__label {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--fuji-black);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .price-card__amount {
+    font-family: var(--font-en);
+    font-size: var(--text-4xl);
+    font-weight: 800;
+    color: var(--fuji-black);
+    line-height: 1.2;
+  }
+  .price-card__num {
+    font-size: var(--text-6xl);
+  }
+  .price-card__note {
+    font-size: var(--text-sm);
+    color: var(--fuji-black);
+    margin-top: 0.5rem;
+    opacity: 0.7;
+  }
+  .price-card--link {
+    display: block;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .price-card--link:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  }
+  .price-card__cta {
+    margin-top: 0.75rem;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--fuji-black);
+    border-top: 1px solid rgba(0,0,0,0.1);
+    padding-top: 0.6rem;
+  }
+  .price-card--link:hover .price-card__cta {
+    text-decoration: underline;
+  }
+
+  /* バッジ */
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: 700;
+  }
+  .badge--yellow {
+    background: var(--fuji-yellow);
+    color: var(--fuji-black);
+  }
+
+  /* 運賃ブロック */
+  .fare-block {
+    margin-bottom: 2.5rem;
+  }
+  .fare-block__title {
+    font-size: var(--text-base);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    margin-bottom: 0.75rem;
+    padding-left: 0.75rem;
+    border-left: 3px solid var(--fuji-yellow);
+  }
+
+  /* 割増・割引カード */
+  .fare-extras {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 640px) {
+    .fare-extras { grid-template-columns: 1fr; }
+  }
+  .fare-extra-card {
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+  }
+  .fare-extra-card--up {
+    background: rgba(255,80,80,0.06);
+    border: 1px solid rgba(255,80,80,0.2);
+  }
+  .fare-extra-card--down {
+    background: rgba(245,200,0,0.06);
+    border: 1px solid rgba(245,200,0,0.2);
+  }
+  .fare-extra-card__title {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--fuji-white);
+  }
+  .fare-extra-card--up .fare-extra-card__title { color: #ff8080; }
+  .fare-extra-card--down .fare-extra-card__title { color: var(--fuji-yellow); }
+  .fare-extra-card__list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .fare-extra-card__list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding-bottom: 0.5rem;
+  }
+  .fare-extra-card__val {
+    font-weight: 700;
+    color: var(--fuji-white);
+    flex-shrink: 0;
+    margin-left: 1rem;
+  }
+
+  .fare-footnote {
+    font-size: var(--text-xs);
+    color: rgba(255,255,255,0.3);
+    text-align: center;
+    margin-top: 0.5rem;
+  }
+
+  /* 料金表 */
+  .price-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--fuji-white);
+  }
+  .price-table th {
+    background: var(--fuji-black-card);
+    color: var(--fuji-yellow);
+    padding: 1rem 1.5rem;
+    text-align: left;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid var(--fuji-yellow);
+  }
+  .price-table td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--fuji-gray-border);
+    font-size: var(--text-base);
+  }
+  .price-table tr:hover td { background: var(--fuji-black-card); }
+  .price-table__price {
+    font-family: var(--font-en);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    font-size: var(--text-lg);
+  }
+
+  /* 決済グループ */
+  /* Payment header */
+  .payment-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    flex-wrap: wrap;
+  }
+  .payment-catch {
+    font-size: var(--text-base);
+    color: var(--fuji-gray-muted);
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  /* グリッド */
+  .payment-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .payment-group {
+    background: #1a1a1a;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .payment-group__head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: var(--fuji-yellow);
+  }
+  .payment-group__label {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--fuji-white);
+    letter-spacing: 0.04em;
+  }
+  .payment-group__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* タグ */
+  .ptag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 1.1rem;
+    border-radius: var(--radius-full);
+    font-size: var(--text-base);
+    font-weight: 700;
+    border: 1.5px solid transparent;
+    line-height: 1;
+  }
+  .ptag--blue   { background: rgba(59,130,246,0.18); border-color: rgba(59,130,246,0.5); color: #93c5fd; }
+  .ptag--red    { background: rgba(239,68,68,0.18);  border-color: rgba(239,68,68,0.5);  color: #fca5a5; }
+  .ptag--green  { background: rgba(34,197,94,0.18);  border-color: rgba(34,197,94,0.5);  color: #86efac; }
+  .ptag--teal   { background: rgba(20,184,166,0.18); border-color: rgba(20,184,166,0.5); color: #5eead4; }
+  .ptag--purple { background: rgba(168,85,247,0.18); border-color: rgba(168,85,247,0.5); color: #d8b4fe; }
+  .ptag--yellow { background: rgba(245,200,0,0.15);  border-color: rgba(245,200,0,0.5);  color: var(--fuji-yellow); }
+
+  /* 現金バナー */
+  .payment-cash {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(245,200,0,0.08);
+    border: 1px solid rgba(245,200,0,0.25);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.5rem;
+    color: var(--fuji-gray-muted);
+    font-size: var(--text-sm);
+  }
+  .payment-cash svg { color: var(--fuji-yellow); flex-shrink: 0; }
+  .payment-cash strong { color: var(--fuji-white); font-weight: 700; }
+
+  /* スクールタクシー お問い合わせカード（2列） */
+  .school-contacts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 640px) {
+    .school-contacts { grid-template-columns: 1fr; }
+  }
+
+  .school-contact-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-xl);
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .school-contact-card--fuji {
+    border-color: rgba(245,200,0,0.25);
+    background: rgba(245,200,0,0.04);
+  }
+  .school-contact-card__badge {
+    display: inline-block;
+    font-size: var(--text-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--fuji-white);
+    background: rgba(255,255,255,0.15);
+    border-radius: var(--radius-full);
+    padding: 0.2rem 0.75rem;
+    width: fit-content;
+    margin-bottom: 0.25rem;
+  }
+  .school-contact-card__badge--yellow {
+    background: var(--fuji-yellow);
+    color: var(--fuji-black);
+  }
+  .school-contact-card__name {
+    font-size: var(--text-base);
+    font-weight: 700;
+    color: var(--fuji-white);
+    line-height: 1.5;
+  }
+  .school-contact-card__name span {
+    font-weight: 400;
+    color: var(--fuji-gray-muted);
+    font-size: var(--text-sm);
+  }
+  .school-contact-card__address {
+    font-style: normal;
+    font-size: var(--text-xs);
+    color: var(--fuji-gray-muted);
+    line-height: 1.7;
+    margin-top: 0.25rem;
+  }
+  .school-contact-card__tel {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-en);
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--fuji-white);
+    text-decoration: none;
+    margin-top: 0.5rem;
+    transition: color var(--transition-fast);
+  }
+  .school-contact-card__tel:hover { color: var(--fuji-yellow); }
+  .school-contact-card__tel--yellow { color: var(--fuji-yellow); }
+  .school-contact-card__tel--yellow:hover { color: var(--fuji-yellow-dark); }
+
+  /* 旧カードCSS */
+  .school-contact {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    background: #1a1a1a;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-left: 4px solid var(--fuji-yellow);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem 2rem;
+    flex-wrap: wrap;
+  }
+  .school-contact__icon {
+    width: 44px;
+    height: 44px;
+    background: rgba(245,200,0,0.12);
+    border: 1px solid rgba(245,200,0,0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--fuji-yellow);
+  }
+  .school-contact__icon svg { width: 20px; height: 20px; }
+  .school-contact__body { flex: 1; min-width: 0; }
+  .school-contact__label {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .school-contact__text {
+    font-size: var(--text-base);
+    color: var(--fuji-white);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .school-contact__sep {
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+  }
+  .school-contact__tel {
+    display: inline-block;
+    font-size: var(--text-xl);
+    font-weight: 900;
+    color: var(--fuji-yellow);
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    margin-top: 0.25rem;
+  }
+  .school-contact__tel:hover { opacity: 0.8; }
+  .school-contact__btn { flex-shrink: 0; }
+
+  /* FAQ */
+  .faq-list {
+    max-width: 800px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .faq-item {
+    border: 1px solid var(--fuji-gray-light);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .faq-item__q {
+    padding: 1.25rem 1.5rem;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: var(--text-base);
+    color: var(--fuji-black);
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--fuji-white);
+  }
+  .faq-item__q::after {
+    content: '+';
+    font-size: 1.5rem;
+    color: var(--fuji-yellow-dark);
+    transition: transform var(--transition-fast);
+  }
+  .faq-item[open] .faq-item__q::after {
+    transform: rotate(45deg);
+  }
+  .faq-item__a {
+    padding: 1rem 1.5rem 1.5rem;
+    color: #555;
+    line-height: 1.8;
+    background: var(--fuji-off-white);
+  }
+
+  /* 内部リンク */
+  .internal-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+  }
+  .internal-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: 1px solid var(--fuji-gray-border);
+    border-radius: var(--radius-full);
+    text-decoration: none;
+    color: var(--fuji-gray-muted);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    transition: all var(--transition-fast);
+  }
+  .internal-link:hover {
+    border-color: var(--fuji-yellow);
+    color: var(--fuji-yellow);
+  }
+  .internal-link__arrow { font-size: 0.9em; }
+
+  /* CTAバナー */
+  .cta-banner {
+    text-align: center;
+  }
+  .cta-banner__title {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 900;
+    margin-bottom: 0.75rem;
+  }
+  .cta-banner__main-tel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .cta-banner__tel-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-decoration: none;
+    color: var(--fuji-black);
+    font-weight: 900;
+    transition: opacity 0.2s;
+  }
+  .cta-banner__tel-link:hover { opacity: 0.75; }
+  .cta-banner__tel-num {
+    font-family: var(--font-en);
+    font-size: clamp(2rem, 6vw, 3rem);
+    letter-spacing: 0.02em;
+    line-height: 1;
+  }
+  .cta-banner__tel-note {
+    font-size: var(--text-sm);
+    color: rgba(0,0,0,0.55);
+    font-weight: 500;
+  }
+  .cta-banner__btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+  .btn--sm {
+    font-size: var(--text-sm);
+    padding: 0.5rem 1.25rem;
+  }
+  @media (max-width: 640px) {
+    .cta-banner__btns {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+
+  /* 観光タクシー タイムライン */
+  .sight-timeline {
+    list-style: none;
+    position: relative;
+    padding-left: 2rem;
+  }
+  .sight-timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.65rem;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--fuji-yellow), rgba(245,200,0,0.2));
+  }
+  .sight-timeline__item {
+    position: relative;
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+    background: var(--fuji-black-card);
+    border: 1px solid var(--fuji-gray-border);
+    border-radius: var(--radius-lg);
+  }
+  .sight-timeline__item:last-child { margin-bottom: 0; }
+  .sight-timeline__dot {
+    position: absolute;
+    left: -1.65rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background: var(--fuji-yellow);
+    border-radius: 50%;
+    border: 3px solid var(--fuji-black);
+    box-shadow: 0 0 0 2px var(--fuji-yellow);
+  }
+  .sight-timeline__season {
+    font-family: var(--font-en);
+    font-size: var(--text-sm);
+    font-weight: 800;
+    color: var(--fuji-yellow);
+    text-align: center;
+    white-space: nowrap;
+  }
+  .sight-timeline__body .gf-title {
+    font-size: var(--text-base);
+  }
+
+  /* 一般乗用 フィーチャーリスト */
+  .general-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .general-features li {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    background: var(--fuji-black-card);
+    border: 1px solid var(--fuji-gray-border);
+    border-left: 3px solid var(--fuji-yellow);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    padding: 1.25rem 1.5rem;
+  }
+  .gf-icon {
+    width: 48px;
+    height: 48px;
+    background: rgba(245, 200, 0, 0.1);
+    border: 1px solid rgba(245, 200, 0, 0.3);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    flex-shrink: 0;
+  }
+  .gf-icon svg {
+    width: 100%;
+    height: 100%;
+    stroke: var(--fuji-yellow);
+  }
+  .gf-title {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--fuji-white);
+    margin-bottom: 0.3rem;
+  }
+  .gf-desc {
+    font-size: var(--text-base);
+    color: var(--fuji-gray-muted);
+  }
+  .gf-tel {
+    display: inline-block;
+    margin-top: 0.3rem;
+    font-family: var(--font-en);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    text-decoration: none;
+    letter-spacing: 0.03em;
+  }
+  .gf-tel:hover { text-decoration: underline; }
+
+  /* 電話カード */
+  .general-tel-card {
+    background: var(--fuji-black-card);
+    border: 1px solid var(--fuji-gray-border);
+    border-radius: var(--radius-xl);
+    padding: 1.25rem 1.5rem;
+    margin-top: 1rem;
+  }
+
+  /* 選ばれる理由グリッド */
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+  @media (max-width: 900px) { .why-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .why-grid { grid-template-columns: 1fr; } }
+
+  .why-card {
+    background: var(--fuji-black-card);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-top: 4px solid var(--fuji-yellow);
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+    padding: 2rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: transform 0.2s ease, border-top-color 0.2s ease;
+  }
+  .why-card:hover {
+    transform: translateY(-4px);
+    border-top-color: var(--fuji-yellow);
+  }
+  .why-card__num {
+    font-family: var(--font-en);
+    font-size: 3rem;
+    font-weight: 900;
+    color: var(--fuji-yellow);
+    line-height: 1;
+    margin-bottom: 0.25rem;
+  }
+  .why-card__unit {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--fuji-white);
+    opacity: 0.5;
+    margin-left: 0.2rem;
+  }
+  .why-card__title {
+    font-size: clamp(1.05rem, 2vw, 1.25rem);
+    font-weight: 900;
+    color: var(--fuji-white);
+    line-height: 1.4;
+  }
+  .why-card__desc {
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    line-height: 1.8;
+    margin: 0;
+  }
+
+  /* 配車システムバナー */
+  .system-banner {
+    display: flex;
+    align-items: center;
+    gap: 2.5rem;
+    flex-wrap: wrap;
+    background: var(--fuji-black-card);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-left: 4px solid var(--fuji-yellow);
+    border-radius: var(--radius-xl);
+    padding: 2rem 2.5rem;
+  }
+  .system-banner__left {
+    flex: 1;
+    min-width: 240px;
+  }
+  .system-banner__eyebrow {
+    font-size: var(--text-xs);
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--fuji-yellow);
+    margin-bottom: 0.4rem;
+  }
+  .system-banner__title {
+    font-size: clamp(1.1rem, 2vw, 1.4rem);
+    font-weight: 900;
+    color: var(--fuji-white);
+    line-height: 1.4;
+    margin-bottom: 0.6rem;
+  }
+  .system-banner__desc {
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    line-height: 1.8;
+  }
+  .system-banner__desc strong { color: var(--fuji-yellow); }
+  .system-banner__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .why-system-tag {
+    display: inline-block;
+    padding: 0.35rem 0.8rem;
+    background: rgba(245,200,0,0.1);
+    border: 1px solid rgba(245,200,0,0.35);
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+  }
+  @media (max-width: 640px) {
+    .system-banner__tags { gap: 0.35rem; }
+  }
+  .sp-only { display: none; }
+  @media (max-width: 640px) { .sp-only { display: inline; } }
+
+  /* 車両紹介グリッド */
+  .fleet-type-label {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .fleet-type-badge {
+    display: inline-block;
+    padding: 0.35rem 1.1rem;
+    border-radius: var(--radius-full);
+    font-size: var(--text-sm);
+    font-weight: 800;
+    background: rgba(255,255,255,0.08);
+    color: var(--fuji-white);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .fleet-type-badge--yellow {
+    background: rgba(245,200,0,0.12);
+    color: var(--fuji-yellow);
+    border-color: rgba(245,200,0,0.35);
+  }
+  .fleet-type-count {
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+  }
+
+  .fleet-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+  @media (max-width: 900px) { .fleet-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .fleet-grid { grid-template-columns: 1fr; } }
+
+  .fleet-card {
+    background: var(--fuji-black-card);
+    border: 1px solid var(--fuji-gray-border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .fleet-card--premium {
+    border-color: rgba(245,200,0,0.3);
+  }
+  .fleet-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  }
+  .fleet-card__img-wrap {
+    aspect-ratio: 4/3;
+    overflow: hidden;
+    background: #111;
+  }
+  .fleet-card__img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    transition: transform 0.4s ease;
+  }
+  .fleet-card:hover .fleet-card__img { transform: scale(1.02); }
+
+  .fleet-card__body {
+    padding: 1.25rem 1.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .fleet-card__badge {
+    display: inline-block;
+    font-size: var(--text-xs);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    padding: 0.2rem 0.75rem;
+    border-radius: var(--radius-full);
+    background: rgba(255,255,255,0.1);
+    color: var(--fuji-gray-muted);
+    width: fit-content;
+  }
+  .fleet-card__badge--yellow {
+    background: rgba(245,200,0,0.15);
+    color: var(--fuji-yellow);
+  }
+  .fleet-card__badge--gold {
+    background: linear-gradient(135deg, rgba(245,200,0,0.25), rgba(245,160,0,0.15));
+    color: var(--fuji-yellow);
+    border: 1px solid rgba(245,200,0,0.4);
+  }
+  .fleet-card__title {
+    font-size: var(--text-base);
+    font-weight: 800;
+    color: var(--fuji-white);
+    line-height: 1.4;
+    margin-top: 0.25rem;
+  }
+  .fleet-card__desc {
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    line-height: 1.8;
+  }
+  .fleet-card__features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .fleet-card__features span {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    padding: 0.4rem 0.9rem;
+    background: rgba(245,200,0,0.1);
+    border: 1.5px solid rgba(245,200,0,0.35);
+    border-radius: var(--radius-full);
+    color: var(--fuji-yellow);
+    letter-spacing: 0.02em;
+  }
+  .fleet-card__specs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .fleet-card__specs span {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    padding: 0.2rem 0.65rem;
+    background: rgba(245,200,0,0.08);
+    border: 1px solid rgba(245,200,0,0.25);
+    border-radius: var(--radius-full);
+    color: var(--fuji-yellow);
+  }
+
+  /* リビール */
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+</style>

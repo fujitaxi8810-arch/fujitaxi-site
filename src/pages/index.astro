@@ -1,0 +1,2596 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const pageTitle = '南相馬市のタクシーなら富士タクシー｜小高区・原町区 予約・配車';
+const pageDesc  = '南相馬市小高区・原町区のタクシーなら富士タクシー。初乗り700円〜、年中無休7:00〜24:00。ジャンボタクシー・デマンド乗合・スクール送迎・観光タクシー対応。クレカ・QR・電子マネー全対応。';
+
+/* ── FAQPage 構造化データ ── */
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: '南相馬市でタクシーを呼ぶにはどうすればいいですか？',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: '富士タクシー本社（0244-44-2543）または原町待機所（0244-32-0030）にお電話ください。現着通知サービスにより、車が到着する前に音声でお知らせします。',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '富士タクシーの初乗り料金はいくらですか？',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: '普通車タクシーは初乗り700円、ジャンボタクシー（特大車）は980円です。貸切料金は利用時間・行先によってお見積りします。',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'クレジットカードや電子マネーは使えますか？',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'はい、クレジットカード・PayPay等のQR決済・交通系ICカードなどの電子マネー・JTBタクシーチケットに対応しています。',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'ジャンボタクシーは何名まで乗れますか？',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: '最大9名様までご乗車いただけます。冠婚葬祭・家族旅行・空港送迎・観光などにご利用ください。事前予約が必要です。',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '小高区から仙台や県外まで行けますか？',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: '小高区・原町区を出発地として、県外への長距離移動も対応しています。料金は利用時間・行先によってお見積りしますので、お電話またはメールでお問い合わせください。',
+      },
+    },
+  ],
+};
+
+/* ── Review 構造化データ ── */
+const reviewSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'LocalBusiness',
+  name: '有限会社 富士タクシー',
+  aggregateRating: {
+    '@type': 'AggregateRating',
+    ratingValue: '5',
+    reviewCount: '4',
+  },
+  review: [
+    {
+      '@type': 'Review',
+      reviewRating: { '@type': 'Rating', ratingValue: '5' },
+      author: { '@type': 'Person', name: '小高区在住・60代女性' },
+      reviewBody: '朝7時に電話したらすぐ来てくれました。運転手さんが荷物も手伝ってくださり、高齢の母も安心して病院へ行けました。',
+    },
+    {
+      '@type': 'Review',
+      reviewRating: { '@type': 'Rating', ratingValue: '5' },
+      author: { '@type': 'Person', name: '原町区在住・50代男性' },
+      reviewBody: '法事で親族9名を乗せていただきました。ゆったり乗れて、移動中も和やかに話ができました。次もお願いします。',
+    },
+    {
+      '@type': 'Review',
+      reviewRating: { '@type': 'Rating', ratingValue: '5' },
+      author: { '@type': 'Person', name: '小高区在住・保護者' },
+      reviewBody: '統合後の小学校が遠くなり不安でしたが、毎日安全に送り届けてくれています。子どもも運転手さんが大好きです。',
+    },
+    {
+      '@type': 'Review',
+      reviewRating: { '@type': 'Rating', ratingValue: '5' },
+      author: { '@type': 'Person', name: '南相馬市在住・70代男性' },
+      reviewBody: '到着前に電話で知らせてくれるので、玄関前で待たずに済みます。足が悪い私には本当にありがたいサービスです。',
+    },
+  ],
+};
+
+const services = [
+  { id: 'general',     name: '一般乗用タクシー',  desc: '初乗り700円〜。小高・原町区内から県外まで対応。', href: '/services#general' },
+  { id: 'jumbo',       name: 'ジャンボタクシー',  desc: '最大9名、地域最多の7台保有。冠婚葬祭・旅行・空港送迎に。', href: '/services#jumbo' },
+  { id: 'demand',      name: 'デマンド乗合',      desc: '高齢者・帰還住民の通院・買い物を支える乗合タクシー。', href: '/services#demand' },
+  { id: 'school',      name: 'スクールタクシー',  desc: '小高区の児童・生徒を毎日安全に送迎。部活動にも対応。', href: '/services#school' },
+  { id: 'sightseeing', name: '観光タクシー',       desc: '相馬野馬追・小高神社・海岸線を地元ドライバーがご案内。', href: '/services#sightseeing' },
+  { id: 'corporate',   name: '法人・空港送迎',    desc: 'ビジネス・研修・重要顧客の送迎。JTBチケット対応。', href: '/corporate' },
+];
+
+const strengths = [
+  { num: '50', unit: '年', label: '創業からの歴史', desc: '昭和46年創業。地域とともに半世紀以上歩んできた信頼。' },
+  { num: '7',   unit: '台', label: 'ジャンボタクシー保有', desc: '地域最大級のジャンボタクシー保有数。大人数にも対応。' },
+  { num: '7-24', unit: '時', label: '年中無休営業',  desc: '毎日7:00〜24:00まで対応。急な移動もお任せください。' },
+  { num: '10',  unit: '種類以上', label: '決済方法対応',     desc: 'クレカ・QR・IC・JTBチケット等、全ての主要決済に対応。' },
+];
+
+const tourism = [
+  { name: '小高の海岸線',         desc: '水平線から昇る朝陽。貝塚など古代の歴史も感じられる。', season: '通年' },
+  { name: '小高神社 桜まつり',     desc: 'ソメイヨシノ・しだれ桜が咲き誇る名所。野馬懸も。',   season: '4月頃' },
+  { name: '相馬野馬追',           desc: '国重要無形民俗文化財。勇壮な騎馬武者が集う夏祭り。',   season: '毎年5月' },
+  { name: 'おだかイルミネーション', desc: '平成14年から続く冬の光の祭典。地域の絆を深める。',   season: '12〜1月' },
+];
+
+---
+
+<Layout
+  title={pageTitle}
+  description={pageDesc}
+  structuredData={[faqSchema, reviewSchema]}
+>
+
+<!-- ════════════════════════════════════════
+     ヒーローセクション
+════════════════════════════════════════ -->
+<section class="hero" aria-label="メインビジュアル">
+  <div class="hero__bg hero__bg--1" aria-hidden="true"></div>
+  <div class="hero__bg hero__bg--2" aria-hidden="true"></div>
+  <div class="hero__bg hero__bg--3" aria-hidden="true"></div>
+  <div class="hero__bg hero__bg--4" aria-hidden="true"></div>
+  <div class="container hero__inner">
+
+    <!-- 左: メインコンテンツ -->
+    <div class="hero__content">
+      <div class="hero__slides" aria-live="polite" aria-atomic="true">
+
+      <!-- スライド1テキスト（65333） -->
+      <div class="hero__slide hero__slide--1">
+        <p class="hero__brand-en">Drive the Future.</p>
+        <p class="hero__brand-ja">移動の力で、地域の未来を動かす。</p>
+        <div class="hero__brand-sep"></div>
+        <h1 class="hero__heading">南相馬で、<br /><em class="hero__accent">いちばん頼れるタクシーがいる。</em></h1>
+      </div>
+
+      <!-- スライド2テキスト（65335） -->
+      <div class="hero__slide hero__slide--2">
+        <p class="hero__brand-en hero__brand-en--accent">Drive the Story.</p>
+        <p class="hero__brand-ja hero__brand-ja--accent">移動が、物語になる。</p>
+        <div class="hero__brand-sep"></div>
+        <p class="hero__heading">乗った瞬間、<em class="hero__accent" style="font-size:clamp(1.8rem,4.5vw,3.2rem)">「頼んでよかった」と思える。</em></p>
+      </div>
+
+      <!-- スライド3テキスト（65330） -->
+      <div class="hero__slide hero__slide--3">
+        <p class="hero__brand-en">Since 1971.</p>
+        <p class="hero__brand-ja">2011年の震災を乗り越え、南相馬とともに歩んできた。</p>
+        <div class="hero__brand-sep"></div>
+        <p class="hero__heading">あの日も、今日も、<br /><em class="hero__accent">この街を走り続ける。</em></p>
+      </div>
+
+      <!-- スライド4テキスト（子どもたち） -->
+      <div class="hero__slide hero__slide--4">
+        <p class="hero__brand-en">For Minamisoma.</p>
+        <p class="hero__brand-ja">子どもから高齢者まで、全ての移動を守る。</p>
+        <div class="hero__brand-sep"></div>
+        <p class="hero__heading">富士タクシーは、<br /><em class="hero__accent">南相馬の「足」であり続ける。</em></p>
+      </div>
+
+      </div><!-- /.hero__slides -->
+
+      <!-- 常時表示：CTA -->
+      <div class="hero__actions hero-ani" style="--ani-delay:1.8s">
+        <a href="tel:0244442543" class="btn btn--primary btn--lg hero__tel-btn" aria-label="富士タクシー本社に電話する">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6 6l.54-.54a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.28 16.92z"/>
+          </svg>
+          0244-44-2543
+        </a>
+        <a href="/contact" class="btn btn--outline btn--lg hero__contact-btn">
+          お問い合わせ
+        </a>
+      </div>
+
+      <p class="hero__note hero-ani" style="--ani-delay:2.2s">初乗り700円〜 ｜ 現着通知サービス対応 ｜ クレカ・QR対応</p>
+      <div class="hero__area hero-ani" style="--ani-delay:2.5s">
+        <span>小高区・原町区 2拠点 ／ 創業昭和46年 ／ ジャンボ7台保有</span>
+        <button class="hero__pause-btn" id="heroPauseBtn" aria-label="スライドショーを一時停止" aria-pressed="false">
+          <svg class="hero__pause-icon hero__pause-icon--pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          <svg class="hero__pause-icon hero__pause-icon--play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display:none"><polygon points="5,3 19,12 5,21"/></svg>
+          <span class="hero__pause-label">一時停止</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     フォトギャラリー
+════════════════════════════════════════ -->
+<section class="photo-gallery" aria-label="富士タクシーの現場写真">
+
+  <!-- A: 縦長メイン（社長＋店舗） -->
+  <div class="pg pg--main">
+    <img src="/images/photo-staff-exterior-opt.webp" alt="富士タクシー 社長と車両・店舗外観" class="pg__img" width="800" height="600" loading="lazy" />
+    <div class="pg__caption pg__caption--lg">
+      <p class="pg__tag">Since 1971</p>
+      <p class="pg__title">信頼の顔、地域の足。</p>
+      <p class="pg__sub">南相馬市原町区の待機所にて</p>
+    </div>
+  </div>
+
+  <!-- B: 右上左（車両ラインアップ） -->
+  <div class="pg pg--b">
+    <img src="/images/photo-cars-lineup-opt.webp" alt="富士タクシー 車両ラインアップ 黒・黄・ジャンボ3台" class="pg__img" width="600" height="450" loading="lazy" />
+    <div class="pg__caption">
+      <p class="pg__title">多彩な車両で、あらゆる場面に。</p>
+      <p class="pg__sub">普通車・デマンド車・ジャンボタクシー</p>
+    </div>
+  </div>
+
+  <!-- C: 右上右（小高駅前） -->
+  <div class="pg pg--c">
+    <img src="/images/photo-car-odaka-opt.webp" alt="小高駅前に停車する富士タクシー車両" class="pg__img" width="600" height="450" loading="lazy" />
+    <div class="pg__caption">
+      <p class="pg__title">小高駅から、どこへでも。</p>
+      <p class="pg__sub">JR小高駅前 送迎対応</p>
+    </div>
+  </div>
+
+  <!-- D: 右下ワイド（震災・復興） -->
+  <div class="pg pg--d pg--d-disaster">
+    <div class="pg__disaster-pair">
+      <img src="/images/uploads/disaster-fuji-taxi-1.webp" alt="震災で倒壊した富士タクシー社屋（小高区）" class="pg__img pg__img--crop pg__disaster-img" width="768" height="1280" loading="lazy" />
+      <img src="/images/uploads/disaster-fuji-taxi-2.webp" alt="震災直後の富士タクシー社屋全景" class="pg__img pg__img--crop pg__disaster-img" width="1280" height="768" loading="lazy" />
+    </div>
+    <div class="pg__caption pg__caption--wide">
+      <p class="pg__title">震災を乗り越え、復興とともに歩んできた。</p>
+      <p class="pg__sub">2011年 震災直後の富士タクシー本社</p>
+    </div>
+  </div>
+
+</section>
+
+<!-- ════════════════════════════════════════
+     ブランドステートメント
+════════════════════════════════════════ -->
+<section class="brand-statement" aria-label="ブランドメッセージ">
+  <div class="container brand-statement__inner">
+    <p class="brand-statement__en">Drive the Story.</p>
+    <p class="brand-statement__ja">移動が、物語になる。</p>
+    <div class="brand-statement__line"></div>
+    <p class="brand-statement__desc">
+      一度の乗車が、誰かの人生の一場面になる。<br />
+      富士タクシーは、移動を通じて南相馬の物語をつくり続けます。
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     子どもの未来セクション
+════════════════════════════════════════ -->
+<section class="children-section" aria-label="地域の子どもたちへの取り組み">
+  <div class="children-section__img-wrap">
+    <img
+      src="/images/photo-children-sakura-opt.webp"
+      alt="小高川沿いの桜並木を歩く子どもたち"
+      class="children-section__img"
+      width="1080" height="1350"
+      loading="lazy"
+    />
+  </div>
+  <div class="children-section__overlay">
+    <div class="children-section__content">
+      <div class="children-section__heading-wrap">
+        <h2 class="children-section__heading">
+          <span class="children-section__heading-line1">子どもたちの未来のために、</span>
+        </h2>
+      </div>
+      <p class="children-section__lead">
+        スクールタクシーで安全な通学を支える。<br />
+        デマンドタクシーで高齢者の生活を守る。<br />
+        富士タクシーは、移動を通じて南相馬市の未来をつくります。
+      </p>
+      <a href="/community" class="btn btn--primary btn--lg">地域への取り組みを見る</a>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     お客様の声
+════════════════════════════════════════ -->
+<section class="section bg-black" aria-labelledby="reviews-heading">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="eyebrow">Reviews</p>
+      <h2 class="heading-lg section-title" id="reviews-heading">
+        お客様の<span class="text-yellow">声</span>
+      </h2>
+    </div>
+    <div class="reviews-grid reveal">
+      <div class="review-card">
+        <div class="review-card__stars" aria-label="5つ星"><span aria-hidden="true">★★★★★</span></div>
+        <p class="review-card__use">通院送迎</p>
+        <p class="review-card__text">「朝7時に電話したらすぐ来てくれました。運転手さんが荷物も手伝ってくださり、高齢の母も安心して病院へ行けました。」</p>
+        <p class="review-card__author">— 小高区在住・60代女性</p>
+      </div>
+      <div class="review-card">
+        <div class="review-card__stars" aria-label="5つ星"><span aria-hidden="true">★★★★★</span></div>
+        <p class="review-card__use">ジャンボタクシー</p>
+        <p class="review-card__text">「法事で親族9名を乗せていただきました。ゆったり乗れて、移動中も和やかに話ができました。次もお願いします。」</p>
+        <p class="review-card__author">— 原町区在住・50代男性</p>
+      </div>
+      <div class="review-card">
+        <div class="review-card__stars" aria-label="5つ星"><span aria-hidden="true">★★★★★</span></div>
+        <p class="review-card__use">スクールタクシー</p>
+        <p class="review-card__text">「統合後の小学校が遠くなり不安でしたが、毎日安全に送り届けてくれています。子どもも運転手さんが大好きです。」</p>
+        <p class="review-card__author">— 小高区在住・保護者</p>
+      </div>
+      <div class="review-card">
+        <div class="review-card__stars" aria-label="5つ星"><span aria-hidden="true">★★★★★</span></div>
+        <p class="review-card__use">現着通知サービス</p>
+        <p class="review-card__text">「到着前に電話で知らせてくれるので、玄関前で待たずに済みます。足が悪い私には本当にありがたいサービスです。」</p>
+        <p class="review-card__author">— 南相馬市在住・70代男性</p>
+      </div>
+    </div>
+    <p class="reviews-scroll-hint">← スワイプして全ての口コミを見る →</p>
+    <div class="reviews-cta reveal">
+      <p class="reviews-cta__label">実際のお客様の口コミはこちらからご確認いただけます</p>
+      <div class="reviews-cta__btns">
+        <a href="https://share.google/NKXIRazpjfWqHbWd8" target="_blank" rel="noopener noreferrer" class="btn btn--outline">
+          本社（小高区）の口コミ →
+        </a>
+        <a href="https://share.google/OuOLfGxyT5DaGiKc8" target="_blank" rel="noopener noreferrer" class="btn btn--outline">
+          原町待機所の口コミ →
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     サービス一覧
+════════════════════════════════════════ -->
+<section class="section services-section bg-soft" id="services" aria-labelledby="services-heading">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="eyebrow">Services</p>
+      <h2 class="heading-lg section-title" id="services-heading">
+        富士タクシーの<span class="text-yellow">全サービス</span>
+      </h2>
+      <p class="lead" style="max-width:560px; white-space:nowrap;">
+        一般乗車から観光・福祉・スクールまで、南相馬市の移動をワンストップで。
+      </p>
+    </div>
+
+    <div class="services-grid">
+
+      <a href="/services#general" class="service-card reveal" style="transition-delay:0ms">
+        <div class="service-card__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 17H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h13l4 4v6a2 2 0 0 1-2 2h-2"/>
+            <circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>
+            <path d="M1 9h16"/>
+          </svg>
+        </div>
+        <h3 class="service-card__name">一般乗用タクシー</h3>
+        <p class="service-card__desc">初乗り700円〜。小高・原町区内から県外まで対応。</p>
+        <span class="service-card__link" aria-hidden="true">詳しく見る →</span>
+      </a>
+
+      <a href="/services#jumbo" class="service-card reveal" style="transition-delay:60ms">
+        <div class="service-card__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="6" width="22" height="12" rx="2"/>
+            <path d="M1 10h22M5 6V4M19 6V4"/>
+            <circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>
+            <path d="M8 10v4M12 10v4M16 10v4"/>
+          </svg>
+        </div>
+        <h3 class="service-card__name">ジャンボタクシー</h3>
+        <p class="service-card__desc">最大9名、地域最多の7台保有。冠婚葬祭・旅行・空港送迎に。</p>
+        <span class="service-card__link" aria-hidden="true">詳しく見る →</span>
+      </a>
+
+      <a href="/services#demand" class="service-card reveal" style="transition-delay:120ms">
+        <div class="service-card__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+            <path d="M6 12H2M22 12h-4"/>
+            <path d="M9 3.5A9 9 0 0 0 3.5 9M15 3.5A9 9 0 0 1 20.5 9"/>
+          </svg>
+        </div>
+        <h3 class="service-card__name">デマンド乗合</h3>
+        <p class="service-card__desc">高齢者・帰還住民の通院・買い物を支える乗合タクシー。</p>
+        <span class="service-card__link" aria-hidden="true">詳しく見る →</span>
+      </a>
+
+      <a href="/services#school" class="service-card reveal" style="transition-delay:180ms">
+        <div class="service-card__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+            <path d="M12 2v4M8 6h8"/>
+          </svg>
+        </div>
+        <h3 class="service-card__name">スクールタクシー</h3>
+        <p class="service-card__desc">小高区の児童・生徒を毎日安全に送迎。部活動にも対応。</p>
+        <span class="service-card__link" aria-hidden="true">詳しく見る →</span>
+      </a>
+
+      <a href="/services#sightseeing" class="service-card reveal" style="transition-delay:240ms">
+        <div class="service-card__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="10" r="3"/>
+            <path d="M12 2a8 8 0 0 1 8 8c0 5.25-8 14-8 14S4 15.25 4 10a8 8 0 0 1 8-8z"/>
+          </svg>
+        </div>
+        <h3 class="service-card__name">観光タクシー</h3>
+        <p class="service-card__desc">相馬野馬追・小高神社・海岸線を地元ドライバーがご案内。</p>
+        <span class="service-card__link" aria-hidden="true">詳しく見る →</span>
+      </a>
+
+      <a href="/corporate" class="service-card reveal" style="transition-delay:300ms">
+        <div class="service-card__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2"/>
+            <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+            <line x1="12" y1="12" x2="12" y2="16"/>
+            <line x1="10" y1="14" x2="14" y2="14"/>
+          </svg>
+        </div>
+        <h3 class="service-card__name">法人・空港送迎</h3>
+        <p class="service-card__desc">ビジネス・研修・重要顧客の送迎。JTBチケット対応。</p>
+        <span class="service-card__link" aria-hidden="true">詳しく見る →</span>
+      </a>
+
+      <a href="/dayservice" class="service-card service-card--featured reveal" style="transition-delay:360ms">
+        <div class="service-card__badge">NEW</div>
+        <div class="service-card__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+            <path d="M5 17H3a2 2 0 0 1-2-2V9"/>
+          </svg>
+        </div>
+        <h3 class="service-card__name">デイサービス送迎</h3>
+        <p class="service-card__desc">介護施設の送迎業務を丸ごとお任せ。時間貸切・定額制でコスト固定化、職員様の負担を軽減。</p>
+        <span class="service-card__link" aria-hidden="true">詳しく見る →</span>
+      </a>
+
+    </div>
+
+    <div class="services-cta reveal">
+      <a href="/services" class="btn btn--outline">すべてのサービスを見る</a>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     富士タクシーの強み
+════════════════════════════════════════ -->
+<section class="section strengths-section bg-black" aria-labelledby="strengths-heading">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="eyebrow">Why Fuji Taxi</p>
+      <h2 class="heading-lg section-title" id="strengths-heading">
+        選ばれる<span class="text-yellow">4つの理由</span>
+      </h2>
+    </div>
+
+    <div class="strengths-grid">
+      {strengths.map((s, i) => (
+        <div class="strength-card reveal" style={`transition-delay:${i * 80}ms`}>
+          <div class="strength-card__num">
+            <span class="strength-card__figure">{s.num}</span>
+            <span class="strength-card__unit">{s.unit}</span>
+          </div>
+          <div class="strength-card__body">
+            <h3 class="strength-card__label">{s.label}</h3>
+            <p class="strength-card__desc">{s.desc}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     決済バナー（シンプル）
+════════════════════════════════════════ -->
+<section class="payment-banner bg-yellow" aria-label="対応決済方法">
+  <div class="container">
+    <div class="payment-banner__inner">
+      <div>
+        <p class="payment-banner__title text-black">現金・クレカ・QR・IC・チケット、<strong>すべて対応。</strong></p>
+        <p class="payment-banner__sub text-black">VISA / Mastercard / JCB / AMEX / PayPay / 交通系IC ほか</p>
+      </div>
+      <a href="/services#payment" class="btn btn--outline-dark">決済方法の詳細 →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     DX配車（富士タクQ）
+════════════════════════════════════════ -->
+<section class="section dx-section bg-black" aria-labelledby="dx-heading">
+  <div class="container">
+    <div class="dx-inner">
+
+      <!-- 左：テキスト -->
+      <div class="dx-text">
+        <div class="dx-badge reveal">NEW 2026</div>
+        <p class="eyebrow reveal">Digital Transformation</p>
+        <h2 class="dx-heading reveal" id="dx-heading">
+          呼びたいを、<br /><span class="text-yellow">QRひとつで。</span>
+        </h2>
+        <p class="dx-lead reveal">
+          富士タクシーは令和8年より<strong>QRコード配車システム「富士タクQ」</strong>を導入しました。スマートフォンをかざすだけでタクシーを呼べる、まったく新しい配車体験を南相馬市で実現します。
+        </p>
+
+        <!-- 3つの特徴 -->
+        <div class="dx-features reveal">
+          <div class="dx-feature">
+            <div class="dx-feature__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6 6l.54-.54a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.28 16.92z"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </div>
+            <div>
+              <p class="dx-feature__title">電話不要</p>
+              <p class="dx-feature__desc">通話なしで、その場から即時配車。言葉が通じにくい外国人旅行者にも対応。</p>
+            </div>
+          </div>
+          <div class="dx-feature">
+            <div class="dx-feature__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </div>
+            <div>
+              <p class="dx-feature__title">場所説明不要</p>
+              <p class="dx-feature__desc">QRコードが設置場所の位置情報を自動送信。口頭説明ゼロ。</p>
+            </div>
+          </div>
+          <div class="dx-feature">
+            <div class="dx-feature__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2"/>
+                <line x1="12" y1="18" x2="12.01" y2="18"/>
+              </svg>
+            </div>
+            <div>
+              <p class="dx-feature__title">スマホをかざすだけ</p>
+              <p class="dx-feature__desc">アプリ不要。QRを読み取るだけで配車リクエスト完了。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 背景・専門家コメント -->
+        <div class="dx-insight reveal">
+          <div class="dx-insight__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <p class="dx-insight__text">
+            「電話できない・場所を説明できない」という移動弱者の課題を技術で解決。富士タクシーは南相馬から地域モビリティDXを牽引します。
+          </p>
+        </div>
+
+        <div class="reveal" style="margin-top: 2rem;">
+          <a href="/community" class="btn btn--primary btn--lg">地域への取り組みを見る</a>
+        </div>
+      </div>
+
+      <!-- 右：画像 -->
+      <div class="dx-image reveal">
+        <img
+          src="/images/dx-fuji-taku-q.png"
+          alt="富士タクQ QRコード配車システム告知ポスター"
+          class="dx-image__img"
+          width="900" height="600"
+          loading="lazy"
+        />
+        <div class="dx-image__label">
+          <span class="dx-image__label-text">富士タクQ</span>
+          <span class="dx-image__label-sub">令和8年 導入開始</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     観光スポット
+════════════════════════════════════════ -->
+<section class="tourism-section" aria-labelledby="tourism-heading">
+
+  <div class="tourism-section__inner">
+
+    <!-- 左: テキスト -->
+    <div class="tourism-section__header">
+      <p class="eyebrow">Sightseeing</p>
+      <p class="tourism-section__sub-eyebrow">小高・南相馬観光</p>
+      <h2 class="tourism-section__heading" id="tourism-heading">
+        地元ドライバーが<br />案内する<br />
+        <span class="tourism-section__heading-em">南相馬の魅力</span>
+      </h2>
+      <div class="tourism-section__divider"></div>
+      <p class="tourism-section__desc">
+        相馬野馬追・小高神社・海岸線など、<br />
+        地元を熟知したドライバーが<br />
+        丁寧にご案内します。
+      </p>
+      <a href="/services#sightseeing" class="tourism-section__cta-btn">
+        観光タクシーを詳しく見る
+        <span class="tourism-section__cta-arrow">→</span>
+      </a>
+    </div>
+
+    <!-- 右: 写真ベントーグリッド -->
+    <div class="tpg reveal" style="align-self: stretch;">
+
+      <!-- 野馬追1: 左縦長 -->
+      <div class="pg tpg--a">
+        <img src="/images/uploads/392DA0C0-3061-4179-9B33-6A0D7F036BA3-opt.webp" alt="相馬野馬追 騎馬行列" class="pg__img" loading="lazy" />
+        <div class="pg__caption pg__caption--lg">
+          <p class="pg__tag">毎年5月</p>
+          <p class="pg__title">相馬野馬追</p>
+          <p class="pg__sub">国重要無形民俗文化財</p>
+        </div>
+      </div>
+
+      <!-- 野馬追2 -->
+      <div class="pg tpg--b">
+        <img src="/images/uploads/C2E3BFF4-7701-45D1-A665-2161D7214851-opt.webp" alt="相馬野馬追 祭り会場" class="pg__img" loading="lazy" />
+        <div class="pg__caption">
+          <p class="pg__title">雲雀ヶ原祭場地</p>
+        </div>
+      </div>
+
+      <!-- 南相馬の夕景 -->
+      <div class="pg tpg--c">
+        <img src="/images/uploads/hero-taxi-sunset.webp" alt="南相馬の夕景と富士タクシー車両" class="pg__img" loading="lazy" />
+        <div class="pg__caption">
+          <p class="pg__tag">通年</p>
+          <p class="pg__title">南相馬の夕景</p>
+        </div>
+      </div>
+
+      <!-- 小高神社1: ワイド -->
+      <div class="pg tpg--d">
+        <img src="/images/LINE_ALBUM_SNS素材_260626_4.webp" alt="小高神社 鳥居" class="pg__img" loading="lazy" />
+        <div class="pg__caption pg__caption--wide">
+          <p class="pg__tag">通年</p>
+          <p class="pg__title">小高神社・小高城跡</p>
+        </div>
+      </div>
+
+      <!-- 小高神社2 -->
+      <div class="pg tpg--e">
+        <img src="/images/LINE_ALBUM_SNS素材_260626_7.webp" alt="小高神社 石碑と階段" class="pg__img" loading="lazy" />
+        <div class="pg__caption">
+          <p class="pg__title">石碑と階段</p>
+        </div>
+      </div>
+
+      <!-- 小高神社3 -->
+      <div class="pg tpg--f">
+        <img src="/images/LINE_ALBUM_SNS素材_260626_9.webp" alt="小高城跡 説明板" class="pg__img" loading="lazy" />
+        <div class="pg__caption">
+          <p class="pg__title">小高城跡</p>
+        </div>
+      </div>
+
+      <!-- イルミ1 -->
+      <div class="pg tpg--g">
+        <img src="/images/uploads/S__2114043911_0.webp" alt="おだかイルミネーション ネコバス" class="pg__img" loading="lazy" />
+        <div class="pg__caption">
+          <p class="pg__tag">12〜1月</p>
+          <p class="pg__title">おだかイルミネーション</p>
+        </div>
+      </div>
+
+      <!-- イルミ2 -->
+      <div class="pg tpg--h">
+        <img src="/images/LINE_ALBUM_SNS素材_260626_57.webp" alt="ODAKA ILLUMINATION 看板" class="pg__img" loading="lazy" />
+        <div class="pg__caption">
+          <p class="pg__title">ODAKA ILLUMINATION</p>
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /.tourism-section__inner -->
+
+</section>
+
+<!-- ════════════════════════════════════════
+     地域への取り組み（ティーザー）
+════════════════════════════════════════ -->
+<section class="section community-teaser bg-soft" aria-labelledby="community-heading">
+  <div class="container">
+    <div class="community-teaser__inner reveal">
+      <div class="community-teaser__text">
+        <p class="eyebrow">Community</p>
+        <h2 class="heading-lg" id="community-heading">
+          地域のために、<br />
+          <span class="text-yellow">タクシーができること。</span>
+        </h2>
+        <p class="lead" style="margin-top:1rem;">
+          スクールタクシー、デマンド乗合タクシー、SDGsへの取り組み。<br />
+          富士タクシーは移動を通じて地域課題に向き合います。
+        </p>
+        <a href="/community" class="btn btn--primary" style="margin-top:2rem;">
+          地域活動を見る
+        </a>
+      </div>
+      <div class="community-teaser__stats" aria-label="地域貢献実績">
+        <div class="community-stat">
+          <span class="community-stat__label">スクールタクシー</span>
+          <span class="community-stat__value">毎日運行</span>
+        </div>
+        <div class="community-stat">
+          <span class="community-stat__label">デマンド乗合</span>
+          <span class="community-stat__value">小高〜原町</span>
+        </div>
+        <div class="community-stat">
+          <span class="community-stat__label">SDGs</span>
+          <span class="community-stat__value">推進中</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     FAQ
+════════════════════════════════════════ -->
+<section class="section faq-section bg-black" aria-labelledby="faq-heading">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="eyebrow">FAQ</p>
+      <h2 class="heading-lg section-title" id="faq-heading">
+        よくある<span class="text-yellow">ご質問</span>
+      </h2>
+    </div>
+
+    <div class="faq-list">
+      {faqSchema.mainEntity.map((item, i) => (
+        <details class="faq-item reveal" style={`transition-delay:${i * 60}ms`}>
+          <summary class="faq-question">
+            <span class="faq-q-mark" aria-hidden="true">Q</span>
+            <span>{item.name}</span>
+            <svg class="faq-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </summary>
+          <div class="faq-answer">
+            <span class="faq-a-mark" aria-hidden="true">A</span>
+            <p>{item.acceptedAnswer.text}</p>
+          </div>
+        </details>
+      ))}
+    </div>
+    <div class="faq-links reveal">
+      <a href="/about" class="faq-link">会社概要 →</a>
+      <a href="/recruit" class="faq-link">採用情報 →</a>
+      <a href="/contact" class="faq-link">お問い合わせ →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     CTA バナー
+════════════════════════════════════════ -->
+<section class="cta-banner bg-yellow" aria-label="お問い合わせ・ご予約">
+  <div class="container">
+    <div class="cta-banner__inner">
+      <div>
+        <h2 class="heading-md text-black">ご予約はお電話で。<br />お問い合わせはウェブでも。</h2>
+        <p style="color: var(--fuji-black); opacity: 0.7; margin-top: 0.5rem; font-size: var(--text-sm);">
+          年中無休 7:00〜24:00 / 現着通知サービス対応
+        </p>
+      </div>
+      <div class="cta-banner__actions">
+        <div class="cta-banner__phones">
+          <a href="tel:0244442543" class="cta-banner__tel">
+            <span class="cta-banner__branch">本社</span>0244-44-2543
+          </a>
+          <a href="tel:0244320030" class="cta-banner__tel">
+            <span class="cta-banner__branch">原町待機所</span>0244-32-0030
+          </a>
+        </div>
+        <a href="/contact" class="btn btn--outline-dark btn--lg">
+          お問い合わせはこちら
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</Layout>
+
+<style>
+/* ─────────────────────────────
+   フォトギャラリー（ベントボックス型）
+───────────────────────────── */
+.photo-gallery {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  height: clamp(520px, 65vw, 800px);
+  background: transparent;
+  gap: 10px;
+  padding: 0;
+  border-top: 4px solid var(--fuji-yellow);
+}
+
+/* A: 左列 縦全体 */
+.pg--main { grid-column: 1; grid-row: 1 / 3; }
+/* B: 右上左 */
+.pg--b    { grid-column: 2; grid-row: 1; }
+/* C: 右上右 */
+.pg--c    { grid-column: 3; grid-row: 1; }
+/* D: 右下ワイド */
+.pg--d    { grid-column: 2 / 4; grid-row: 2; }
+
+.pg {
+  position: relative;
+  overflow: hidden;
+}
+
+.pg__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              filter 0.7s ease;
+  filter: brightness(0.78) saturate(0.9);
+}
+
+.pg__img--crop {
+  object-position: center 47%;
+  transform-origin: center 47%;
+}
+
+.pg:hover .pg__img {
+  transform: scale(1.06);
+  filter: brightness(0.95) saturate(1.1);
+}
+.pg--d:hover .pg__img--crop {
+  transform: scale(1.06);
+  transform-origin: center 47%;
+}
+
+/* キャプション */
+.pg__caption {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1rem 1.1rem;
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.82) 0%,
+    rgba(0,0,0,0.3) 45%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.pg__caption--lg {
+  padding: 1.75rem 2rem;
+}
+
+.pg__caption--wide {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 1.5rem;
+}
+
+/* 震災セルはキャプション下部のみ薄めにオーバーレイ */
+.pg--d-disaster .pg__caption {
+  background: linear-gradient(
+    to top,
+    rgba(0,0,0,0.72) 0%,
+    rgba(0,0,0,0.15) 35%,
+    transparent 60%
+  );
+}
+
+/* 震災写真2枚並べ */
+.pg__disaster-pair {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 3fr 5fr;
+  gap: 2px;
+}
+.pg__disaster-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+  display: block;
+}
+
+.pg__tag {
+  display: inline-block;
+  font-family: var(--font-en);
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  color: var(--fuji-yellow);
+  background: rgba(245,200,0,0.12);
+  border: 1px solid rgba(245,200,0,0.35);
+  border-radius: var(--radius-full);
+  padding: 0.2rem 0.6rem;
+  margin-bottom: 0.5rem;
+  width: fit-content;
+}
+
+.pg__title {
+  font-size: clamp(0.8rem, 1.4vw, 1rem);
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.4;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+}
+
+.pg--main .pg__title {
+  font-size: clamp(1rem, 1.8vw, 1.35rem);
+}
+
+.pg__sub {
+  font-size: clamp(0.65rem, 0.9vw, 0.75rem);
+  color: rgba(255,255,255,0.6);
+  margin-top: 0.2rem;
+  letter-spacing: 0.03em;
+}
+
+/* セパレーターライン（黄色アクセント） */
+.pg--main::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  height: 40%;
+  background: linear-gradient(to top, var(--fuji-yellow), transparent);
+}
+
+@media (max-width: 768px) {
+  .photo-gallery {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1.3fr 1fr 1fr;
+    height: auto;
+  }
+  .pg--main { grid-column: 1 / 3; grid-row: 1; min-height: 260px; }
+  .pg--b    { grid-column: 1; grid-row: 2; min-height: 180px; }
+  .pg--c    { grid-column: 2; grid-row: 2; min-height: 180px; }
+  .pg--d    { grid-column: 1 / 3; grid-row: 3; min-height: 180px; }
+  .pg--main::after { display: none; }
+}
+
+/* 仕切り線 */
+.photo-gallery__main  { border-right: 2px solid var(--fuji-black); }
+.photo-gallery__sub-item { border: 1px solid rgba(0,0,0,0.3); }
+
+@media (max-width: 768px) {
+  .photo-gallery {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .photo-gallery__main { height: 300px; }
+  .photo-gallery__sub {
+    grid-template-columns: 1fr 1fr;
+    height: 320px;
+  }
+  .photo-gallery__sub-item--wide { display: none; }
+}
+
+/* ─────────────────────────────
+   ヒーロー（A+Bハイブリッド）
+───────────────────────────── */
+.hero {
+  position: relative;
+  background: var(--fuji-black);
+  overflow: hidden;
+  padding-block: clamp(4rem, 10vh, 7rem);
+}
+
+.hero__bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center 35%;
+}
+.hero__bg--1 {
+  background-image: url('/images/uploads/hero-spring-river.webp');
+  animation: hero-fade-1 28s ease-in-out infinite;
+}
+.hero__bg--2 {
+  background-image: url('/images/uploads/hero-taxi-minamisoma.webp');
+  animation: hero-fade-2 28s ease-in-out infinite;
+}
+.hero__bg--3 {
+  background-image: url('/images/uploads/hero-taxi-sunset.webp');
+  animation: hero-fade-3 28s ease-in-out infinite;
+}
+.hero__bg--4 {
+  background-image: url('/images/uploads/7D2C5A3E-653A-4943-8B83-E2798D952F30.webp');
+  background-position: center center;
+  animation: hero-fade-4 28s ease-in-out infinite;
+}
+/* 4枚を順番にフェード（各5秒表示・20sサイクル） */
+@keyframes hero-fade-1 {
+  0%, 22%   { opacity: 1; }
+  27%, 97%  { opacity: 0; }
+  100%      { opacity: 1; }
+}
+@keyframes hero-fade-2 {
+  0%, 22%   { opacity: 0; }
+  27%, 47%  { opacity: 1; }
+  52%, 100% { opacity: 0; }
+}
+@keyframes hero-fade-3 {
+  0%, 47%   { opacity: 0; }
+  52%, 72%  { opacity: 1; }
+  77%, 100% { opacity: 0; }
+}
+@keyframes hero-fade-4 {
+  0%, 72%   { opacity: 0; }
+  77%, 97%  { opacity: 1; }
+  100%      { opacity: 0; }
+}
+
+.hero__bg--1::before,
+.hero__bg--2::before,
+.hero__bg--3::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    rgba(10,10,10,0.55) 0%,
+    rgba(10,10,10,0.25) 50%,
+    rgba(10,10,10,0.05) 100%
+  );
+}
+/* 子ども写真：全体を暗くして顔を判別不可に */
+.hero__bg--4::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    rgba(10,10,10,0.60) 0%,
+    rgba(10,10,10,0.30) 50%,
+    rgba(10,10,10,0.10) 100%
+  );
+}
+
+.hero__bg--1::after,
+.hero__bg--2::after,
+.hero__bg--3::after,
+.hero__bg--4::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(10,10,10,0.35) 0%, transparent 50%);
+}
+
+.hero__inner {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 3rem;
+  align-items: center;
+}
+
+.hero__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* 英語タグライン */
+.hero__tagline {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  gap: 0.1em;
+}
+/* ヒーロー順番フェードイン */
+.hero-ani {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: hero-in 0.7s ease forwards;
+  animation-delay: var(--ani-delay, 0s);
+}
+@keyframes hero-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── スライドテキスト ── */
+.hero__slides {
+  position: relative;
+  min-height: clamp(18rem, 55vw, 26rem);
+  margin-bottom: 2rem;
+}
+.hero__slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  opacity: 0;
+  pointer-events: none;
+}
+.hero__slide--1 {
+  animation: slide-show-1 28s ease-in-out infinite;
+}
+.hero__slide--2 {
+  animation: slide-show-2 28s ease-in-out infinite;
+}
+.hero__slide--3 {
+  animation: slide-show-3 28s ease-in-out infinite;
+}
+.hero__slide--4 {
+  animation: slide-show-4 28s ease-in-out infinite;
+}
+/* 4枚 × 7秒表示 = 28秒サイクル（各遷移約1.4秒） */
+@keyframes slide-show-1 {
+  0%   { opacity: 0; transform: translateY(18px); }
+  3%   { opacity: 1; transform: translateY(0); }
+  22%  { opacity: 1; transform: translateY(0); }
+  26%  { opacity: 0; transform: translateY(-12px); }
+  97%  { opacity: 0; transform: translateY(18px); }
+  100% { opacity: 0; transform: translateY(18px); }
+}
+@keyframes slide-show-2 {
+  0%,22%  { opacity: 0; transform: translateY(18px); }
+  26%     { opacity: 1; transform: translateY(0); }
+  47%     { opacity: 1; transform: translateY(0); }
+  51%     { opacity: 0; transform: translateY(-12px); }
+  100%    { opacity: 0; transform: translateY(-12px); }
+}
+@keyframes slide-show-3 {
+  0%,47% { opacity: 0; transform: translateY(18px); }
+  51%    { opacity: 1; transform: translateY(0); }
+  72%    { opacity: 1; transform: translateY(0); }
+  76%    { opacity: 0; transform: translateY(-12px); }
+  100%   { opacity: 0; transform: translateY(-12px); }
+}
+@keyframes slide-show-4 {
+  0%,72% { opacity: 0; transform: translateY(18px); }
+  76%    { opacity: 1; transform: translateY(0); }
+  97%    { opacity: 1; transform: translateY(0); }
+  100%   { opacity: 0; transform: translateY(-12px); }
+}
+.hero__brand-en {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: clamp(2.8rem, 7vw, 5.5rem);
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-shadow: 0 0 20px rgba(245,200,0,0.3), 0 2px 8px rgba(0,0,0,0.7);
+  animation: script-flow 1.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--ani-delay, 0s);
+}
+@keyframes script-flow {
+  0%   { opacity: 0; transform: translateX(-20px) skewX(-6deg); filter: blur(4px); }
+  60%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: translateX(0) skewX(0deg); }
+}
+.hero__brand-en--accent {
+  color: #F5C800;
+  text-shadow: 0 0 60px rgba(245,200,0,0.6), 0 3px 12px rgba(0,0,0,0.5);
+  font-size: clamp(2rem, 5vw, 3.8rem);
+}
+.hero__brand-ja {
+  font-size: clamp(0.85rem, 1.5vw, 1.05rem);
+  font-weight: 600;
+  color: rgba(255,255,255,0.6);
+  letter-spacing: 0.1em;
+  padding-left: 0.2rem;
+}
+.hero__brand-ja--accent {
+  color: rgba(245,200,0,0.75);
+}
+.hero__brand-sep {
+  width: 3rem;
+  height: 2px;
+  background: linear-gradient(to right, #F5C800, transparent);
+  margin: 0.25rem 0;
+}
+@media (min-width: 481px) and (max-width: 900px) {
+  .hero__slides { min-height: 20rem; }
+}
+@media (max-width: 480px) {
+  .hero__brand-en { font-size: 1.4rem; }
+  .hero__brand-en--accent { font-size: 1.2rem; }
+  .hero__brand-ja { font-size: 0.75rem; }
+  .hero__heading { font-size: 1.4rem; }
+  .hero__slides { min-height: 14rem; }
+}
+
+/* H1 */
+.hero__heading {
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  color: rgba(255,255,255,0.75);
+  font-size: clamp(1.4rem, 3.5vw, 2.4rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.hero__accent {
+  color: var(--fuji-yellow);
+  font-style: normal;
+  font-size: clamp(2.2rem, 5.5vw, 4rem);
+  line-height: 1.1;
+  display: block;
+}
+
+/* 一時停止ボタン */
+.hero__pause-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 2rem;
+  color: rgba(255,255,255,0.75);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 0.6rem 1.2rem;
+  min-height: 44px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.hero__pause-btn:hover,
+.hero__pause-btn:focus-visible {
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+  outline: 2px solid var(--fuji-yellow);
+  outline-offset: 2px;
+}
+.hero.is-paused .hero__bg,
+.hero.is-paused .hero__slide {
+  animation-play-state: paused;
+}
+
+.hero__lead {
+  font-size: clamp(var(--text-sm), 1.8vw, var(--text-base));
+  color: var(--fuji-gray-muted);
+  line-height: 1.9;
+}
+
+/* CTAボタン */
+.hero__actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.hero__tel-btn {
+  font-family: var(--font-en);
+  font-size: 1.125rem;
+  letter-spacing: 0.02em;
+}
+.hero__contact-btn {
+  border-color: rgba(255,255,255,0.6);
+  backdrop-filter: blur(4px);
+  background: rgba(255,255,255,0.08);
+}
+.hero__contact-btn:hover {
+  background: rgba(255,255,255,0.15);
+  border-color: var(--fuji-yellow);
+  color: var(--fuji-yellow);
+}
+
+.hero__note {
+  font-size: var(--text-xs);
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 0.04em;
+}
+
+.hero__area {
+  font-size: var(--text-xs);
+  color: rgba(255,255,255,0.35);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 0.75rem;
+}
+
+/* 右カラム：信頼カード */
+.hero__trust-col {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 選ばれる理由バー（未使用） */
+.trust-bar {
+  background: var(--fuji-black);
+  border-bottom: 1px solid rgba(245,200,0,0.2);
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 1rem 2rem;
+  flex-wrap: wrap;
+}
+.trust-bar__fare {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+.trust-bar__fare-label {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.05em;
+}
+.trust-bar__fare-num {
+  font-family: var(--font-en);
+  font-size: 1.9rem;
+  font-weight: 900;
+  color: var(--fuji-yellow);
+  line-height: 1;
+}
+.trust-bar__fare-num small {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--fuji-yellow);
+}
+.trust-bar__fare-sub {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.45);
+}
+.trust-bar__divider {
+  width: 1px;
+  height: 2rem;
+  background: rgba(255,255,255,0.15);
+  flex-shrink: 0;
+}
+.trust-bar__list {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+.trust-bar__item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.trust-bar__icon {
+  font-size: 1rem;
+}
+.trust-bar__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .trust-bar {
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+  }
+  .trust-bar__divider { display: none; }
+  .trust-bar__list { gap: 0.85rem; }
+  .trust-bar__label { font-size: 0.72rem; }
+}
+.hero__trust-card {
+  background: rgba(10,10,10,0.72);
+  border: 1px solid rgba(245,200,0,0.22);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  backdrop-filter: blur(18px);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* 料金ハイライト */
+.hero__fare-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  background: rgba(245,200,0,0.08);
+  border: 1px solid rgba(245,200,0,0.25);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem 0.9rem;
+}
+.hero__fare-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--fuji-yellow);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.hero__fare-price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  line-height: 1;
+}
+.hero__fare-num {
+  font-family: var(--font-en);
+  font-size: 3.5rem;
+  font-weight: 900;
+  color: var(--fuji-yellow);
+  letter-spacing: -0.04em;
+  text-shadow: 0 0 40px rgba(245,200,0,0.4);
+}
+.hero__fare-unit {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: var(--fuji-yellow);
+}
+.hero__fare-sub {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 0.05em;
+}
+
+.hero__trust-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.07);
+}
+
+.hero__trust-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--fuji-yellow);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+/* 2列グリッド */
+.hero__trust-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.hero__trust-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--radius-md);
+  padding: 0.7rem 0.75rem;
+}
+.hero__trust-item--wide {
+  grid-column: 1 / -1;
+}
+.hero__trust-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 22px;
+  text-align: center;
+  margin-top: 0.05rem;
+}
+.hero__trust-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--fuji-white);
+  line-height: 1.3;
+}
+.hero__trust-desc {
+  font-size: 0.62rem;
+  color: var(--fuji-gray-muted);
+  margin-top: 0.1rem;
+  line-height: 1.4;
+}
+
+/* レスポンシブ */
+@media (max-width: 900px) {
+  .hero__inner { grid-template-columns: 1fr; }
+  .hero__trust-col { display: none; }
+}
+@media (max-width: 480px) {
+  .hero__tagline-solid,
+  .hero__tagline-outline { font-size: 1.4rem; }
+}
+
+/* ─────────────────────────────
+   セクション共通ヘッダー
+───────────────────────────── */
+.section-header {
+  margin-bottom: clamp(2.5rem, 5vw, 4rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.section-title { max-width: 700px; }
+
+/* ─────────────────────────────
+   サービス
+───────────────────────────── */
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.service-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--fuji-black-card);
+  border: 1px solid var(--fuji-gray-border);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  text-decoration: none;
+  transition: border-color var(--transition-base), transform var(--transition-base);
+}
+
+.service-card:hover {
+  border-color: var(--fuji-yellow);
+  transform: translateY(-3px);
+}
+
+.service-card__icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(245, 200, 0, 0.08);
+  border: 1px solid rgba(245, 200, 0, 0.2);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  transition: background var(--transition-base), border-color var(--transition-base);
+}
+
+.service-card__icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: var(--fuji-yellow);
+}
+
+.service-card:hover .service-card__icon {
+  background: rgba(245, 200, 0, 0.15);
+  border-color: var(--fuji-yellow);
+}
+
+.service-card__name {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--fuji-white);
+}
+
+.service-card__desc {
+  font-size: var(--text-sm);
+  color: var(--fuji-gray-muted);
+  line-height: 1.7;
+  flex: 1;
+}
+
+.service-card__link {
+  font-size: var(--text-xs);
+  color: var(--fuji-yellow);
+  font-weight: 700;
+  margin-top: auto;
+}
+
+.service-card--featured {
+  border-color: rgba(245,200,0,0.4);
+  background: linear-gradient(135deg, var(--fuji-black-card) 70%, rgba(245,200,0,0.06));
+  position: relative;
+}
+.service-card--featured:hover {
+  border-color: var(--fuji-yellow);
+}
+.service-card__badge {
+  position: absolute;
+  top: -1px;
+  right: 1.25rem;
+  background: var(--fuji-yellow);
+  color: var(--fuji-black);
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.services-cta {
+  margin-top: 2.5rem;
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .services-grid { gap: 0.875rem; }
+}
+
+/* FAQ内部リンク */
+.faq-links {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.faq-link {
+  font-size: var(--text-sm);
+  color: var(--fuji-yellow);
+  text-decoration: none;
+  font-weight: 600;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+.faq-link:hover { opacity: 1; }
+
+/* ─────────────────────────────
+   強み
+───────────────────────────── */
+.strengths-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.strength-card {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: var(--fuji-black-card);
+  border: 1px solid var(--fuji-gray-border);
+  border-left: 3px solid var(--fuji-yellow);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  padding: 2rem 2rem 2rem 1.75rem;
+  transition: border-right-color var(--transition-base);
+}
+
+.strength-card:hover { border-right-color: var(--fuji-yellow); }
+
+.strength-card__num {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.strength-card__figure {
+  font-family: var(--font-en);
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--fuji-yellow);
+  line-height: 1;
+}
+
+.strength-card__unit {
+  font-family: var(--font-en);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--fuji-yellow);
+  opacity: 0.7;
+}
+
+.strength-card__label {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--fuji-white);
+  margin-bottom: 0.4rem;
+}
+
+.strength-card__desc {
+  font-size: var(--text-sm);
+  color: var(--fuji-gray-muted);
+  line-height: 1.7;
+}
+
+/* ─────────────────────────────
+   決済バナー
+───────────────────────────── */
+.payment-banner { padding-block: var(--space-8); }
+.payment-banner__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.payment-banner__title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+.payment-banner__sub {
+  font-size: var(--text-sm);
+  opacity: 0.7;
+  margin-top: 0.25rem;
+}
+
+/* ─────────────────────────────
+   ブランドステートメント
+───────────────────────────── */
+.brand-statement {
+  background: #000;
+  padding: 4rem 0;
+  text-align: center;
+  border-top: 1px solid rgba(245,200,0,0.15);
+  border-bottom: 1px solid rgba(245,200,0,0.15);
+}
+.brand-statement__inner {
+  max-width: 720px;
+}
+.brand-statement__en {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: clamp(2.8rem, 7vw, 6rem);
+  font-weight: 900;
+  color: var(--fuji-yellow);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 0 80px rgba(245,200,0,0.3);
+}
+.brand-statement__ja {
+  font-size: clamp(1.1rem, 3vw, 1.8rem);
+  font-weight: 700;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.1em;
+  margin-bottom: 2rem;
+}
+.brand-statement__line {
+  width: 3rem;
+  height: 2px;
+  background: var(--fuji-yellow);
+  margin: 0 auto 2rem;
+}
+.brand-statement__desc {
+  font-size: clamp(0.9rem, 2vw, 1.1rem);
+  color: rgba(255,255,255,0.55);
+  line-height: 2;
+  letter-spacing: 0.04em;
+}
+
+/* ─────────────────────────────
+   子どもの未来セクション
+───────────────────────────── */
+.children-section {
+  position: relative;
+  min-height: clamp(500px, 75vh, 800px);
+  display: flex;
+  align-items: center;
+}
+
+.children-section__img-wrap {
+  position: absolute;
+  inset: 0;
+}
+
+.children-section__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: right 30%;
+  display: block;
+  filter: brightness(0.55);
+  transition: transform 8s ease;
+}
+
+.children-section:hover .children-section__img {
+  transform: scale(1.04);
+}
+
+.children-section__overlay {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  background: linear-gradient(
+    to right,
+    rgba(0,0,0,0.65) 0%,
+    rgba(0,0,0,0.3) 60%,
+    transparent 100%
+  );
+  padding-block: 4rem;
+}
+
+.children-section__content {
+  max-width: 600px;
+  margin: 0;
+  margin-left: 4vw;
+  padding-inline: 2rem;
+}
+
+/* ── 口コミセクション ── */
+.reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-bottom: var(--space-10);
+}
+.review-card {
+  background: var(--fuji-black-card);
+  border: 1px solid var(--fuji-gray-border);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+}
+.review-card__stars {
+  color: var(--fuji-yellow);
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+.review-card__use {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--fuji-yellow);
+  border: 1px solid rgba(245,200,0,0.4);
+  border-radius: 2rem;
+  padding: 0.1rem 0.6rem;
+  margin-bottom: 0.75rem;
+}
+.review-card__text {
+  color: var(--fuji-off-white);
+  font-size: 0.9rem;
+  line-height: 1.8;
+  margin-bottom: 1rem;
+}
+.review-card__author {
+  color: var(--fuji-gray-muted);
+  font-size: 0.8rem;
+}
+.reviews-cta {
+  text-align: center;
+}
+.reviews-cta__label {
+  color: rgba(255,255,255,0.7);
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  letter-spacing: 0.03em;
+}
+.reviews-cta__btns {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+@media (max-width: 900px) {
+  .reviews-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .reviews-grid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 1rem;
+    padding-bottom: 1.25rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--fuji-yellow) rgba(255,255,255,0.1);
+  }
+  .reviews-grid::-webkit-scrollbar {
+    height: 4px;
+  }
+  .reviews-grid::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+  }
+  .reviews-grid::-webkit-scrollbar-thumb {
+    background: var(--fuji-yellow);
+    border-radius: 2px;
+  }
+  .review-card {
+    min-width: 85vw;
+    scroll-snap-align: start;
+    flex-shrink: 0;
+  }
+}
+.reviews-scroll-hint {
+  display: none;
+  text-align: center;
+  color: var(--fuji-gray-muted);
+  font-size: 0.78rem;
+  margin-top: -0.5rem;
+  margin-bottom: 1rem;
+  letter-spacing: 0.04em;
+}
+@media (max-width: 640px) {
+  .reviews-scroll-hint { display: block; }
+}
+
+/* ── children-section ── */
+.children-section__heading-wrap {
+  margin-bottom: 1.25rem;
+}
+
+.children-section__eyebrow-inline {
+  display: block;
+  font-family: var(--font-en);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--fuji-yellow);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+}
+
+.children-section__heading {
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.children-section__heading-line1 {
+  font-size: clamp(2.2rem, 6vw, 4.2rem);
+  color: #fff;
+  display: block;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  text-shadow: 0 2px 24px rgba(0,0,0,0.5);
+}
+
+.children-section__heading-line2 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-style: normal;
+  color: var(--fuji-yellow);
+  display: block;
+}
+
+.children-section__lead {
+  font-size: var(--text-base);
+  color: rgba(255,255,255,0.85);
+  line-height: 2;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 640px) {
+  .children-section { height: auto; min-height: 480px; }
+  .children-section__overlay { background: rgba(0,0,0,0.55); }
+  .children-section__content { max-width: 100%; }
+}
+
+/* ─────────────────────────────
+   DX配車（富士タクQ）
+───────────────────────────── */
+.dx-section { overflow: hidden; }
+
+.dx-inner {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 4rem;
+  align-items: center;
+}
+
+.dx-badge {
+  display: inline-flex;
+  align-items: center;
+  background: var(--fuji-yellow);
+  color: var(--fuji-black);
+  font-family: var(--font-en);
+  font-size: var(--text-xs);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  padding: 0.3rem 0.9rem;
+  border-radius: var(--radius-full);
+  margin-bottom: 0.75rem;
+}
+
+.dx-heading {
+  color: var(--fuji-white);
+  font-size: clamp(2rem, 4.5vw, 3.25rem);
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-block: 0.75rem;
+}
+
+.dx-lead {
+  color: var(--fuji-gray-muted);
+  line-height: 1.9;
+  font-size: var(--text-base);
+  max-width: 560px;
+  margin-bottom: 2rem;
+}
+.dx-lead strong { color: var(--fuji-white); }
+
+/* 3特徴 */
+.dx-features {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.dx-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+}
+
+.dx-feature__icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(245,200,0,0.12);
+  border: 1px solid rgba(245,200,0,0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--fuji-yellow);
+}
+.dx-feature__icon svg { width: 18px; height: 18px; }
+
+.dx-feature__title {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--fuji-white);
+  margin-bottom: 0.2rem;
+}
+.dx-feature__desc {
+  font-size: var(--text-sm);
+  color: var(--fuji-gray-muted);
+  line-height: 1.6;
+}
+
+/* 専門家インサイト */
+.dx-insight {
+  display: flex;
+  gap: 1rem;
+  background: rgba(245,200,0,0.06);
+  border: 1px solid rgba(245,200,0,0.2);
+  border-left: 3px solid var(--fuji-yellow);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+}
+.dx-insight__icon {
+  width: 20px;
+  height: 20px;
+  color: var(--fuji-yellow);
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+.dx-insight__icon svg { width: 100%; height: 100%; }
+.dx-insight__text {
+  font-size: var(--text-sm);
+  color: var(--fuji-gray-muted);
+  line-height: 1.8;
+}
+
+/* 画像エリア */
+.dx-image {
+  position: relative;
+}
+
+.dx-image__img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  display: block;
+}
+
+.dx-image__label {
+  position: absolute;
+  bottom: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--fuji-yellow);
+  color: var(--fuji-black);
+  border-radius: var(--radius-full);
+  padding: 0.5rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.dx-image__label-text {
+  font-size: var(--text-base);
+  font-weight: 900;
+}
+.dx-image__label-sub {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+@media (max-width: 900px) {
+  .dx-inner {
+    grid-template-columns: 1fr;
+  }
+  .dx-image { order: -1; }
+  .dx-image__label { bottom: 0.75rem; }
+}
+
+/* ─────────────────────────────
+   観光セクション
+───────────────────────────── */
+.tourism-section {
+  background: var(--fuji-black);
+  color: var(--fuji-white);
+}
+.tourism-section__inner {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  align-items: stretch;
+  min-height: clamp(480px, 70vw, 820px);
+}
+.tourism-section__header {
+  padding: 3.5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.25rem;
+  border-right: 1px solid rgba(255,255,255,0.1);
+  background: linear-gradient(160deg, rgba(245,200,0,0.04) 0%, transparent 60%);
+}
+.tourism-section__sub-eyebrow {
+  font-size: var(--text-sm);
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.08em;
+  margin-top: -0.75rem;
+}
+.tourism-section__heading {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 900;
+  line-height: 1.35;
+  color: var(--fuji-white);
+  letter-spacing: -0.01em;
+}
+.tourism-section__heading-em {
+  color: var(--fuji-yellow);
+  font-size: clamp(1.9rem, 3.5vw, 2.6rem);
+}
+.tourism-section__divider {
+  width: 2.5rem;
+  height: 3px;
+  background: var(--fuji-yellow);
+  border-radius: 2px;
+}
+.tourism-section__desc {
+  font-size: var(--text-sm);
+  line-height: 2;
+  color: rgba(255,255,255,0.6);
+}
+.tourism-section__cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  padding: 0.85rem 1.5rem;
+  background: var(--fuji-yellow);
+  color: var(--fuji-black);
+  font-weight: 800;
+  font-size: var(--text-sm);
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  letter-spacing: 0.03em;
+  transition: background 0.2s, transform 0.2s;
+  align-self: flex-start;
+}
+.tourism-section__cta-btn:hover {
+  background: var(--fuji-yellow-dark);
+  transform: translateX(3px);
+}
+.tourism-section__cta-arrow {
+  font-size: 1.1em;
+  transition: transform 0.2s;
+}
+.tourism-section__cta-btn:hover .tourism-section__cta-arrow {
+  transform: translateX(4px);
+}
+@media (max-width: 900px) {
+  .tourism-section__inner {
+    grid-template-columns: 1fr;
+  }
+  .tourism-section__header {
+    padding: 2.5rem 1.5rem;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+}
+.tourism-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+/* イルミネーション写真 */
+.illum-photos {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1.5rem;
+  align-items: center;
+  background: var(--fuji-black);
+  border-radius: var(--radius-xl);
+  padding: 1.75rem;
+}
+.illum-photos__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.illum-photos__season {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--fuji-yellow);
+  border: 1px solid var(--fuji-yellow);
+  border-radius: var(--radius-full);
+  padding: 0.2rem 0.7rem;
+  width: fit-content;
+  letter-spacing: 0.05em;
+}
+.illum-photos__title {
+  font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+  font-weight: 900;
+  color: var(--fuji-white);
+  line-height: 1.3;
+}
+.illum-photos__desc {
+  font-size: var(--text-sm);
+  color: var(--fuji-gray-muted);
+  line-height: 1.8;
+}
+.illum-photos__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.illum-photos__grid--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.illum-photos__img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  max-height: 180px;
+}
+@media (max-width: 700px) {
+  .illum-photos { grid-template-columns: 1fr; }
+  .illum-photos__grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* 観光写真ベントーグリッド */
+.tpg {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  height: 100%;
+  min-height: clamp(480px, 70vw, 820px);
+  background: #0a0a0a;
+  gap: 6px;
+}
+/* 野馬追1: 左縦長 */
+.tpg--a { grid-column: 1; grid-row: 1 / 3; }
+/* 野馬追2 */
+.tpg--b { grid-column: 2; grid-row: 1; }
+/* 野馬追3 */
+.tpg--c { grid-column: 3; grid-row: 1; }
+/* 小高神社1: 右ワイド */
+.tpg--d { grid-column: 2 / 4; grid-row: 2; }
+/* 小高神社2 */
+.tpg--e { grid-column: 1; grid-row: 3; }
+/* 小高神社3 */
+.tpg--f { grid-column: 2; grid-row: 3; }
+/* イルミ1 */
+.tpg--g { grid-column: 3; grid-row: 3; }
+/* イルミ2: 非表示（3行グリッドに収まらないため） */
+.tpg--h { display: none; }
+
+@media (max-width: 700px) {
+  .tpg {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(4, 160px);
+    height: auto;
+  }
+  .tpg--a { grid-column: 1 / 3; grid-row: 1; }
+  .tpg--b { grid-column: 1; grid-row: 2; }
+  .tpg--c { grid-column: 2; grid-row: 2; }
+  .tpg--d { grid-column: 1 / 3; grid-row: 3; }
+  .tpg--e { grid-column: 1; grid-row: 4; }
+  .tpg--f { grid-column: 2; grid-row: 4; }
+  .tpg--g { display: none; }
+}
+
+.tourism-card {
+  background: var(--fuji-white);
+  border: 1px solid var(--fuji-gray-light);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  transition: border-color var(--transition-base), transform var(--transition-base);
+}
+
+.tourism-card:hover {
+  border-color: var(--fuji-yellow-dark);
+  transform: translateY(-2px);
+}
+
+.tourism-card__season {
+  display: inline-block;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--fuji-black);
+  background: var(--fuji-yellow);
+  padding: 0.2rem 0.75rem;
+  border-radius: var(--radius-full);
+  margin-bottom: 0.875rem;
+}
+
+.tourism-card__name {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--fuji-black);
+  margin-bottom: 0.5rem;
+}
+
+.tourism-card__desc {
+  font-size: var(--text-sm);
+  color: #555;
+  line-height: 1.7;
+}
+
+/* ─────────────────────────────
+   地域活動ティーザー
+───────────────────────────── */
+.community-teaser__inner {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4rem;
+  align-items: center;
+}
+
+.community-teaser__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.community-stat {
+  background: var(--fuji-black-card);
+  border: 1px solid var(--fuji-gray-border);
+  border-left: 3px solid var(--fuji-yellow);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  padding: 1.25rem 1.5rem;
+  min-width: 180px;
+}
+
+.community-stat__label {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--fuji-gray-muted);
+  margin-bottom: 0.375rem;
+}
+
+.community-stat__value {
+  font-size: var(--text-xl);
+  font-weight: 800;
+  color: var(--fuji-yellow);
+  line-height: 1.3;
+}
+
+/* ─────────────────────────────
+   FAQ
+───────────────────────────── */
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--fuji-gray-border);
+}
+
+.faq-item {
+  background: var(--fuji-black-card);
+}
+
+.faq-item[open] {
+  border-bottom: 1px solid var(--fuji-gray-border);
+}
+
+.faq-question {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.375rem 1.75rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--fuji-white);
+  transition: background var(--transition-fast);
+  border-bottom: 1px solid var(--fuji-gray-border);
+}
+
+.faq-question:hover { background: rgba(245,200,0,0.04); }
+
+.faq-question::-webkit-details-marker { display: none; }
+
+.faq-q-mark {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  background: var(--fuji-yellow);
+  color: var(--fuji-black);
+  font-size: var(--text-xs);
+  font-weight: 900;
+  font-family: var(--font-en);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.faq-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--fuji-gray-muted);
+  transition: transform var(--transition-base);
+}
+
+.faq-item[open] .faq-chevron { transform: rotate(180deg); }
+
+.faq-answer {
+  display: flex;
+  gap: 1rem;
+  padding: 1.375rem 1.75rem;
+  align-items: flex-start;
+}
+
+.faq-a-mark {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid var(--fuji-gray-border);
+  color: var(--fuji-gray-muted);
+  font-size: var(--text-xs);
+  font-weight: 900;
+  font-family: var(--font-en);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.faq-answer p {
+  font-size: var(--text-sm);
+  color: var(--fuji-gray-muted);
+  line-height: 1.8;
+}
+
+/* ─────────────────────────────
+   CTAバナー
+───────────────────────────── */
+.cta-banner {
+  padding-block: var(--space-12);
+}
+
+.cta-banner__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.cta-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.cta-banner__phones {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.cta-banner__tel {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-family: var(--font-en);
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--fuji-black);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+.cta-banner__tel:hover { text-decoration: underline; }
+.cta-banner__branch {
+  font-family: var(--font-ja, sans-serif);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--fuji-black);
+  opacity: 0.6;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────
+   レスポンシブ
+───────────────────────────── */
+@media (max-width: 1024px) {
+  .hero__inner {
+    grid-template-columns: 1fr;
+  }
+  .hero__stat-col {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .hero__stat-card {
+    flex: 1;
+    flex-direction: row;
+    align-items: center;
+  }
+  .services-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .services-grid     { grid-template-columns: 1fr; }
+  .strengths-grid    { grid-template-columns: 1fr; }
+  .tourism-grid      { grid-template-columns: 1fr; }
+  .cta-banner__inner { flex-direction: column; }
+  .cta-banner__actions { width: 100%; flex-direction: column; }
+  .cta-banner__phones { flex-direction: column; }
+  .payment-inner     { flex-direction: column; }
+  .community-teaser__inner { grid-template-columns: 1fr; }
+  .community-teaser__stats { flex-direction: row; flex-wrap: wrap; }
+  .community-stat    { flex: 1 1 140px; }
+}
+</style>
+
+<script>
+  // ── ヒーロースライドショー一時停止ボタン
+  const pauseBtn = document.getElementById('heroPauseBtn') as HTMLButtonElement | null;
+  const heroSection = document.querySelector('.hero') as HTMLElement | null;
+  if (pauseBtn && heroSection) {
+    pauseBtn.addEventListener('click', () => {
+      const isPaused = heroSection.classList.toggle('is-paused');
+      pauseBtn.setAttribute('aria-pressed', String(isPaused));
+      const iconPause = pauseBtn.querySelector('.hero__pause-icon--pause') as HTMLElement;
+      const iconPlay  = pauseBtn.querySelector('.hero__pause-icon--play') as HTMLElement;
+      const label     = pauseBtn.querySelector('.hero__pause-label') as HTMLElement;
+      if (isPaused) {
+        iconPause.style.display = 'none';
+        iconPlay.style.display  = '';
+        label.textContent = '再生';
+        pauseBtn.setAttribute('aria-label', 'スライドショーを再生');
+      } else {
+        iconPause.style.display = '';
+        iconPlay.style.display  = 'none';
+        label.textContent = '一時停止';
+        pauseBtn.setAttribute('aria-label', 'スライドショーを一時停止');
+      }
+    });
+  }
+</script>

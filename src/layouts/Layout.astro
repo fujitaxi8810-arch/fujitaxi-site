@@ -1,0 +1,526 @@
+---
+import '../styles/global.css';
+
+export interface Props {
+  title: string;
+  description: string;
+  ogImage?: string;
+  canonical?: string;
+  pageType?: 'website' | 'article';
+  structuredData?: object | object[];
+}
+
+const {
+  title,
+  description,
+  ogImage = '/images/og-default.jpg',
+  canonical,
+  pageType = 'website',
+  structuredData,
+} = Astro.props;
+
+const siteUrl = 'https://fujitaxi-minamisoma.com';
+const canonicalUrl = canonical ?? new URL(Astro.url.pathname, siteUrl).href;
+const ogImageUrl = ogImage.startsWith('http') ? ogImage : `${siteUrl}${ogImage}`;
+
+/* ── 構造化データ: LocalBusiness + TaxiService (全ページ共通) ── */
+const localBusinessSchema = {
+  '@context': 'https://schema.org',
+  '@type': ['LocalBusiness', 'TaxiService'],
+  name: '有限会社 富士タクシー',
+  alternateName: '富士タクシー 南相馬',
+  description: '南相馬市小高区・原町区を拠点とするタクシー会社。創業50年以上、スクールタクシー・デマンド乗合・観光タクシー・ジャンボタクシーを運行。',
+  url: siteUrl,
+  telephone: '0244-44-2543',
+  email: 'fuji-taxi.odaka@white.plala.or.jp',
+  foundingDate: '1971',
+  priceRange: '¥700〜',
+  currenciesAccepted: 'JPY',
+  paymentAccepted: '現金, クレジットカード, PayPay, 交通系IC, 電子マネー, JTBタクシーチケット',
+  openingHoursSpecification: {
+    '@type': 'OpeningHoursSpecification',
+    dayOfWeek: [
+      'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday','PublicHolidays'
+    ],
+    opens: '07:00',
+    closes: '24:00',
+  },
+  address: [
+    {
+      '@type': 'PostalAddress',
+      addressCountry: 'JP',
+      postalCode: '979-2124',
+      addressRegion: '福島県',
+      addressLocality: '南相馬市小高区',
+      streetAddress: '本町一丁目57番地',
+      name: '本社',
+    },
+    {
+      '@type': 'PostalAddress',
+      addressCountry: 'JP',
+      postalCode: '975-0037',
+      addressRegion: '福島県',
+      addressLocality: '南相馬市原町区',
+      streetAddress: '北原字本屋敷181番地1',
+      name: '原町待機所',
+    },
+  ],
+  geo: {
+    '@type': 'GeoCoordinates',
+    latitude: 37.5491,
+    longitude: 141.0078,
+  },
+  areaServed: {
+    '@type': 'AdministrativeArea',
+    name: '福島県南相馬市',
+  },
+  hasOfferCatalog: {
+    '@type': 'OfferCatalog',
+    name: 'タクシーサービス一覧',
+    itemListElement: [
+      { '@type': 'Offer', itemOffered: { '@type': 'Service', name: '一般乗用タクシー', description: '初乗り700円〜' } },
+      { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'ジャンボタクシー（最大9名）', description: '初乗り980円〜、貸切対応' } },
+      { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'デマンドタクシー（乗合）', description: '小高区内・原町区間の乗合運行' } },
+      { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'スクールタクシー', description: '小高区スクール送迎・毎日運行' } },
+    ],
+  },
+  sameAs: [],
+};
+
+const mergedStructuredData = structuredData ?? localBusinessSchema;
+
+const currentPath = Astro.url.pathname;
+
+const navItems = [
+  { href: '/',            label: 'ホーム',           en: 'Home' },
+  { href: '/about',       label: '企業情報',         en: 'About' },
+  { href: '/services',    label: 'サービス・料金',   en: 'Services' },
+  { href: '/community',   label: '地域への取り組み', en: 'Community' },
+  { href: '/corporate',   label: '法人の方へ',       en: 'Corporate' },
+  { href: '/dayservice',  label: 'デイサービス送迎', en: 'Day Service' },
+  { href: '/news',        label: 'お知らせ',         en: 'News' },
+  { href: '/recruit',     label: '採用情報',         en: 'Recruit' },
+];
+---
+
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- ── Primary Meta ── -->
+  <title>{title} | 富士タクシー 南相馬市</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonicalUrl} />
+  <meta name="robots" content="index, follow" />
+
+  <!-- ── OGP ── -->
+  <meta property="og:type"        content={pageType} />
+  <meta property="og:url"         content={canonicalUrl} />
+  <meta property="og:title"       content={`${title} | 富士タクシー 南相馬市`} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image"       content={ogImageUrl} />
+  <meta property="og:image:width"  content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:locale"      content="ja_JP" />
+  <meta property="og:site_name"   content="富士タクシー 南相馬市" />
+
+  <!-- ── Twitter Card ── -->
+  <meta name="twitter:card"        content="summary_large_image" />
+  <meta name="twitter:title"       content={`${title} | 富士タクシー 南相馬市`} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image"       content={ogImageUrl} />
+
+  <!-- ── Favicon ── -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <!-- ── Fonts: Noto Sans JP + Inter + Great Vibes（非同期） ── -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Inter:wght@400;600;800&family=Great+Vibes&display=swap"
+    rel="stylesheet"
+    media="print"
+    onload="this.media='all'"
+  />
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Inter:wght@400;600;800&family=Great+Vibes&display=swap" rel="stylesheet" />
+  </noscript>
+
+  <!-- ── 構造化データ (JSON-LD) ── -->
+  <script type="application/ld+json" set:html={JSON.stringify(mergedStructuredData)} />
+
+  <!-- ── Theme color (PWA) ── -->
+  <meta name="theme-color" content="#111111" />
+  <!-- ── LCP最適化：ヒーロー背景画像先読み ── -->
+  <link rel="preload" as="image" href="/images/uploads/hero-spring-river.webp" type="image/webp" fetchpriority="high" />
+  <link rel="preload" as="image" href="/images/uploads/hero-taxi-minamisoma.webp" type="image/webp" />
+  <link rel="preload" as="image" href="/images/uploads/hero-taxi-sunset.webp" type="image/webp" />
+  <link rel="preload" as="image" href="/images/uploads/7D2C5A3E-653A-4943-8B83-E2798D952F30.webp" type="image/webp" />
+</head>
+
+<body>
+
+  <!-- ── ナビゲーション ── -->
+  <header class="nav" role="banner">
+    <nav class="container nav__inner" aria-label="メインナビゲーション">
+
+      <!-- ロゴ -->
+      <a href="/" class="nav__logo" aria-label="富士タクシー トップページへ">
+        <img
+          src="/images/logo-fuji-taxi.webp"
+          alt="富士タクシー"
+          class="nav__logo-img"
+          width="44"
+          height="44"
+          loading="eager"
+        />
+        <span>富士タクシー</span>
+      </a>
+
+      <!-- デスクトップリンク -->
+      <ul class="nav__links" role="list">
+        {navItems.map(item => (
+          <li>
+            <a
+              href={item.href}
+              class={`nav__link${currentPath === item.href || (item.href !== '/' && currentPath.startsWith(item.href)) ? ' nav__link--active' : ''}`}
+              aria-current={currentPath === item.href ? 'page' : undefined}
+            >
+              <span class="nav__link-en">{item.en}</span>
+              <span class="nav__link-ja">{item.label}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+
+      <!-- CTA -->
+      <a href="/contact" class="btn btn--primary btn--sm nav__cta">
+        予約・お問い合わせ
+      </a>
+
+      <!-- ハンバーガー（モバイル） -->
+      <button
+        class="nav__hamburger"
+        id="hamburger"
+        aria-label="メニューを開く"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+    </nav>
+
+    <!-- モバイルメニュー -->
+    <div class="nav__mobile" id="mobile-menu" role="navigation" aria-label="モバイルメニュー">
+      {navItems.map(item => (
+        <a
+          href={item.href}
+          class={`nav__mobile-link${currentPath === item.href ? ' nav__link--active' : ''}`}
+          aria-current={currentPath === item.href ? 'page' : undefined}
+        >
+          {item.label}
+        </a>
+      ))}
+      <a href="/contact" class="btn btn--primary nav__mobile-cta">
+        予約・お問い合わせ
+      </a>
+    </div>
+  </header>
+
+  <!-- ── ニューステッカー ── -->
+  <div class="news-ticker" role="marquee" aria-label="お知らせ">
+    <span class="news-ticker__label">NEWS</span>
+    <div class="news-ticker__track">
+      <div class="news-ticker__inner">
+        <span>年中無休 7:00〜24:00 営業中</span>
+        <span>小高区・原町区 2拠点でお待ちしています</span>
+        <span>ジャンボタクシー（最大9名）は事前予約制</span>
+        <span>クレカ・QR・電子マネーなど10種類以上の決済対応</span>
+        <span>本社 0244-44-2543 ／ 原町待機所 0244-32-0030</span>
+        <span>年中無休 7:00〜24:00 営業中</span>
+        <span>小高区・原町区 2拠点でお待ちしています</span>
+        <span>ジャンボタクシー（最大9名）は事前予約制</span>
+        <span>クレカ・QR・電子マネーなど10種類以上の決済対応</span>
+        <span>本社 0244-44-2543 ／ 原町待機所 0244-32-0030</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── フローティングCTA ── -->
+  <div class="float-cta" aria-label="ご予約・お問い合わせ">
+    <a href="tel:0244442543" class="float-cta__btn float-cta__btn--tel">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6 6l.54-.54a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.28 16.92z"/>
+      </svg>
+      <span>電話で予約</span>
+    </a>
+    <a href="/contact#form" class="float-cta__btn float-cta__btn--web">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      <span>Webお問い合わせ</span>
+    </a>
+  </div>
+
+  <!-- ── メインコンテンツ ── -->
+  <main id="main-content">
+    <slot />
+  </main>
+
+  <!-- ── フッター ── -->
+  <footer class="footer" role="contentinfo">
+    <div class="container">
+
+      <div class="footer__grid">
+
+        <!-- ブランド列 -->
+        <div class="footer__brand">
+          <a href="/" class="footer__logo" aria-label="富士タクシー トップページへ">
+            <img
+              src="/images/logo-fuji-taxi.webp"
+              alt="富士タクシー"
+              class="footer__logo-img"
+              width="52"
+              height="52"
+              loading="lazy"
+            />
+            <span>富士タクシー</span>
+          </a>
+          <p class="footer__tagline">
+            移動のその先にある、人とのつながりと笑顔を創造する。<br />
+            創業50年以上、南相馬市とともに歩んできた地域密着タクシー。
+          </p>
+          <div>
+            <p class="footer__phone">0244-44-2543</p>
+            <p class="footer__hours">本社 / 年中無休 7:00〜24:00</p>
+            <p class="footer__hours" style="margin-top:0.25rem;">原町待機所 0244-32-0030</p>
+          </div>
+          <a href="tel:0244442543" class="btn btn--primary btn--sm" style="align-self: flex-start;">
+            📞 電話で予約する
+          </a>
+
+          <!-- Instagram -->
+          <div class="footer__sns">
+            <a
+              href="https://www.instagram.com/fuji_taxi442543/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="footer__sns-link"
+              aria-label="富士タクシー Instagram（新しいタブで開く）"
+            >
+              <svg class="footer__sns-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="2" y="2" width="20" height="20" rx="5" stroke="currentColor" stroke-width="1.8"/>
+                <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="1.8"/>
+                <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/>
+              </svg>
+              <span>@FUJI_TAXI442543</span>
+            </a>
+            <div class="footer__qr-wrap">
+              <img
+                src="/images/sns-instagram-qr.png"
+                alt="富士タクシー Instagram QRコード"
+                class="footer__qr"
+                width="96"
+                height="96"
+                loading="lazy"
+              />
+              <p class="footer__qr-label">QRでフォロー</p>
+            </div>
+          </div>
+
+          <!-- LINE -->
+          <div class="footer__sns">
+            <a
+              href="https://lin.ee/fujitaxi"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="footer__sns-link footer__sns-link--line"
+              aria-label="富士タクシー LINE公式アカウント（新しいタブで開く）"
+            >
+              <svg class="footer__sns-icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M12 2C6.48 2 2 6.03 2 11c0 3.14 1.68 5.91 4.24 7.68L5.5 22l3.27-1.72C9.6 20.72 10.78 21 12 21c5.52 0 10-4.03 10-9S17.52 2 12 2zm5.5 12.5h-4.25v-6h1.5v4.5h2.75v1.5zm-6.25 0h-1.5v-6h1.5v6zm-2.75 0H7.5V9.5H9v4H8.5V14.5zm-1-6H6v1.5h1.5v-1.5z"/>
+              </svg>
+              <span>LINE公式</span>
+            </a>
+          </div>
+
+          <!-- TikTok -->
+          <div class="footer__sns">
+            <a
+              href="https://www.tiktok.com/@fujitaxi8810"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="footer__sns-link"
+              aria-label="富士タクシー TikTok（新しいタブで開く）"
+            >
+              <svg class="footer__sns-icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.27 8.27 0 0 0 4.84 1.56V6.81a4.85 4.85 0 0 1-1.07-.12z"/>
+              </svg>
+              <span>TikTok</span>
+            </a>
+            <div class="footer__qr-wrap">
+              <img
+                src="/images/qr-tiktok.png"
+                alt="富士タクシー TikTok QRコード"
+                class="footer__qr"
+                width="96"
+                height="96"
+                loading="lazy"
+              />
+              <p class="footer__qr-label">QRでフォロー</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 予約CTA列 -->
+        <div class="footer__cta-col">
+          <p class="footer__col-title">ご予約・お問い合わせ</p>
+
+          <div class="footer__cta-phone">
+            <a href="tel:0244442543" class="footer__cta-tel"><span class="footer__cta-branch-inline">本社</span>0244-44-2543</a>
+            <p class="footer__cta-sub">年中無休 7:00〜24:00</p>
+          </div>
+
+          <div class="footer__cta-phone">
+            <p class="footer__cta-branch">原町待機所</p>
+            <a href="tel:0244320030" class="footer__cta-tel footer__cta-tel--sub">0244-32-0030</a>
+          </div>
+
+          <a href="/contact" class="btn btn--outline btn--sm footer__cta-web">Webでお問い合わせ</a>
+        </div>
+
+        <!-- サービス列 -->
+        <div>
+          <p class="footer__col-title">サービス</p>
+          <ul class="footer__links" role="list">
+            <li><a href="/services#general"   class="footer__link">一般乗用タクシー</a></li>
+            <li><a href="/services#jumbo"     class="footer__link">ジャンボタクシー</a></li>
+            <li><a href="/services#demand"    class="footer__link">デマンドタクシー</a></li>
+            <li><a href="/services#school"    class="footer__link">スクールタクシー</a></li>
+            <li><a href="/services#sightseeing" class="footer__link">観光タクシー</a></li>
+            <li><a href="/corporate"          class="footer__link">法人・空港送迎</a></li>
+            <li><a href="/dayservice"         class="footer__link">デイサービス送迎（定額制）</a></li>
+          </ul>
+        </div>
+
+        <!-- 会社情報列 -->
+        <div>
+          <p class="footer__col-title">会社情報</p>
+          <ul class="footer__links" role="list">
+            <li><a href="/about"             class="footer__link">企業情報</a></li>
+            <li><a href="/about#philosophy"  class="footer__link">経営理念</a></li>
+            <li><a href="/about#company"     class="footer__link">会社概要</a></li>
+            <li><a href="/community"         class="footer__link">地域への取り組み</a></li>
+            <li><a href="/recruit"           class="footer__link">採用情報</a></li>
+          </ul>
+        </div>
+
+        <!-- その他列 -->
+        <div>
+          <p class="footer__col-title">その他</p>
+          <ul class="footer__links" role="list">
+            <li><a href="/news"    class="footer__link">お知らせ</a></li>
+            <li><a href="/sitemap.xml" class="footer__link">サイトマップ</a></li>
+          </ul>
+          <div style="margin-top: 1.5rem;">
+            <p class="footer__col-title">所在地</p>
+            <address style="font-style:normal; font-size: 0.8125rem; color: var(--fuji-gray-muted); line-height: 1.8;">
+              <strong style="color:rgba(255,255,255,0.55); font-size:0.75rem;">本社</strong><br />
+              〒979-2124<br />
+              福島県南相馬市<br />
+              小高区本町一丁目57番地
+            </address>
+            <address style="font-style:normal; font-size: 0.8125rem; color: var(--fuji-gray-muted); line-height: 1.8; margin-top: 0.75rem;">
+              <strong style="color:rgba(255,255,255,0.55); font-size:0.75rem;">原町待機所</strong><br />
+              〒975-0037<br />
+              福島県南相馬市<br />
+              原町区北原本屋敷181-1
+            </address>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- フッターボトム -->
+      <div class="footer__bottom">
+        <p class="footer__copy">
+          © {new Date().getFullYear()} 有限会社 富士タクシー. All rights reserved.
+        </p>
+        <ul class="footer__legal" role="list">
+          <li><a href="/privacy">プライバシーポリシー</a></li>
+          <li><a href="/sitemap.xml">サイトマップ</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </footer>
+
+</body>
+
+<!-- ── スクリプト ── -->
+<script>
+  /* ── モバイルナビ ── */
+  const hamburger = document.getElementById('hamburger');
+  const mobileMenu = document.getElementById('mobile-menu');
+
+  hamburger?.addEventListener('click', () => {
+    const isOpen = mobileMenu?.classList.toggle('is-open');
+    hamburger.setAttribute('aria-expanded', String(isOpen));
+    hamburger.setAttribute('aria-label', isOpen ? 'メニューを閉じる' : 'メニューを開く');
+  });
+
+  /* ── フローティングCTA: ヒーロー通過後に表示、フッター付近で非表示 ── */
+  const floatCta = document.querySelector('.float-cta') as HTMLElement | null;
+  const showCtaAt = window.innerHeight * 0.6;
+  const updateFloatCta = () => {
+    if (!floatCta) return;
+    const docHeight = document.documentElement.scrollHeight;
+    const scrollBottom = window.scrollY + window.innerHeight;
+    const nearBottom = scrollBottom > docHeight - 200;
+    floatCta.classList.toggle('is-visible', window.scrollY > showCtaAt && !nearBottom);
+  };
+  window.addEventListener('scroll', updateFloatCta, { passive: true });
+  updateFloatCta();
+
+  /* ── スクロールリビール ── */
+  const revealEls = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+    );
+    revealEls.forEach(el => observer.observe(el));
+  } else {
+    revealEls.forEach(el => el.classList.add('is-visible'));
+  }
+
+  /* ── ナビ: スクロール時の背景強調 ── */
+  const nav = document.querySelector('.nav') as HTMLElement | null;
+  let lastScroll = 0;
+  window.addEventListener('scroll', () => {
+    const current = window.scrollY;
+    if (nav) {
+      if (current > 60) {
+        nav.style.borderBottomColor = 'rgba(245,200,0,0.2)';
+      } else {
+        nav.style.borderBottomColor = '';
+      }
+    }
+    lastScroll = current;
+  }, { passive: true });
+</script>
+
+</html>

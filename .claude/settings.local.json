@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"C:/Users/hayat/Downloads/\" | grep -i fuji)",
+      "Bash(powershell -Command \"Expand-Archive -Path 'C:/Users/hayat/Downloads/fuji-taxi-src.zip' -DestinationPath '.' -Force\")",
+      "Bash(npm install *)",
+      "PowerShell(node --version; \\(Get-Command node\\).Source)",
+      "Bash(find \"C:/Users/hayat/AppData\" -name \"*.png\" -o -name \"*.jpg\" -o -name \"*.jpeg\" -o -name \"*.webp\" 2>/dev/null | grep -i \"claude\\\\|upload\\\\|attach\\\\|temp\\\\|cache\" | head -20)",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"C:\\\\Users\\\\hayat\\\\fujitaxi-site\\\\public\\\\images\\\\uploads\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"C:\\\\Users\\\\hayat\\\\fujitaxi-site\\\\public\\\\images\")",
+      "PowerShell(Get-NetTCPConnection -LocalPort 4321,4322,4323 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; Write-Host \"旧サーバー停止完了\")",
+      "Bash(git rm *)",
+      "Bash(git add *)"
+    ]
+  }
+}

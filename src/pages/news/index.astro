@@ -65,6 +65,7 @@ function formatDate(dateStr: string) {
               <p class="pinned-card__label">営業時間</p>
               <p class="pinned-card__value">年中無休</p>
               <p class="pinned-card__sub">7:00 〜 24:00</p>
+              <p class="pinned-card__note">※12/31・1/1を除く</p>
             </div>
           </li>
           <li class="pinned-card">
@@ -111,26 +112,24 @@ function formatDate(dateStr: string) {
         ) : newsItems.length === 0 ? (
           <div class="notice reveal">現在お知らせはありません。</div>
         ) : (
-          <ul class="article-list">
+          <ul class="card-grid">
             {newsItems.map((item, i) => {
               const d = formatDate(item.publishedAt || item.createdAt);
               const isImportant = item.category === '重要';
+              const isFeatured = i === 0;
               return (
-                <li class="article-card reveal" style={`transition-delay:${i * 60}ms`}>
-                  <a href={`/news/${item.id}`} class="article-card__link">
-                    <div class="article-card__left">
-                      <time class="article-card__date" datetime={item.publishedAt}>
-                        <span class="article-card__month">{d.year}.{d.month}</span>
-                        <span class="article-card__day">{d.day}</span>
-                      </time>
-                    </div>
-                    <div class="article-card__body">
-                      <span class={`article-card__tag${isImportant ? ' article-card__tag--yellow' : ''}`}>{item.category}</span>
-                      <p class="article-card__title">{item.title}</p>
-                    </div>
-                    <div class="article-card__arrow">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </div>
+                <li class={`news-card reveal${isFeatured ? ' news-card--featured' : ''}`} style={`transition-delay:${i * 50}ms`}>
+                  <a href={`/news/${item.id}`} class="news-card__link">
+                    <time class={`news-card__date${isFeatured ? ' news-card__date--w' : ''}`} datetime={item.publishedAt}>
+                      {d.year}.{d.month}.{d.day}
+                    </time>
+                    <span class={`news-card__tag${isImportant ? ' news-card__tag--yellow' : (isFeatured ? ' news-card__tag--ghost' : '')}`}>
+                      {item.category}
+                    </span>
+                    <p class={`news-card__title${isFeatured ? ' news-card__title--lg' : ''}`}>{item.title}</p>
+                    {isFeatured && (
+                      <span class="news-card__read">続きを読む →</span>
+                    )}
                   </a>
                 </li>
               );
@@ -196,11 +195,10 @@ function formatDate(dateStr: string) {
     margin-bottom: 3rem;
   }
   .pinned-section__label {
-    font-size: 0.72rem;
+    font-size: 1rem;
     font-weight: 700;
-    letter-spacing: 0.1em;
-    color: #999;
-    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #555;
     margin-bottom: 0.75rem;
   }
   .pinned-cards {
@@ -210,43 +208,30 @@ function formatDate(dateStr: string) {
     gap: 0.75rem;
   }
   .pinned-card {
-    background: #fff;
-    border: 1px solid #e8e8e4;
+    background: var(--fuji-black);
+    border: 2px solid rgba(255,255,255,0.08);
     border-radius: 10px;
     padding: 1.25rem 1rem;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
     cursor: default;
   }
   .pinned-card:hover {
+    background: var(--fuji-yellow);
+    border-color: var(--fuji-yellow);
     transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    border-color: var(--fuji-yellow);
-    background: #fffdf0;
   }
-  .pinned-card:hover .pinned-card__icon { color: var(--fuji-yellow-dark); }
-  .pinned-card:hover .pinned-card__value { color: #000; }
+  .pinned-card:hover .pinned-card__icon { color: #111; }
+  .pinned-card:hover .pinned-card__label { color: rgba(0,0,0,0.5); }
+  .pinned-card:hover .pinned-card__value { color: #111; }
+  .pinned-card:hover .pinned-card__sub { color: rgba(0,0,0,0.55); }
+  .pinned-card:hover .pinned-card__note { color: rgba(0,0,0,0.45); }
 
-  .pinned-card--highlight {
-    background: var(--fuji-black);
-    border-color: var(--fuji-black);
-    color: var(--fuji-white);
-  }
-  .pinned-card--highlight:hover {
-    background: #1a1a00;
-    border-color: var(--fuji-yellow);
-    box-shadow: 0 8px 32px rgba(245,200,0,0.3);
-  }
-  .pinned-card--highlight:hover .pinned-card__icon { color: var(--fuji-yellow); }
-  .pinned-card--highlight:hover .pinned-card__value { color: var(--fuji-yellow); }
   .pinned-card__icon {
-    color: #bbb;
-    line-height: 1;
-  }
-  .pinned-card--highlight .pinned-card__icon {
     color: var(--fuji-yellow);
+    line-height: 1;
   }
   .pinned-card__body {
     display: flex;
@@ -256,23 +241,25 @@ function formatDate(dateStr: string) {
   .pinned-card__label {
     font-size: 0.68rem;
     font-weight: 700;
-    color: #aaa;
+    color: rgba(255,255,255,0.5);
     letter-spacing: 0.05em;
   }
-  .pinned-card--highlight .pinned-card__label { color: rgba(255,255,255,0.5); }
   .pinned-card__value {
     font-size: 1.15rem;
     font-weight: 900;
-    color: #111;
+    color: var(--fuji-white);
     line-height: 1.1;
   }
-  .pinned-card--highlight .pinned-card__value { color: var(--fuji-white); }
   .pinned-card__sub {
     font-size: 0.75rem;
-    color: #888;
+    color: rgba(255,255,255,0.5);
     margin-top: 0.1rem;
   }
-  .pinned-card--highlight .pinned-card__sub { color: rgba(255,255,255,0.5); }
+  .pinned-card__note {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.35);
+    margin-top: 0.25rem;
+  }
 
   @media (max-width: 700px) {
     .pinned-cards { grid-template-columns: repeat(2, 1fr); }
@@ -311,113 +298,114 @@ function formatDate(dateStr: string) {
     letter-spacing: 0.02em;
   }
 
-  /* ── 記事カード ── */
-  .article-list {
+  /* ── カードグリッド ── */
+  .card-grid {
     list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.875rem;
   }
 
-  .article-card__link {
+  .news-card { display: flex; }
+  .news-card--featured { grid-column: 1 / -1; }
+
+  .news-card__link {
     display: flex;
-    align-items: stretch;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 1.5rem;
     text-decoration: none;
     background: var(--fuji-black);
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.06);
-    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    border: 2px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    transition: border-color 0.2s, background 0.2s, transform 0.2s;
   }
-  .article-card__link:hover {
+  .news-card__link:hover {
+    background: var(--fuji-yellow);
     border-color: var(--fuji-yellow);
     transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
   }
 
-  .article-card__left {
-    background: rgba(255,255,255,0.04);
-    border-right: 1px solid rgba(255,255,255,0.06);
-    padding: 1.25rem 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    min-width: 90px;
+  .news-card--featured .news-card__link {
+    padding: 2rem;
+    border-color: rgba(255,255,255,0.12);
   }
-  .article-card__date {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.1rem;
-  }
-  .article-card__month {
-    font-family: var(--font-en);
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    color: var(--fuji-gray-muted);
-    line-height: 1;
-  }
-  .article-card__day {
-    font-family: var(--font-en);
-    font-size: 2rem;
-    font-weight: 900;
-    color: var(--fuji-white);
-    line-height: 1;
-  }
-
-  .article-card__body {
-    flex: 1;
-    padding: 1.25rem 1.5rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.4rem;
-  }
-  .article-card__tag {
-    display: inline-block;
-    width: fit-content;
-    padding: 0.15rem 0.6rem;
-    border-radius: var(--radius-full);
-    font-size: 0.68rem;
-    font-weight: 700;
-    border: 1px solid rgba(255,255,255,0.15);
-    color: var(--fuji-gray-muted);
-  }
-  .article-card__tag--yellow {
+  .news-card--featured .news-card__link:hover {
     background: var(--fuji-yellow);
-    color: var(--fuji-black);
     border-color: var(--fuji-yellow);
   }
-  .article-card__title {
-    font-size: var(--text-base);
-    font-weight: 600;
-    color: var(--fuji-white);
-    line-height: 1.5;
+
+  .news-card__date {
+    font-family: var(--font-en);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.05em;
+    transition: color 0.2s;
   }
-  .article-card__link:hover .article-card__title {
+  .news-card__date--w { color: rgba(255,255,255,0.5); }
+  .news-card__link:hover .news-card__date { color: rgba(0,0,0,0.5); }
+
+  .news-card__tag {
+    display: inline-block;
+    width: fit-content;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-full);
+    border: 1.5px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.7);
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .news-card__tag--yellow {
+    background: var(--fuji-yellow);
+    color: #111;
+    border-color: var(--fuji-yellow);
+  }
+  .news-card__tag--ghost {
+    border-color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.8);
+  }
+  .news-card__link:hover .news-card__tag {
+    border-color: rgba(0,0,0,0.25);
+    color: rgba(0,0,0,0.6);
+  }
+  .news-card__link:hover .news-card__tag--yellow {
+    background: #111;
     color: var(--fuji-yellow);
+    border-color: #111;
   }
 
-  .article-card__arrow {
-    display: flex;
-    align-items: center;
-    padding: 0 1.25rem;
-    flex-shrink: 0;
-    color: rgba(255,255,255,0.2);
-    transition: color 0.2s, transform 0.2s;
+  .news-card__title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.55;
+    flex: 1;
+    transition: color 0.2s;
   }
-  .article-card__link:hover .article-card__arrow {
+  .news-card__title--lg {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.4;
+  }
+  .news-card__link:hover .news-card__title { color: #111; }
+
+  .news-card__read {
+    font-size: 0.8rem;
+    font-weight: 700;
     color: var(--fuji-yellow);
-    transform: translateX(3px);
+    margin-top: 0.5rem;
+    transition: color 0.2s;
   }
+  .news-card__link:hover .news-card__read { color: #111; }
 
   @media (max-width: 600px) {
-    .article-card__left { min-width: 70px; padding: 1rem; }
-    .article-card__day { font-size: 1.5rem; }
-    .article-card__body { padding: 1rem; }
-    .article-card__arrow { padding: 0 0.75rem; }
+    .card-grid { grid-template-columns: 1fr; }
+    .news-card--featured { grid-column: auto; }
+    .news-card__title--lg { font-size: 1.1rem; }
   }
 
   /* ── notices ── */

@@ -1,7 +1,8 @@
 import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
 
 export default defineConfig({
-  integrations: [],
+  integrations: [sitemap()],
   site: process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://fujitaxi-minamisoma.com',
   compressHTML: true,
   build: {

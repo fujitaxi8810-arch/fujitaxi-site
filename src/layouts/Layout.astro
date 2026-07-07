@@ -198,8 +198,8 @@ const navItems = [
                   aria-haspopup="true"
                   aria-expanded="false"
                 >
-                  <span class="nav__link-en">{item.en}</span>
                   <span class="nav__link-ja">{item.label}<svg class="nav__chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+                  <span class="nav__link-en">{item.en}</span>
                 </button>
                 <ul class="nav__dropdown" role="list">
                   {item.children.map(child => (
@@ -221,8 +221,8 @@ const navItems = [
                 class={`nav__link${currentPath === item.href || (item.href !== '/' && currentPath.startsWith(item.href)) ? ' nav__link--active' : ''}`}
                 aria-current={currentPath === item.href ? 'page' : undefined}
               >
-                <span class="nav__link-en">{item.en}</span>
                 <span class="nav__link-ja">{item.label}</span>
+                <span class="nav__link-en">{item.en}</span>
               </a>
             )}
           </li>

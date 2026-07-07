@@ -179,6 +179,21 @@ button {
   letter-spacing: -0.02em;
 }
 
+.section-h3 {
+  font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin-block: 0.75rem;
+}
+
+.cta-h2 {
+  font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+  font-weight: 900;
+  line-height: 1.2;
+  margin-bottom: 0.75rem;
+}
+
 .heading-lg {
   font-size: clamp(var(--text-2xl), 4vw, var(--text-4xl));
   font-weight: 700;

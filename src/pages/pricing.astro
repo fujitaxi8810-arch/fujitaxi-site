@@ -1,0 +1,458 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="料金・決済方法 – 富士タクシー"
+  description="富士タクシーの運賃料金表。距離制・時間制運賃、割増・割引、クレジットカード・QR・電子マネーなど10種類以上の決済方法に対応しています。"
+>
+
+  <!-- ページヒーロー -->
+  <section class="page-hero bg-black">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="パンくずリスト">
+        <ol>
+          <li><a href="/">ホーム</a></li>
+          <li aria-hidden="true">›</li>
+          <li><a href="/services">サービス</a></li>
+          <li aria-hidden="true">›</li>
+          <li aria-current="page">料金・決済</li>
+        </ol>
+      </nav>
+      <p class="eyebrow reveal">Pricing & Payment</p>
+      <h1 class="reveal">料金・<span class="text-yellow">決済方法</span></h1>
+      <p class="page-hero__lead reveal">運賃料金には消費税10%が含まれております。</p>
+      <nav class="pricing-anchors reveal" aria-label="料金一覧">
+        <a href="#distance">距離制運賃</a>
+        <a href="#time">時間制運賃</a>
+        <a href="#extras">割増・割引</a>
+        <a href="#payment">決済方法</a>
+      </nav>
+    </div>
+  </section>
+
+  <!-- 距離制運賃 -->
+  <section class="section bg-black" id="distance">
+    <div class="container">
+      <div class="fare-block reveal">
+        <h2 class="fare-block__title">距離制運賃</h2>
+        <table class="price-table">
+          <thead>
+            <tr>
+              <th>車種</th>
+              <th>初乗り（1.0kmまで）</th>
+              <th>加算運賃</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>普通車</td>
+              <td class="price-table__price">700円</td>
+              <td>260mごとに100円</td>
+            </tr>
+            <tr>
+              <td>大型車</td>
+              <td class="price-table__price">900円</td>
+              <td>177mごとに100円</td>
+            </tr>
+            <tr>
+              <td>特大車（ジャンボ）</td>
+              <td class="price-table__price">980円</td>
+              <td>173mごとに100円</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 時間制運賃 -->
+      <div class="fare-block reveal" id="time">
+        <h2 class="fare-block__title">時間制運賃（30分ごと）</h2>
+        <table class="price-table">
+          <thead>
+            <tr>
+              <th>車種</th>
+              <th>料金</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>普通車</td>
+              <td class="price-table__price">3,670円</td>
+            </tr>
+            <tr>
+              <td>大型車</td>
+              <td class="price-table__price">5,390円</td>
+            </tr>
+            <tr>
+              <td>特大車（ジャンボ）</td>
+              <td class="price-table__price">5,530円</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 割増・割引 -->
+      <div class="fare-extras reveal" id="extras">
+        <div class="fare-extra-card fare-extra-card--up">
+          <p class="fare-extra-card__title">割増料金</p>
+          <ul class="fare-extra-card__list">
+            <li><span>深夜早朝割増</span><span class="fare-extra-card__val">2割増</span></li>
+          </ul>
+        </div>
+        <div class="fare-extra-card fare-extra-card--down">
+          <p class="fare-extra-card__title">割引</p>
+          <ul class="fare-extra-card__list">
+            <li><span>身体障害者割引</span><span class="fare-extra-card__val">1割引</span></li>
+            <li><span>知的障害者割引</span><span class="fare-extra-card__val">1割引</span></li>
+            <li><span>遠距離割引（5,000円超の額）</span><span class="fare-extra-card__val">1割引</span></li>
+            <li><span>運転免許証納者割引</span><span class="fare-extra-card__val">1割引</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="fare-footnote reveal">※ 速度10km以下の走行時は時間距離併用制が適用されます。詳細はお問い合わせください。</p>
+    </div>
+  </section>
+
+  <!-- 決済方法 -->
+  <section class="section bg-black" id="payment">
+    <div class="container">
+      <div class="payment-header reveal">
+        <div>
+          <p class="eyebrow">Payment</p>
+          <h2 style="color: var(--fuji-white);">お財布の形を、<br><span class="text-yellow">選ばせません。</span></h2>
+        </div>
+        <p class="payment-catch">現金・クレカ・QR・IC・チケット、10種以上に完全対応</p>
+      </div>
+
+      <div class="payment-groups reveal">
+        <div class="payment-group">
+          <div class="payment-group__head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            <p class="payment-group__label">クレジットカード</p>
+          </div>
+          <div class="payment-group__tags">
+            <span class="ptag ptag--blue">VISA</span>
+            <span class="ptag ptag--red">Mastercard</span>
+            <span class="ptag ptag--green">JCB</span>
+            <span class="ptag ptag--blue">AMEX</span>
+          </div>
+        </div>
+
+        <div class="payment-group">
+          <div class="payment-group__head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none"/><rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none"/><rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none"/><path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3"/></svg>
+            <p class="payment-group__label">QRコード決済</p>
+          </div>
+          <div class="payment-group__tags">
+            <span class="ptag ptag--red">PayPay</span>
+            <span class="ptag ptag--red">AEON Pay</span>
+            <span class="ptag ptag--red">メルペイ</span>
+            <span class="ptag ptag--red">d払い</span>
+          </div>
+        </div>
+
+        <div class="payment-group">
+          <div class="payment-group__head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="2"/></svg>
+            <p class="payment-group__label">交通系IC・電子マネー</p>
+          </div>
+          <div class="payment-group__tags">
+            <span class="ptag ptag--teal">交通系IC</span>
+            <span class="ptag ptag--purple">iD</span>
+            <span class="ptag ptag--purple">QUICPay</span>
+          </div>
+        </div>
+
+        <div class="payment-group">
+          <div class="payment-group__head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/><path d="M13 5v14M9 9h1M9 12h1M9 15h1"/></svg>
+            <p class="payment-group__label">タクシーチケット</p>
+          </div>
+          <div class="payment-group__tags">
+            <span class="ptag ptag--yellow">富士タクシーチケット</span>
+            <span class="ptag ptag--yellow">JTBタクシーチケット</span>
+            <span class="ptag ptag--yellow">愛のタクシーチケット</span>
+            <span class="ptag ptag--yellow">NO.1タクシーチケット</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="payment-cash reveal">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/></svg>
+        <span>もちろん<strong>現金</strong>もご利用いただけます</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ← サービスページへ戻る + CTA -->
+  <section class="section bg-black">
+    <div class="container">
+      <div class="back-link reveal">
+        <a href="/services">← サービス一覧に戻る</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTAバナー -->
+  <section class="section bg-yellow">
+    <div class="container">
+      <div class="cta-banner reveal">
+        <h2 class="cta-banner__title" style="color: var(--fuji-black);">いつでも、つながる。</h2>
+        <p style="color: var(--fuji-black); margin-bottom: var(--space-8);">年中無休 7:00〜24:00。どんな移動のご相談も、まずはお気軽にどうぞ。</p>
+        <div class="cta-banner__main-tel">
+          <a href="tel:0244442543" class="cta-banner__tel-link">
+            📞 <span class="cta-banner__tel-num">0244-44-2543</span>
+          </a>
+          <span class="cta-banner__tel-note">本社（小高区・全エリア対応）</span>
+        </div>
+        <div class="cta-banner__btns">
+          <a href="tel:0244320030" class="btn btn--outline-dark btn--sm">
+            📞 0244-32-0030（原町エリアはこちら）
+          </a>
+          <a href="/contact" class="btn btn--outline-dark btn--sm">お問い合わせ</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</Layout>
+
+<style>
+  .page-hero {
+    padding-block: 5rem 4rem;
+  }
+  .page-hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 900;
+    color: var(--fuji-white);
+    margin-block: 1rem;
+  }
+  .page-hero__lead {
+    font-size: var(--text-base);
+    color: var(--fuji-gray-muted);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb ol {
+    display: flex;
+    gap: 0.5rem;
+    list-style: none;
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a { color: var(--fuji-gray-muted); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--fuji-yellow); }
+
+  .pricing-anchors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .pricing-anchors a {
+    display: inline-block;
+    padding: 0.4rem 1rem;
+    border: 1px solid var(--fuji-gray-border);
+    border-radius: var(--radius-full);
+    color: var(--fuji-gray-muted);
+    font-size: var(--text-sm);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+  }
+  .pricing-anchors a:hover {
+    border-color: var(--fuji-yellow);
+    color: var(--fuji-yellow);
+  }
+
+  .fare-block {
+    margin-bottom: 3rem;
+  }
+  .fare-block__title {
+    font-size: var(--text-base);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    margin-bottom: 0.75rem;
+    padding-left: 0.75rem;
+    border-left: 3px solid var(--fuji-yellow);
+  }
+
+  .price-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--fuji-white);
+  }
+  .price-table th {
+    background: var(--fuji-black-card);
+    color: var(--fuji-yellow);
+    padding: 1rem 1.5rem;
+    text-align: left;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid var(--fuji-yellow);
+  }
+  .price-table td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--fuji-gray-border);
+    font-size: var(--text-base);
+  }
+  .price-table tr:hover td { background: var(--fuji-black-card); }
+  .price-table__price {
+    font-family: var(--font-en);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    font-size: var(--text-lg);
+  }
+
+  .fare-extras {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 640px) {
+    .fare-extras { grid-template-columns: 1fr; }
+  }
+  .fare-extra-card {
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+  }
+  .fare-extra-card--up {
+    background: rgba(255,80,80,0.06);
+    border: 1px solid rgba(255,80,80,0.2);
+  }
+  .fare-extra-card--down {
+    background: rgba(245,200,0,0.06);
+    border: 1px solid rgba(245,200,0,0.2);
+  }
+  .fare-extra-card__title {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+  .fare-extra-card--up .fare-extra-card__title { color: #ff8080; }
+  .fare-extra-card--down .fare-extra-card__title { color: var(--fuji-yellow); }
+  .fare-extra-card__list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .fare-extra-card__list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding-bottom: 0.5rem;
+  }
+  .fare-extra-card__val {
+    font-weight: 700;
+    color: var(--fuji-white);
+    flex-shrink: 0;
+    margin-left: 1rem;
+  }
+  .fare-footnote {
+    font-size: var(--text-xs);
+    color: rgba(255,255,255,0.3);
+    text-align: center;
+    margin-top: 0.5rem;
+  }
+
+  .payment-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    flex-wrap: wrap;
+  }
+  .payment-catch {
+    font-size: var(--text-base);
+    color: var(--fuji-gray-muted);
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .payment-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .payment-group {
+    background: #1a1a1a;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .payment-group__head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: var(--fuji-yellow);
+  }
+  .payment-group__label {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--fuji-white);
+    letter-spacing: 0.04em;
+  }
+  .payment-group__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .ptag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 1.1rem;
+    border-radius: var(--radius-full);
+    font-size: var(--text-base);
+    font-weight: 700;
+    border: 1.5px solid transparent;
+    line-height: 1;
+  }
+  .ptag--blue   { background: rgba(59,130,246,0.18); border-color: rgba(59,130,246,0.5); color: #93c5fd; }
+  .ptag--red    { background: rgba(239,68,68,0.18);  border-color: rgba(239,68,68,0.5);  color: #fca5a5; }
+  .ptag--green  { background: rgba(34,197,94,0.18);  border-color: rgba(34,197,94,0.5);  color: #86efac; }
+  .ptag--teal   { background: rgba(20,184,166,0.18); border-color: rgba(20,184,166,0.5); color: #5eead4; }
+  .ptag--purple { background: rgba(168,85,247,0.18); border-color: rgba(168,85,247,0.5); color: #d8b4fe; }
+  .ptag--yellow { background: rgba(245,200,0,0.15);  border-color: rgba(245,200,0,0.5);  color: var(--fuji-yellow); }
+  .payment-cash {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(245,200,0,0.08);
+    border: 1px solid rgba(245,200,0,0.25);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.5rem;
+    color: var(--fuji-gray-muted);
+    font-size: var(--text-sm);
+  }
+  .payment-cash svg { color: var(--fuji-yellow); flex-shrink: 0; }
+  .payment-cash strong { color: var(--fuji-white); font-weight: 700; }
+
+  .back-link a {
+    color: var(--fuji-yellow);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: var(--text-sm);
+  }
+  .back-link a:hover { text-decoration: underline; }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+</style>

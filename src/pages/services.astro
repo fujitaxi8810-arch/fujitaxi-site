@@ -294,11 +294,12 @@ const structuredData = {
           </div>
         </div>
         <div class="service-split__price">
-          <div class="price-card">
+          <a href="/pricing#distance" class="price-card price-card--link" aria-label="料金詳細ページへ">
             <p class="price-card__label">初乗り</p>
             <p class="price-card__amount"><span class="price-card__num">700</span>円〜</p>
             <p class="price-card__note">距離制メーター</p>
-          </div>
+            <p class="price-card__cta">料金詳細を見る →</p>
+          </a>
         </div>
       </div>
     </div>
@@ -325,11 +326,12 @@ const structuredData = {
           </div>
         </div>
         <div class="service-split__price">
-          <div class="price-card">
+          <a href="/pricing#distance" class="price-card price-card--link" aria-label="料金詳細ページへ">
             <p class="price-card__label">初乗り</p>
             <p class="price-card__amount"><span class="price-card__num">980</span>円〜</p>
             <p class="price-card__note">最大9名乗車</p>
-          </div>
+            <p class="price-card__cta">料金詳細を見る →</p>
+          </a>
         </div>
       </div>
     </div>
@@ -462,6 +464,7 @@ const structuredData = {
                 </p>
               </div>
             </div>
+            <a href="/pricing" class="demand-fare__more">料金・決済一覧を見る →</a>
           </div>
         </div>
       </div>
@@ -615,169 +618,16 @@ const structuredData = {
     </div>
   </section>
 
-  <!-- 料金表 -->
-  <section class="section bg-black" id="pricing">
+  <!-- 料金ページへのCTA -->
+  <section class="section bg-black">
     <div class="container">
-      <div class="reveal" style="text-align: center; margin-bottom: var(--space-12);">
-        <p class="eyebrow">Pricing</p>
-        <h2 style="color:var(--fuji-white);">運賃料金表</h2>
-        <div class="divider" style="margin: 1rem auto;"></div>
-        <p style="color:var(--fuji-gray-muted); font-size:var(--text-sm);">運賃料金には消費税10%が含まれております。</p>
-      </div>
-
-      <!-- 距離制運賃 -->
-      <div class="fare-block reveal">
-        <h3 class="fare-block__title">距離制運賃</h3>
-        <table class="price-table">
-          <thead>
-            <tr>
-              <th>車種</th>
-              <th>初乗り（1.0kmまで）</th>
-              <th>加算運賃</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>普通車</td>
-              <td class="price-table__price">700円</td>
-              <td>260mごとに100円</td>
-            </tr>
-            <tr>
-              <td>大型車</td>
-              <td class="price-table__price">900円</td>
-              <td>177mごとに100円</td>
-            </tr>
-            <tr>
-              <td>特大車（ジャンボ）</td>
-              <td class="price-table__price">980円</td>
-              <td>173mごとに100円</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- 時間制運賃 -->
-      <div class="fare-block reveal">
-        <h3 class="fare-block__title">時間制運賃（30分ごと）</h3>
-        <table class="price-table">
-          <thead>
-            <tr>
-              <th>車種</th>
-              <th>料金</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>普通車</td>
-              <td class="price-table__price">3,670円</td>
-            </tr>
-            <tr>
-              <td>大型車</td>
-              <td class="price-table__price">5,390円</td>
-            </tr>
-            <tr>
-              <td>特大車（ジャンボ）</td>
-              <td class="price-table__price">5,530円</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- 割増・割引 -->
-      <div class="fare-extras reveal">
-        <div class="fare-extra-card fare-extra-card--up">
-          <p class="fare-extra-card__title">割増料金</p>
-          <ul class="fare-extra-card__list">
-            <li><span>深夜早朝割増</span><span class="fare-extra-card__val">2割増</span></li>
-          </ul>
+      <div class="pricing-cta reveal">
+        <div class="pricing-cta__text">
+          <p class="eyebrow">Pricing</p>
+          <h2 style="color:var(--fuji-white);">運賃・料金表</h2>
+          <p style="color:var(--fuji-gray-muted); margin-top:0.75rem; line-height:1.8;">距離制・時間制運賃、割増・割引、クレカ・QR・電子マネーなど10種以上の決済方法をご確認いただけます。</p>
         </div>
-        <div class="fare-extra-card fare-extra-card--down">
-          <p class="fare-extra-card__title">割引</p>
-          <ul class="fare-extra-card__list">
-            <li><span>身体障害者割引</span><span class="fare-extra-card__val">1割引</span></li>
-            <li><span>知的障害者割引</span><span class="fare-extra-card__val">1割引</span></li>
-            <li><span>遠距離割引（5,000円超の額）</span><span class="fare-extra-card__val">1割引</span></li>
-            <li><span>運転免許証納者割引</span><span class="fare-extra-card__val">1割引</span></li>
-          </ul>
-        </div>
-      </div>
-
-      <p class="fare-footnote reveal">※ 速度10km以下の走行時は時間距離併用制が適用されます。詳細はお問い合わせください。</p>
-    </div>
-  </section>
-
-  <!-- 決済方法 -->
-  <section class="section bg-black" id="payment">
-    <div class="container">
-      <div class="payment-header reveal">
-        <div>
-          <p class="eyebrow">Payment</p>
-          <h2 style="color: var(--fuji-white);">お財布の形を、<br><span class="text-yellow">選ばせません。</span></h2>
-        </div>
-        <p class="payment-catch">現金・クレカ・QR・IC・チケット、10種以上に完全対応</p>
-      </div>
-
-      <div class="payment-groups reveal">
-        <!-- クレジットカード -->
-        <div class="payment-group">
-          <div class="payment-group__head">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-            <p class="payment-group__label">クレジットカード</p>
-          </div>
-          <div class="payment-group__tags">
-            <span class="ptag ptag--blue">VISA</span>
-            <span class="ptag ptag--red">Mastercard</span>
-            <span class="ptag ptag--green">JCB</span>
-            <span class="ptag ptag--blue">AMEX</span>
-          </div>
-        </div>
-
-        <!-- QRコード -->
-        <div class="payment-group">
-          <div class="payment-group__head">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none"/><rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none"/><rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none"/><path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3"/></svg>
-            <p class="payment-group__label">QRコード決済</p>
-          </div>
-          <div class="payment-group__tags">
-            <span class="ptag ptag--red">PayPay</span>
-            <span class="ptag ptag--red">AEON Pay</span>
-            <span class="ptag ptag--red">メルペイ</span>
-            <span class="ptag ptag--red">d払い</span>
-          </div>
-        </div>
-
-        <!-- 電子マネー・IC -->
-        <div class="payment-group">
-          <div class="payment-group__head">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="2"/></svg>
-            <p class="payment-group__label">交通系IC・電子マネー</p>
-          </div>
-          <div class="payment-group__tags">
-            <span class="ptag ptag--teal">交通系IC</span>
-            <span class="ptag ptag--purple">iD</span>
-            <span class="ptag ptag--purple">QUICPay</span>
-          </div>
-        </div>
-
-        <!-- チケット -->
-        <div class="payment-group">
-          <div class="payment-group__head">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/><path d="M13 5v14M9 9h1M9 12h1M9 15h1"/></svg>
-            <p class="payment-group__label">タクシーチケット</p>
-          </div>
-          <div class="payment-group__tags">
-            <span class="ptag ptag--yellow">富士タクシーチケット</span>
-            <span class="ptag ptag--yellow">JTBタクシーチケット</span>
-            <span class="ptag ptag--yellow">愛のタクシーチケット</span>
-            <span class="ptag ptag--yellow">NO.1タクシーチケット</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 現金対応バナー -->
-      <div class="payment-cash reveal">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/></svg>
-        <span>もちろん<strong>現金</strong>もご利用いただけます</span>
+        <a href="/pricing" class="btn btn--primary btn--lg">料金・決済を見る →</a>
       </div>
     </div>
   </section>
@@ -829,6 +679,20 @@ const structuredData = {
 </Layout>
 
 <style>
+  /* 料金CTAセクション */
+  .pricing-cta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    flex-wrap: wrap;
+    background: rgba(245,200,0,0.06);
+    border: 1px solid rgba(245,200,0,0.2);
+    border-radius: var(--radius-xl);
+    padding: 2.5rem;
+  }
+  .pricing-cta__text { flex: 1; min-width: 0; }
+
   /* ページヒーロー */
   .page-hero {
     padding-block: 5rem 4rem;
@@ -936,6 +800,21 @@ const structuredData = {
   .bg-soft .service-features li {
     color: #555;
   }
+
+  .demand-fare__more {
+    display: block;
+    text-align: center;
+    margin-top: 0.5rem;
+    padding: 0.6rem 1rem;
+    border: 1px solid rgba(245,200,0,0.4);
+    border-radius: var(--radius-full);
+    color: var(--fuji-yellow);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+  .demand-fare__more:hover { background: rgba(245,200,0,0.1); }
 
   /* VIPノート */
   .jumbo-vip-note {
@@ -1985,3 +1864,4 @@ const structuredData = {
     transform: none;
   }
 </style>
+

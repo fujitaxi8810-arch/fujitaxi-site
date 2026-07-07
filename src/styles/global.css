@@ -172,6 +172,13 @@ button {
   letter-spacing: -0.02em;
 }
 
+.section-h2 {
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
 .heading-lg {
   font-size: clamp(var(--text-2xl), 4vw, var(--text-4xl));
   font-weight: 700;

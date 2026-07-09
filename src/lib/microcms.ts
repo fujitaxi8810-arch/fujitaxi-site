@@ -9,7 +9,7 @@ export type NewsItem = {
   id: string;
   title: string;
   category: string;
-  content: string;
+  body: string;
   publishedAt: string;
   createdAt: string;
 };

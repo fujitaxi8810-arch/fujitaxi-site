@@ -59,6 +59,15 @@ import Layout from '../layouts/Layout.astro';
           <p class="contact-option__hours">24時間受付</p>
           <p class="contact-option__note">フォームにご入力いただくと、担当者より折り返しご連絡いたします。ご希望の日時・人数・行先をご記入ください。</p>
         </div>
+        <div class="contact-option contact-option--line">
+          <div class="contact-option__icon">💬</div>
+          <h2 class="contact-option__title">LINEでお問い合わせ</h2>
+          <p class="contact-option__hours">返信：平日 当日〜翌営業日</p>
+          <p class="contact-option__note">メールが苦手な方はLINEでもお気軽にどうぞ。<strong>土日祝日の返信はお休み</strong>しております。お急ぎのご予約・配車はお電話をご利用ください。</p>
+          <a href="https://line.me/R/ti/p/@580lzpne" target="_blank" rel="noopener noreferrer" class="contact-option__line-btn">
+            LINEで友だち追加する
+          </a>
+        </div>
       </div>
     </div>
   </section>
@@ -329,6 +338,22 @@ import Layout from '../layouts/Layout.astro';
     color: #555;
     line-height: 1.8;
   }
+  .contact-option--line {
+    border: 2px solid #06C755;
+  }
+  .contact-option__line-btn {
+    display: inline-block;
+    margin-top: 1rem;
+    background: #06C755;
+    color: #fff;
+    font-weight: 700;
+    font-size: var(--text-base);
+    padding: 0.85rem 1.75rem;
+    border-radius: var(--radius-full);
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+  .contact-option__line-btn:hover { opacity: 0.85; }
 
   /* フォーム */
   .contact-form {

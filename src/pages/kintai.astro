@@ -305,7 +305,7 @@ import Layout from '../layouts/Layout.astro';
   renderHist();
 </script>
 
-<style>
+<style is:global>
   .page-hero { padding-block: 4rem 2rem; }
   .page-hero h1 {
     font-size: clamp(2rem, 5vw, 3rem);
@@ -383,23 +383,26 @@ import Layout from '../layouts/Layout.astro';
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    background: #0f0f0f;
-    border: 1px solid rgba(255,255,255,0.35);
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.6);
     border-radius: var(--radius-full);
-    color: #fff;
-    font-size: 1.05rem;
-    font-weight: 700;
-    padding: 0.7rem 1.25rem;
+    color: #ffffff;
+    font-size: 1.2rem;
+    font-weight: 900;
+    padding: 0.8rem 1.5rem;
     cursor: pointer;
-    min-height: 48px;
+    min-height: 56px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
   }
+  .kt-staff:hover { border-color: var(--fuji-yellow); }
   .kt-staff.is-active {
     background: var(--fuji-yellow);
     border-color: var(--fuji-yellow);
     color: var(--fuji-black);
+    text-shadow: none;
   }
   .kt-staff__del {
-    opacity: 0.5;
+    opacity: 0.7;
     font-weight: 900;
     padding: 0 0.2rem;
   }

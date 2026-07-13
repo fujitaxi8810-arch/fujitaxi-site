@@ -1,0 +1,479 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="勤怠管理 – 富士タクシー（社内用）"
+  description="富士タクシー社内用の勤怠管理アプリ。出勤・退勤の打刻、勤務履歴の確認、CSV出力ができます。"
+>
+
+  <section class="page-hero bg-black">
+    <div class="container">
+      <p class="eyebrow">Staff Only</p>
+      <h1>勤怠<span class="text-yellow">管理</span></h1>
+      <p class="page-hero__lead">出勤・退勤をワンタップで記録。このページは社内用です。</p>
+      <p class="kintai-clock" id="clock" aria-live="polite">--:--:--</p>
+      <p class="kintai-date" id="today"></p>
+    </div>
+  </section>
+
+  <section class="section bg-black" style="padding-top: 1rem;">
+    <div class="container kintai-wrap">
+
+      <!-- スタッフ選択 -->
+      <div class="kt-panel">
+        <div class="kt-panel__head">
+          <h2 class="kt-title">スタッフ</h2>
+          <button type="button" class="kt-btn kt-btn--ghost" id="addStaffBtn">＋ 追加</button>
+        </div>
+        <div class="kt-staff-list" id="staffList"></div>
+        <p class="kt-empty" id="staffEmpty">「＋ 追加」からスタッフを登録してください。</p>
+      </div>
+
+      <!-- 打刻パネル -->
+      <div class="kt-panel kt-panel--punch" id="punchPanel" hidden>
+        <p class="kt-selected">選択中：<strong id="selectedName"></strong></p>
+        <p class="kt-status" id="statusLabel"></p>
+        <div class="kt-punch-grid">
+          <button type="button" class="kt-punch kt-punch--in" id="punchIn">出勤</button>
+          <button type="button" class="kt-punch kt-punch--out" id="punchOut">退勤</button>
+          <button type="button" class="kt-punch kt-punch--break" id="punchBreakStart">休憩 開始</button>
+          <button type="button" class="kt-punch kt-punch--break" id="punchBreakEnd">休憩 終了</button>
+        </div>
+        <p class="kt-msg" id="punchMsg" aria-live="polite"></p>
+      </div>
+
+      <!-- 本日の状況 -->
+      <div class="kt-panel">
+        <h2 class="kt-title">本日の状況</h2>
+        <div class="kt-today" id="todayBoard"></div>
+        <p class="kt-empty" id="todayEmpty">本日の打刻はまだありません。</p>
+      </div>
+
+      <!-- 履歴 -->
+      <div class="kt-panel">
+        <div class="kt-panel__head">
+          <h2 class="kt-title">勤務履歴</h2>
+          <div class="kt-panel__tools">
+            <input type="month" id="monthPick" class="kt-input" />
+            <button type="button" class="kt-btn" id="csvBtn">CSV出力</button>
+          </div>
+        </div>
+        <div class="kt-table-wrap">
+          <table class="kt-table" id="histTable">
+            <thead>
+              <tr><th>日付</th><th>名前</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実働</th></tr>
+            </thead>
+            <tbody id="histBody"></tbody>
+          </table>
+        </div>
+        <p class="kt-empty" id="histEmpty">この月の記録はありません。</p>
+      </div>
+
+      <p class="kt-note">※ データはこの端末のブラウザ内にのみ保存されます。端末を変えると記録は引き継がれません。月末にCSV出力して保管してください。</p>
+
+    </div>
+  </section>
+
+</Layout>
+
+<script>
+  const LS_STAFF = 'fuji-kintai-staff';
+  const LS_LOG = 'fuji-kintai-log';
+
+  let staff = JSON.parse(localStorage.getItem(LS_STAFF) || '[]');
+  let log = JSON.parse(localStorage.getItem(LS_LOG) || '[]');
+  let selectedId = null;
+
+  const $ = (id) => document.getElementById(id);
+
+  // ── 時計 ──
+  function tick() {
+    const now = new Date();
+    $('clock').textContent = now.toLocaleTimeString('ja-JP');
+    $('today').textContent = now.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  function save() {
+    localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+    localStorage.setItem(LS_LOG, JSON.stringify(log));
+  }
+
+  function dateKey(d) {
+    const dt = d ? new Date(d) : new Date();
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  }
+  function timeStr(iso) {
+    return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ── スタッフ ──
+  function renderStaff() {
+    const list = $('staffList');
+    list.innerHTML = '';
+    $('staffEmpty').hidden = staff.length > 0;
+    for (const s of staff) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'kt-staff' + (s.id === selectedId ? ' is-active' : '');
+      btn.textContent = s.name;
+      btn.onclick = () => { selectedId = s.id; renderStaff(); renderPunch(); };
+      const del = document.createElement('span');
+      del.className = 'kt-staff__del';
+      del.textContent = '×';
+      del.setAttribute('role', 'button');
+      del.setAttribute('aria-label', `${s.name}を削除`);
+      del.onclick = (e) => {
+        e.stopPropagation();
+        if (confirm(`${s.name} を削除しますか？（打刻履歴は残ります）`)) {
+          staff = staff.filter(x => x.id !== s.id);
+          if (selectedId === s.id) selectedId = null;
+          save(); renderStaff(); renderPunch();
+        }
+      };
+      btn.appendChild(del);
+      list.appendChild(btn);
+    }
+  }
+
+  $('addStaffBtn').onclick = () => {
+    const name = prompt('スタッフの名前を入力してください');
+    if (!name || !name.trim()) return;
+    staff.push({ id: 'st' + Date.now(), name: name.trim() });
+    save(); renderStaff();
+  };
+
+  // ── 状態判定 ──
+  function todayRec(staffId) {
+    return log.find(r => r.staffId === staffId && r.date === dateKey());
+  }
+  function statusOf(rec) {
+    if (!rec || !rec.in) return 'before';        // 未出勤
+    if (rec.out) return 'done';                  // 退勤済み
+    const lastBreak = rec.breaks[rec.breaks.length - 1];
+    if (lastBreak && !lastBreak.end) return 'break'; // 休憩中
+    return 'working';                            // 勤務中
+  }
+  const STATUS_LABEL = { before: '未出勤', working: '勤務中', break: '休憩中', done: '退勤済み' };
+
+  function renderPunch() {
+    const panel = $('punchPanel');
+    if (!selectedId) { panel.hidden = true; return; }
+    const s = staff.find(x => x.id === selectedId);
+    if (!s) { panel.hidden = true; return; }
+    panel.hidden = false;
+    $('selectedName').textContent = s.name;
+    const rec = todayRec(selectedId);
+    const st = statusOf(rec);
+    $('statusLabel').textContent = `現在：${STATUS_LABEL[st]}`;
+    $('punchIn').disabled = st !== 'before';
+    $('punchOut').disabled = st !== 'working';
+    $('punchBreakStart').disabled = st !== 'working';
+    $('punchBreakEnd').disabled = st !== 'break';
+  }
+
+  function punch(type) {
+    if (!selectedId) return;
+    const now = new Date().toISOString();
+    let rec = todayRec(selectedId);
+    if (!rec) {
+      rec = { staffId: selectedId, date: dateKey(), in: null, out: null, breaks: [] };
+      log.push(rec);
+    }
+    if (type === 'in') rec.in = now;
+    if (type === 'out') rec.out = now;
+    if (type === 'breakStart') rec.breaks.push({ start: now, end: null });
+    if (type === 'breakEnd') {
+      const b = rec.breaks[rec.breaks.length - 1];
+      if (b && !b.end) b.end = now;
+    }
+    save();
+    const s = staff.find(x => x.id === selectedId);
+    const labels = { in: '出勤', out: '退勤', breakStart: '休憩開始', breakEnd: '休憩終了' };
+    $('punchMsg').textContent = `✅ ${s.name} さんの${labels[type]}を ${timeStr(now)} に記録しました`;
+    renderPunch(); renderToday(); renderHist();
+  }
+  $('punchIn').onclick = () => punch('in');
+  $('punchOut').onclick = () => punch('out');
+  $('punchBreakStart').onclick = () => punch('breakStart');
+  $('punchBreakEnd').onclick = () => punch('breakEnd');
+
+  // ── 実働計算 ──
+  function workMinutes(rec) {
+    if (!rec.in) return null;
+    const end = rec.out ? new Date(rec.out) : new Date();
+    let ms = end - new Date(rec.in);
+    for (const b of rec.breaks) {
+      const bEnd = b.end ? new Date(b.end) : new Date();
+      ms -= (bEnd - new Date(b.start));
+    }
+    return Math.max(0, Math.round(ms / 60000));
+  }
+  function breakMinutes(rec) {
+    let ms = 0;
+    for (const b of rec.breaks) {
+      const bEnd = b.end ? new Date(b.end) : new Date();
+      ms += (bEnd - new Date(b.start));
+    }
+    return Math.round(ms / 60000);
+  }
+  function hm(min) {
+    if (min === null) return '—';
+    return `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')}`;
+  }
+
+  // ── 本日の状況 ──
+  function renderToday() {
+    const board = $('todayBoard');
+    board.innerHTML = '';
+    const recs = log.filter(r => r.date === dateKey());
+    $('todayEmpty').hidden = recs.length > 0;
+    for (const rec of recs) {
+      const s = staff.find(x => x.id === rec.staffId);
+      const st = statusOf(rec);
+      const div = document.createElement('div');
+      div.className = `kt-today-card kt-today-card--${st}`;
+      div.innerHTML = `
+        <p class="kt-today-card__name">${s ? s.name : '（削除済み）'}</p>
+        <p class="kt-today-card__status">${STATUS_LABEL[st]}</p>
+        <p class="kt-today-card__times">出勤 ${rec.in ? timeStr(rec.in) : '—'} ／ 退勤 ${rec.out ? timeStr(rec.out) : '—'}</p>
+      `;
+      board.appendChild(div);
+    }
+  }
+
+  // ── 履歴 ──
+  function currentMonth() {
+    return $('monthPick').value || dateKey().slice(0, 7);
+  }
+  function renderHist() {
+    const month = currentMonth();
+    const body = $('histBody');
+    body.innerHTML = '';
+    const recs = log.filter(r => r.date.startsWith(month)).sort((a, b) => b.date.localeCompare(a.date));
+    $('histEmpty').hidden = recs.length > 0;
+    $('histTable').style.display = recs.length ? '' : 'none';
+    for (const rec of recs) {
+      const s = staff.find(x => x.id === rec.staffId);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${rec.date.slice(5).replace('-', '/')}</td>
+        <td>${s ? s.name : '（削除済み）'}</td>
+        <td>${rec.in ? timeStr(rec.in) : '—'}</td>
+        <td>${rec.out ? timeStr(rec.out) : '—'}</td>
+        <td>${hm(breakMinutes(rec))}</td>
+        <td class="kt-table__work">${rec.out ? hm(workMinutes(rec)) : '勤務中'}</td>
+      `;
+      body.appendChild(tr);
+    }
+  }
+  $('monthPick').value = dateKey().slice(0, 7);
+  $('monthPick').onchange = renderHist;
+
+  // ── CSV出力 ──
+  $('csvBtn').onclick = () => {
+    const month = currentMonth();
+    const recs = log.filter(r => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date));
+    if (!recs.length) { alert('この月の記録がありません'); return; }
+    let csv = '﻿日付,名前,出勤,退勤,休憩(分),実働(分),実働(時:分)\n';
+    for (const rec of recs) {
+      const s = staff.find(x => x.id === rec.staffId);
+      const w = rec.out ? workMinutes(rec) : '';
+      csv += [
+        rec.date,
+        s ? s.name : '削除済み',
+        rec.in ? timeStr(rec.in) : '',
+        rec.out ? timeStr(rec.out) : '',
+        breakMinutes(rec),
+        w,
+        rec.out ? hm(w) : '',
+      ].join(',') + '\n';
+    }
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `勤怠_${month}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  renderStaff();
+  renderPunch();
+  renderToday();
+  renderHist();
+</script>
+
+<style>
+  .page-hero { padding-block: 4rem 2rem; }
+  .page-hero h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 900;
+    color: var(--fuji-white);
+    margin-block: 0.5rem;
+  }
+  .page-hero__lead { color: var(--fuji-gray-muted); font-size: var(--text-sm); }
+  .kintai-clock {
+    font-family: var(--font-en);
+    font-size: clamp(2.5rem, 7vw, 4rem);
+    font-weight: 900;
+    color: var(--fuji-yellow);
+    line-height: 1.1;
+    margin-top: 1rem;
+  }
+  .kintai-date { color: var(--fuji-gray-muted); font-size: var(--text-sm); }
+
+  .kintai-wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .kt-panel {
+    background: var(--fuji-black-card, #1a1a1a);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+  }
+  .kt-panel--punch { border-color: var(--fuji-yellow); }
+  .kt-panel__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .kt-panel__tools { display: flex; gap: 0.6rem; align-items: center; }
+  .kt-title {
+    font-size: var(--text-base);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+  }
+
+  .kt-btn {
+    background: rgba(245,200,0,0.12);
+    border: 1px solid rgba(245,200,0,0.4);
+    border-radius: var(--radius-md);
+    color: var(--fuji-yellow);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    padding: 0.55rem 1rem;
+    cursor: pointer;
+    min-height: 44px;
+  }
+  .kt-btn:hover { background: rgba(245,200,0,0.22); }
+  .kt-btn--ghost { background: transparent; }
+
+  .kt-input {
+    background: #0f0f0f;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: var(--radius-md);
+    color: var(--fuji-white);
+    padding: 0.5rem 0.75rem;
+    font-size: var(--text-sm);
+    min-height: 44px;
+  }
+
+  .kt-staff-list { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+  .kt-staff {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #0f0f0f;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: var(--radius-full);
+    color: var(--fuji-white);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    padding: 0.6rem 1.1rem;
+    cursor: pointer;
+    min-height: 44px;
+  }
+  .kt-staff.is-active {
+    background: var(--fuji-yellow);
+    border-color: var(--fuji-yellow);
+    color: var(--fuji-black);
+  }
+  .kt-staff__del {
+    opacity: 0.5;
+    font-weight: 900;
+    padding: 0 0.2rem;
+  }
+  .kt-staff__del:hover { opacity: 1; }
+
+  .kt-selected { color: var(--fuji-white); font-size: var(--text-sm); margin-bottom: 0.25rem; }
+  .kt-selected strong { color: var(--fuji-yellow); font-size: 1.2rem; }
+  .kt-status { color: var(--fuji-gray-muted); font-size: var(--text-sm); margin-bottom: 1rem; }
+
+  .kt-punch-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+  .kt-punch {
+    border: none;
+    border-radius: var(--radius-lg);
+    font-size: 1.1rem;
+    font-weight: 900;
+    padding: 1.2rem;
+    cursor: pointer;
+    min-height: 64px;
+    transition: transform 0.1s, opacity 0.2s;
+  }
+  .kt-punch:active { transform: scale(0.97); }
+  .kt-punch:disabled { opacity: 0.25; cursor: not-allowed; }
+  .kt-punch--in { background: var(--fuji-yellow); color: var(--fuji-black); }
+  .kt-punch--out { background: #e05555; color: #fff; }
+  .kt-punch--break { background: rgba(255,255,255,0.12); color: var(--fuji-white); border: 1px solid rgba(255,255,255,0.25); }
+
+  .kt-msg { margin-top: 1rem; color: var(--fuji-yellow); font-size: var(--text-sm); font-weight: 600; min-height: 1.2em; }
+
+  .kt-today { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
+  .kt-today-card {
+    background: #0f0f0f;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-left: 4px solid var(--fuji-gray-muted);
+    border-radius: var(--radius-md);
+    padding: 0.9rem 1rem;
+  }
+  .kt-today-card--working { border-left-color: var(--fuji-yellow); }
+  .kt-today-card--break { border-left-color: #6ab0f3; }
+  .kt-today-card--done { border-left-color: #4caf7d; }
+  .kt-today-card__name { font-weight: 700; color: var(--fuji-white); }
+  .kt-today-card__status { font-size: var(--text-xs); color: var(--fuji-yellow); font-weight: 700; margin: 0.2rem 0; }
+  .kt-today-card--break .kt-today-card__status { color: #6ab0f3; }
+  .kt-today-card--done .kt-today-card__status { color: #4caf7d; }
+  .kt-today-card__times { font-size: var(--text-xs); color: var(--fuji-gray-muted); }
+
+  .kt-table-wrap { overflow-x: auto; }
+  .kt-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--fuji-white);
+    font-size: var(--text-sm);
+  }
+  .kt-table th {
+    color: var(--fuji-yellow);
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 2px solid var(--fuji-yellow);
+    white-space: nowrap;
+  }
+  .kt-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    white-space: nowrap;
+  }
+  .kt-table__work { font-weight: 700; color: var(--fuji-yellow); }
+
+  .kt-empty { color: var(--fuji-gray-muted); font-size: var(--text-sm); padding: 0.5rem 0; }
+  .kt-note {
+    font-size: var(--text-xs);
+    color: rgba(255,255,255,0.4);
+    line-height: 1.8;
+  }
+</style>

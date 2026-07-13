@@ -39,6 +39,8 @@ import Layout from '../layouts/Layout.astro';
           <button type="button" class="kt-punch kt-punch--out" id="punchOut">退勤</button>
           <button type="button" class="kt-punch kt-punch--break" id="punchBreakStart">休憩 開始</button>
           <button type="button" class="kt-punch kt-punch--break" id="punchBreakEnd">休憩 終了</button>
+          <button type="button" class="kt-punch kt-punch--away" id="punchAwayStart">時間内退勤</button>
+          <button type="button" class="kt-punch kt-punch--away" id="punchAwayEnd">時間内出勤</button>
         </div>
         <p class="kt-msg" id="punchMsg" aria-live="polite"></p>
       </div>
@@ -62,7 +64,7 @@ import Layout from '../layouts/Layout.astro';
         <div class="kt-table-wrap">
           <table class="kt-table" id="histTable">
             <thead>
-              <tr><th>日付</th><th>名前</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実働</th></tr>
+              <tr><th>日付</th><th>名前</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th></tr>
             </thead>
             <tbody id="histBody"></tbody>
           </table>
@@ -154,9 +156,12 @@ import Layout from '../layouts/Layout.astro';
     if (rec.out) return 'done';                  // 退勤済み
     const lastBreak = rec.breaks[rec.breaks.length - 1];
     if (lastBreak && !lastBreak.end) return 'break'; // 休憩中
+    const leaves = rec.leaves || [];
+    const lastLeave = leaves[leaves.length - 1];
+    if (lastLeave && !lastLeave.end) return 'away'; // 時間内退勤中
     return 'working';                            // 勤務中
   }
-  const STATUS_LABEL = { before: '未出勤', working: '勤務中', break: '休憩中', done: '退勤済み' };
+  const STATUS_LABEL = { before: '未出勤', working: '勤務中', break: '休憩中', away: '時間内退勤中', done: '退勤済み' };
 
   function renderPunch() {
     const panel = $('punchPanel');
@@ -172,6 +177,8 @@ import Layout from '../layouts/Layout.astro';
     $('punchOut').disabled = st !== 'working';
     $('punchBreakStart').disabled = st !== 'working';
     $('punchBreakEnd').disabled = st !== 'break';
+    $('punchAwayStart').disabled = st !== 'working';
+    $('punchAwayEnd').disabled = st !== 'away';
   }
 
   function punch(type) {
@@ -179,9 +186,10 @@ import Layout from '../layouts/Layout.astro';
     const now = new Date().toISOString();
     let rec = todayRec(selectedId);
     if (!rec) {
-      rec = { staffId: selectedId, date: dateKey(), in: null, out: null, breaks: [] };
+      rec = { staffId: selectedId, date: dateKey(), in: null, out: null, breaks: [], leaves: [] };
       log.push(rec);
     }
+    if (!rec.leaves) rec.leaves = [];
     if (type === 'in') rec.in = now;
     if (type === 'out') rec.out = now;
     if (type === 'breakStart') rec.breaks.push({ start: now, end: null });
@@ -189,9 +197,14 @@ import Layout from '../layouts/Layout.astro';
       const b = rec.breaks[rec.breaks.length - 1];
       if (b && !b.end) b.end = now;
     }
+    if (type === 'awayStart') rec.leaves.push({ start: now, end: null });
+    if (type === 'awayEnd') {
+      const l = rec.leaves[rec.leaves.length - 1];
+      if (l && !l.end) l.end = now;
+    }
     save();
     const s = staff.find(x => x.id === selectedId);
-    const labels = { in: '出勤', out: '退勤', breakStart: '休憩開始', breakEnd: '休憩終了' };
+    const labels = { in: '出勤', out: '退勤', breakStart: '休憩開始', breakEnd: '休憩終了', awayStart: '時間内退勤', awayEnd: '時間内出勤' };
     $('punchMsg').textContent = `✅ ${s.name} さんの${labels[type]}を ${timeStr(now)} に記録しました`;
     renderPunch(); renderToday(); renderHist();
   }
@@ -199,6 +212,8 @@ import Layout from '../layouts/Layout.astro';
   $('punchOut').onclick = () => punch('out');
   $('punchBreakStart').onclick = () => punch('breakStart');
   $('punchBreakEnd').onclick = () => punch('breakEnd');
+  $('punchAwayStart').onclick = () => punch('awayStart');
+  $('punchAwayEnd').onclick = () => punch('awayEnd');
 
   // ── 実働計算 ──
   function workMinutes(rec) {
@@ -209,6 +224,10 @@ import Layout from '../layouts/Layout.astro';
       const bEnd = b.end ? new Date(b.end) : new Date();
       ms -= (bEnd - new Date(b.start));
     }
+    for (const l of (rec.leaves || [])) {
+      const lEnd = l.end ? new Date(l.end) : new Date();
+      ms -= (lEnd - new Date(l.start));
+    }
     return Math.max(0, Math.round(ms / 60000));
   }
   function breakMinutes(rec) {
@@ -216,6 +235,14 @@ import Layout from '../layouts/Layout.astro';
     for (const b of rec.breaks) {
       const bEnd = b.end ? new Date(b.end) : new Date();
       ms += (bEnd - new Date(b.start));
+    }
+    return Math.round(ms / 60000);
+  }
+  function awayMinutes(rec) {
+    let ms = 0;
+    for (const l of (rec.leaves || [])) {
+      const lEnd = l.end ? new Date(l.end) : new Date();
+      ms += (lEnd - new Date(l.start));
     }
     return Math.round(ms / 60000);
   }
@@ -264,6 +291,7 @@ import Layout from '../layouts/Layout.astro';
         <td>${rec.in ? timeStr(rec.in) : '—'}</td>
         <td>${rec.out ? timeStr(rec.out) : '—'}</td>
         <td>${hm(breakMinutes(rec))}</td>
+        <td>${hm(awayMinutes(rec))}</td>
         <td class="kt-table__work">${rec.out ? hm(workMinutes(rec)) : '勤務中'}</td>
       `;
       body.appendChild(tr);
@@ -277,7 +305,7 @@ import Layout from '../layouts/Layout.astro';
     const month = currentMonth();
     const recs = log.filter(r => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date));
     if (!recs.length) { alert('この月の記録がありません'); return; }
-    let csv = '﻿日付,名前,出勤,退勤,休憩(分),実働(分),実働(時:分)\n';
+    let csv = '﻿日付,名前,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分)\n';
     for (const rec of recs) {
       const s = staff.find(x => x.id === rec.staffId);
       const w = rec.out ? workMinutes(rec) : '';
@@ -287,6 +315,7 @@ import Layout from '../layouts/Layout.astro';
         rec.in ? timeStr(rec.in) : '',
         rec.out ? timeStr(rec.out) : '',
         breakMinutes(rec),
+        awayMinutes(rec),
         w,
         rec.out ? hm(w) : '',
       ].join(',') + '\n';
@@ -433,6 +462,7 @@ import Layout from '../layouts/Layout.astro';
   .kt-punch--in { background: var(--fuji-yellow); color: var(--fuji-black); }
   .kt-punch--out { background: #e05555; color: #fff; }
   .kt-punch--break { background: rgba(255,255,255,0.12); color: var(--fuji-white); border: 1px solid rgba(255,255,255,0.25); }
+  .kt-punch--away { background: rgba(106,176,243,0.18); color: #8fc5f8; border: 1px solid rgba(106,176,243,0.45); }
 
   .kt-msg { margin-top: 1rem; color: var(--fuji-yellow); font-size: var(--text-sm); font-weight: 600; min-height: 1.2em; }
 
@@ -446,10 +476,12 @@ import Layout from '../layouts/Layout.astro';
   }
   .kt-today-card--working { border-left-color: var(--fuji-yellow); }
   .kt-today-card--break { border-left-color: #6ab0f3; }
+  .kt-today-card--away { border-left-color: #b48ff8; }
   .kt-today-card--done { border-left-color: #4caf7d; }
   .kt-today-card__name { font-weight: 900; font-size: 1.15rem; color: #fff; }
   .kt-today-card__status { font-size: 0.95rem; color: var(--fuji-yellow); font-weight: 900; margin: 0.25rem 0; }
   .kt-today-card--break .kt-today-card__status { color: #8fc5f8; }
+  .kt-today-card--away .kt-today-card__status { color: #c9aefb; }
   .kt-today-card--done .kt-today-card__status { color: #6fd8a0; }
   .kt-today-card__times { font-size: 0.9rem; color: rgba(255,255,255,0.85); }
 

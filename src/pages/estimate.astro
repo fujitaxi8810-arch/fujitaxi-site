@@ -129,23 +129,51 @@ import Layout from '../layouts/Layout.astro';
 <script>
   // ── 主要スポット（緯度・経度） ──
   const SPOTS = [
+    // ── 小高区 ──
     { id: 'odaka-st',      name: '小高駅',                 lat: 37.5615, lng: 140.9926 },
     { id: 'fuji-honsha',   name: '富士タクシー本社（小高区本町）', lat: 37.5636, lng: 140.9903 },
-    { id: 'haranomachi-st',name: '原ノ町駅',               lat: 37.6420, lng: 140.9573 },
-    { id: 'haramachi-ku',  name: '原町区役所周辺',          lat: 37.6424, lng: 140.9538 },
-    { id: 'city-hosp',     name: '南相馬市立総合病院',       lat: 37.6524, lng: 140.9515 },
     { id: 'odaka-hosp',    name: '小高病院',               lat: 37.5628, lng: 140.9884 },
-    { id: 'kashima-st',    name: '鹿島駅',                 lat: 37.7015, lng: 140.9645 },
-    { id: 'namie-st',      name: '浪江駅',                 lat: 37.4948, lng: 140.9948 },
     { id: 'odaka-jinja',   name: '小高神社',               lat: 37.5652, lng: 140.9852 },
+    { id: 'odaka-kuyakusho', name: '小高区役所',            lat: 37.5631, lng: 140.9917 },
+    { id: 'urashima',      name: '浦尻貝塚縄文の丘公園',     lat: 37.5289, lng: 141.0227 },
+    // ── 原町区 ──
+    { id: 'haranomachi-st',name: '原ノ町駅',               lat: 37.6420, lng: 140.9573 },
+    { id: 'haramachi-ku',  name: '南相馬市役所（原町区）',    lat: 37.6424, lng: 140.9538 },
+    { id: 'city-hosp',     name: '南相馬市立総合病院',       lat: 37.6524, lng: 140.9515 },
+    { id: 'watanabe-hosp', name: '渡辺病院（原町区）',       lat: 37.6398, lng: 140.9548 },
+    { id: 'onoda-hosp',    name: '小野田病院（原町区）',     lat: 37.6363, lng: 140.9498 },
+    { id: 'haramachi-aeon',name: 'イオンスーパーセンター南相馬店', lat: 37.6493, lng: 140.9605 },
+    { id: 'yorkbenimaru',  name: 'ヨークベニマル原町店',     lat: 37.6396, lng: 140.9629 },
     { id: 'hibarigahara',  name: '雲雀ヶ原祭場地（野馬追会場）', lat: 37.6323, lng: 140.9482 },
     { id: 'kita-ikoi',     name: '北泉海浜総合公園',         lat: 37.6555, lng: 141.0177 },
+    { id: 'robot-field',   name: '福島ロボットテストフィールド', lat: 37.6614, lng: 140.9887 },
+    { id: 'michinoeki',    name: '道の駅 南相馬',           lat: 37.6274, lng: 140.9585 },
+    { id: 'haramachi-ic',  name: '常磐道 南相馬IC',         lat: 37.6543, lng: 140.9210 },
+    // ── 鹿島区 ──
+    { id: 'kashima-st',    name: '鹿島駅',                 lat: 37.7015, lng: 140.9645 },
+    { id: 'kashima-ku',    name: '鹿島区役所',              lat: 37.7008, lng: 140.9622 },
+    { id: 'sedette',       name: 'セデッテかしま（鹿島SA）',  lat: 37.7135, lng: 140.9317 },
+    { id: 'banjo',         name: '万葉ふれあいセンター（鹿島区）', lat: 37.6975, lng: 140.9530 },
+    // ── 相馬市・新地町 ──
+    { id: 'soma-st',       name: '相馬駅',                 lat: 37.7969, lng: 140.9195 },
     { id: 'soso-iryo',     name: '相双医療センター（相馬市）', lat: 37.7965, lng: 140.9204 },
-    { id: 'haramachi-aeon',name: 'イオンスーパーセンター南相馬店', lat: 37.6493, lng: 140.9605 },
+    { id: 'soma-nakamura', name: '相馬中村神社',            lat: 37.7995, lng: 140.9082 },
+    { id: 'matsukawaura',  name: '松川浦（相馬市）',         lat: 37.8135, lng: 140.9645 },
+    { id: 'shinchi-st',    name: '新地駅',                 lat: 37.8721, lng: 140.9165 },
+    // ── 浪江町・双葉郡 ──
+    { id: 'namie-st',      name: '浪江駅',                 lat: 37.4948, lng: 140.9948 },
+    { id: 'michinoeki-namie', name: '道の駅 なみえ',        lat: 37.4930, lng: 140.9890 },
+    { id: 'futaba-st',     name: '双葉駅',                 lat: 37.4507, lng: 141.0063 },
+    { id: 'ono-st',        name: '大野駅（大熊町）',         lat: 37.4085, lng: 140.9997 },
+    { id: 'tomioka-st',    name: '富岡駅',                 lat: 37.3374, lng: 141.0233 },
+    // ── 遠距離（県内・県外） ──
     { id: 'sendai-st',     name: '仙台駅',                 lat: 38.2601, lng: 140.8824 },
     { id: 'sendai-airport',name: '仙台空港',               lat: 38.1397, lng: 140.9170 },
     { id: 'fukushima-st',  name: '福島駅',                 lat: 37.7541, lng: 140.4589 },
+    { id: 'fukushima-medc',name: '福島県立医科大学附属病院',  lat: 37.6931, lng: 140.4700 },
+    { id: 'koriyama-st',   name: '郡山駅',                 lat: 37.3985, lng: 140.3880 },
     { id: 'iwaki-st',      name: 'いわき駅',               lat: 37.0553, lng: 140.8927 },
+    { id: 'fukushima-airport', name: '福島空港',            lat: 37.2274, lng: 140.4308 },
   ];
 
   // ── 運賃ルール（料金・決済ページと同一） ──

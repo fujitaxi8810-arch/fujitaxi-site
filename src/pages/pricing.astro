@@ -27,6 +27,7 @@ import Layout from '../layouts/Layout.astro';
         <a href="#time">時間制運賃</a>
         <a href="#extras">割増・割引</a>
         <a href="#payment">決済方法</a>
+        <a href="/estimate" class="pricing-anchors__sim">料金シミュレーター ✨</a>
       </nav>
     </div>
   </section>
@@ -262,6 +263,12 @@ import Layout from '../layouts/Layout.astro';
   .pricing-anchors a:hover {
     border-color: var(--fuji-yellow);
     color: var(--fuji-yellow);
+  }
+  .pricing-anchors__sim {
+    border-color: var(--fuji-yellow) !important;
+    color: var(--fuji-yellow) !important;
+    background: rgba(245,200,0,0.08);
+    font-weight: 700;
   }
 
   .fare-block {

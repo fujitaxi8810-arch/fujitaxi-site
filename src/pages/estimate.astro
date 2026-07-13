@@ -1,0 +1,477 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="料金シミュレーター – 富士タクシー"
+  description="富士タクシーの料金シミュレーター。出発地と目的地を選ぶだけで、普通車・大型車・ジャンボタクシーの料金目安がすぐにわかります。深夜割増にも対応。"
+>
+
+  <!-- ページヒーロー -->
+  <section class="page-hero bg-black">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="パンくずリスト">
+        <ol>
+          <li><a href="/">ホーム</a></li>
+          <li aria-hidden="true">›</li>
+          <li><a href="/pricing">料金・決済</a></li>
+          <li aria-hidden="true">›</li>
+          <li aria-current="page">料金シミュレーター</li>
+        </ol>
+      </nav>
+      <p class="eyebrow reveal">Fare Simulator</p>
+      <h1 class="reveal">料金<span class="text-yellow">シミュレーター</span></h1>
+      <p class="page-hero__lead reveal">出発地と目的地を選ぶだけ。料金の目安がすぐにわかります。</p>
+    </div>
+  </section>
+
+  <!-- シミュレーター本体 -->
+  <section class="section bg-black">
+    <div class="container">
+      <div class="sim-wrap">
+
+        <!-- 入力パネル -->
+        <div class="sim-panel">
+
+          <div class="sim-field">
+            <label class="sim-label" for="from">出発地</label>
+            <select id="from" class="sim-select">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+
+          <div class="sim-swap-row">
+            <button type="button" id="swapBtn" class="sim-swap" aria-label="出発地と目的地を入れ替える">⇅ 入れ替え</button>
+          </div>
+
+          <div class="sim-field">
+            <label class="sim-label" for="to">目的地</label>
+            <select id="to" class="sim-select">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+
+          <div class="sim-field sim-field--manual">
+            <label class="sim-label" for="manualKm">
+              リストにない場所は距離（km）を直接入力
+            </label>
+            <div class="sim-manual-row">
+              <input type="number" id="manualKm" class="sim-input" min="0" max="300" step="0.5" placeholder="例: 12.5" inputmode="decimal" />
+              <span class="sim-unit">km</span>
+            </div>
+          </div>
+
+          <div class="sim-field">
+            <label class="sim-check">
+              <input type="checkbox" id="nightCheck" />
+              <span>深夜・早朝（22:00〜5:00）に利用する<small>（2割増）</small></span>
+            </label>
+          </div>
+
+        </div>
+
+        <!-- 結果パネル -->
+        <div class="sim-results" id="results" hidden>
+          <p class="sim-results__route" id="routeLabel"></p>
+          <p class="sim-results__dist">推定距離 <strong id="distLabel"></strong></p>
+
+          <div class="sim-cards">
+            <div class="sim-card">
+              <p class="sim-card__type">普通車<span>〜4名</span></p>
+              <p class="sim-card__price"><span id="fareStd">—</span><small>円</small></p>
+            </div>
+            <div class="sim-card">
+              <p class="sim-card__type">大型車<span>〜5名</span></p>
+              <p class="sim-card__price"><span id="fareLarge">—</span><small>円</small></p>
+            </div>
+            <div class="sim-card sim-card--jumbo">
+              <p class="sim-card__type">ジャンボ<span>〜9名</span></p>
+              <p class="sim-card__price"><span id="fareJumbo">—</span><small>円</small></p>
+              <p class="sim-card__note" id="jumboNote"></p>
+            </div>
+          </div>
+
+          <p class="sim-disclaimer">
+            ※ 表示額は距離制運賃による<strong>目安</strong>です。信号待ち・渋滞などによる時間距離併用運賃、有料道路代は含まれません。5,000円を超える部分には遠距離割引（1割引）を適用済みです。正確な料金はお電話でお見積りします。
+          </p>
+
+          <div class="sim-cta">
+            <a href="tel:0244442543" class="btn btn--primary btn--lg">
+              📞 0244-44-2543 に電話して予約
+            </a>
+            <a href="/contact" class="btn btn--outline">メールで問い合わせ</a>
+          </div>
+        </div>
+
+        <!-- 未入力ガイド -->
+        <div class="sim-empty" id="emptyGuide">
+          <p>出発地と目的地を選ぶと、ここに料金の目安が表示されます。</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- 料金表へのリンク -->
+  <section class="section bg-black" style="padding-top: 0;">
+    <div class="container">
+      <div class="back-link reveal">
+        <a href="/pricing">正式な運賃料金表を見る →</a>
+      </div>
+    </div>
+  </section>
+
+</Layout>
+
+<script>
+  // ── 主要スポット（緯度・経度） ──
+  const SPOTS = [
+    { id: 'odaka-st',      name: '小高駅',                 lat: 37.5615, lng: 140.9926 },
+    { id: 'fuji-honsha',   name: '富士タクシー本社（小高区本町）', lat: 37.5636, lng: 140.9903 },
+    { id: 'haranomachi-st',name: '原ノ町駅',               lat: 37.6420, lng: 140.9573 },
+    { id: 'haramachi-ku',  name: '原町区役所周辺',          lat: 37.6424, lng: 140.9538 },
+    { id: 'city-hosp',     name: '南相馬市立総合病院',       lat: 37.6524, lng: 140.9515 },
+    { id: 'odaka-hosp',    name: '小高病院',               lat: 37.5628, lng: 140.9884 },
+    { id: 'kashima-st',    name: '鹿島駅',                 lat: 37.7015, lng: 140.9645 },
+    { id: 'namie-st',      name: '浪江駅',                 lat: 37.4948, lng: 140.9948 },
+    { id: 'odaka-jinja',   name: '小高神社',               lat: 37.5652, lng: 140.9852 },
+    { id: 'hibarigahara',  name: '雲雀ヶ原祭場地（野馬追会場）', lat: 37.6323, lng: 140.9482 },
+    { id: 'kita-ikoi',     name: '北泉海浜総合公園',         lat: 37.6555, lng: 141.0177 },
+    { id: 'soso-iryo',     name: '相双医療センター（相馬市）', lat: 37.7965, lng: 140.9204 },
+    { id: 'haramachi-aeon',name: 'イオンスーパーセンター南相馬店', lat: 37.6493, lng: 140.9605 },
+    { id: 'sendai-st',     name: '仙台駅',                 lat: 38.2601, lng: 140.8824 },
+    { id: 'sendai-airport',name: '仙台空港',               lat: 38.1397, lng: 140.9170 },
+    { id: 'fukushima-st',  name: '福島駅',                 lat: 37.7541, lng: 140.4589 },
+    { id: 'iwaki-st',      name: 'いわき駅',               lat: 37.0553, lng: 140.8927 },
+  ];
+
+  // ── 運賃ルール（料金・決済ページと同一） ──
+  const FARES = {
+    std:   { base: 700, baseKm: 1.0, add: 100, addM: 260 },
+    large: { base: 900, baseKm: 1.0, add: 100, addM: 177 },
+    jumbo: { base: 980, baseKm: 1.0, add: 100, addM: 173 },
+  };
+  const ROAD_FACTOR = 1.3;  // 直線距離 → 道路距離の補正係数
+  const NIGHT_RATE = 1.2;   // 深夜早朝 2割増
+  const DISCOUNT_OVER = 5000; // 遠距離割引の閾値
+  const DISCOUNT_RATE = 0.9;  // 5,000円超部分 1割引
+
+  const fromSel = document.getElementById('from');
+  const toSel = document.getElementById('to');
+  const manualKm = document.getElementById('manualKm');
+  const nightCheck = document.getElementById('nightCheck');
+  const results = document.getElementById('results');
+  const emptyGuide = document.getElementById('emptyGuide');
+  const swapBtn = document.getElementById('swapBtn');
+
+  // セレクトボックスに選択肢を追加
+  for (const sel of [fromSel, toSel]) {
+    for (const s of SPOTS) {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      sel.appendChild(opt);
+    }
+  }
+
+  function haversineKm(a, b) {
+    const R = 6371;
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLng = (b.lng - a.lng) * Math.PI / 180;
+    const h = Math.sin(dLat / 2) ** 2 +
+      Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) *
+      Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.asin(Math.sqrt(h));
+  }
+
+  function calcFare(km, rule, night) {
+    let fare = rule.base;
+    if (km > rule.baseKm) {
+      const extraM = (km - rule.baseKm) * 1000;
+      fare += Math.ceil(extraM / rule.addM) * rule.add;
+    }
+    if (night) fare = fare * NIGHT_RATE;
+    // 遠距離割引: 5,000円超の部分を1割引
+    if (fare > DISCOUNT_OVER) {
+      fare = DISCOUNT_OVER + (fare - DISCOUNT_OVER) * DISCOUNT_RATE;
+    }
+    return Math.round(fare / 10) * 10;
+  }
+
+  function fmt(n) { return n.toLocaleString('ja-JP'); }
+
+  function update() {
+    const fromSpot = SPOTS.find(s => s.id === fromSel.value);
+    const toSpot = SPOTS.find(s => s.id === toSel.value);
+    const manual = parseFloat(manualKm.value);
+    const night = nightCheck.checked;
+
+    let km = null;
+    let routeText = '';
+
+    if (!isNaN(manual) && manual > 0) {
+      km = manual;
+      routeText = '距離を直接入力';
+    } else if (fromSpot && toSpot && fromSpot.id !== toSpot.id) {
+      km = haversineKm(fromSpot, toSpot) * ROAD_FACTOR;
+      routeText = `${fromSpot.name} → ${toSpot.name}`;
+    }
+
+    if (km === null) {
+      results.hidden = true;
+      emptyGuide.hidden = false;
+      return;
+    }
+
+    km = Math.round(km * 10) / 10;
+
+    document.getElementById('routeLabel').textContent = routeText;
+    document.getElementById('distLabel').textContent = `約 ${km} km`;
+    document.getElementById('fareStd').textContent = fmt(calcFare(km, FARES.std, night));
+    document.getElementById('fareLarge').textContent = fmt(calcFare(km, FARES.large, night));
+    document.getElementById('fareJumbo').textContent = fmt(calcFare(km, FARES.jumbo, night));
+
+    const jumboFare = calcFare(km, FARES.jumbo, night);
+    const perPerson = Math.round(jumboFare / 9 / 10) * 10;
+    document.getElementById('jumboNote').textContent = `9名乗車なら1人あたり約${fmt(perPerson)}円`;
+
+    results.hidden = false;
+    emptyGuide.hidden = true;
+  }
+
+  fromSel.addEventListener('change', update);
+  toSel.addEventListener('change', update);
+  manualKm.addEventListener('input', update);
+  nightCheck.addEventListener('change', update);
+  swapBtn.addEventListener('click', () => {
+    const tmp = fromSel.value;
+    fromSel.value = toSel.value;
+    toSel.value = tmp;
+    update();
+  });
+</script>
+
+<style>
+  .page-hero {
+    padding-block: 5rem 4rem;
+  }
+  .page-hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 900;
+    color: var(--fuji-white);
+    margin-block: 1rem;
+  }
+  .page-hero__lead {
+    font-size: var(--text-base);
+    color: var(--fuji-gray-muted);
+  }
+  .breadcrumb ol {
+    display: flex;
+    gap: 0.5rem;
+    list-style: none;
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a { color: var(--fuji-gray-muted); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--fuji-yellow); }
+
+  .sim-wrap {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .sim-panel {
+    background: var(--fuji-black-card, #1a1a1a);
+    border: 1px solid rgba(245,200,0,0.3);
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .sim-label {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    margin-bottom: 0.5rem;
+  }
+
+  .sim-select,
+  .sim-input {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    background: #0f0f0f;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: var(--radius-md);
+    color: var(--fuji-white);
+    font-size: 1rem;
+    min-height: 48px;
+  }
+  .sim-select:focus,
+  .sim-input:focus {
+    outline: 2px solid var(--fuji-yellow);
+    border-color: var(--fuji-yellow);
+  }
+
+  .sim-swap-row {
+    display: flex;
+    justify-content: center;
+    margin: -0.5rem 0;
+  }
+  .sim-swap {
+    background: rgba(245,200,0,0.1);
+    border: 1px solid rgba(245,200,0,0.35);
+    border-radius: var(--radius-full);
+    color: var(--fuji-yellow);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.4rem 1rem;
+    cursor: pointer;
+  }
+  .sim-swap:hover { background: rgba(245,200,0,0.2); }
+
+  .sim-field--manual {
+    border-top: 1px dashed rgba(255,255,255,0.15);
+    padding-top: 1.25rem;
+  }
+  .sim-manual-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .sim-manual-row .sim-input { max-width: 160px; }
+  .sim-unit { color: var(--fuji-gray-muted); font-weight: 600; }
+
+  .sim-check {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--fuji-white);
+    font-size: var(--text-sm);
+    cursor: pointer;
+  }
+  .sim-check input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--fuji-yellow);
+  }
+  .sim-check small { color: var(--fuji-gray-muted); margin-left: 0.3rem; }
+
+  .sim-empty {
+    text-align: center;
+    color: var(--fuji-gray-muted);
+    padding: 3rem 1rem;
+    border: 1px dashed rgba(255,255,255,0.15);
+    border-radius: var(--radius-xl);
+    margin-top: 1.5rem;
+    font-size: var(--text-sm);
+  }
+
+  .sim-results {
+    margin-top: 1.5rem;
+    background: #0f0f0f;
+    border: 1px solid rgba(245,200,0,0.4);
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+  }
+  .sim-results__route {
+    font-size: var(--text-base);
+    font-weight: 700;
+    color: var(--fuji-white);
+  }
+  .sim-results__dist {
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    margin-bottom: 1.5rem;
+  }
+  .sim-results__dist strong { color: var(--fuji-yellow); font-size: 1.1rem; }
+
+  .sim-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 600px) {
+    .sim-cards { grid-template-columns: 1fr; }
+  }
+  .sim-card {
+    background: var(--fuji-black-card, #1a1a1a);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    text-align: center;
+  }
+  .sim-card--jumbo {
+    border-color: var(--fuji-yellow);
+    background: rgba(245,200,0,0.05);
+  }
+  .sim-card__type {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--fuji-white);
+    margin-bottom: 0.5rem;
+  }
+  .sim-card__type span {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--fuji-gray-muted);
+    font-weight: 400;
+    margin-top: 0.15rem;
+  }
+  .sim-card__price {
+    font-family: var(--font-en);
+    font-size: 1.9rem;
+    font-weight: 900;
+    color: var(--fuji-yellow);
+    line-height: 1;
+  }
+  .sim-card__price small {
+    font-size: 0.9rem;
+    margin-left: 0.15rem;
+  }
+  .sim-card__note {
+    font-size: 0.7rem;
+    color: var(--fuji-gray-muted);
+    margin-top: 0.5rem;
+  }
+
+  .sim-disclaimer {
+    font-size: var(--text-xs);
+    color: rgba(255,255,255,0.45);
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+  }
+  .sim-disclaimer strong { color: var(--fuji-yellow); }
+
+  .sim-cta {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .back-link {
+    text-align: center;
+  }
+  .back-link a {
+    color: var(--fuji-yellow);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: var(--text-sm);
+  }
+  .back-link a:hover { text-decoration: underline; }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+</style>

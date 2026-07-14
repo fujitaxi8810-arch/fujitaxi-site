@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 
 <Layout
   title="勤怠管理 – 富士タクシー（社内用）"
-  description="富士タクシー社内用の勤怠管理アプリ。出勤・退勤の打刻、勤務履歴の確認、CSV出力ができます。"
+  description="富士タクシー社内用の勤怠管理アプリ。出勤・退勤の打刻、シフト日給・歩合給の給与計算、CSV出力ができます。"
 >
 
   <section class="page-hero bg-black">
@@ -20,6 +20,12 @@ import Layout from '../layouts/Layout.astro';
   <section class="section bg-black" style="padding-top: 1rem;">
     <div class="container kintai-wrap">
 
+      <!-- 管理者ロック -->
+      <div class="kt-adminbar">
+        <span class="kt-adminbar__label" id="adminState">🔒 売上・給与データは非表示中</span>
+        <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
+      </div>
+
       <!-- スタッフ選択 -->
       <div class="kt-panel">
         <div class="kt-panel__head">
@@ -34,14 +40,35 @@ import Layout from '../layouts/Layout.astro';
       <div class="kt-panel kt-panel--punch" id="punchPanel" hidden>
         <p class="kt-selected">選択中：<strong id="selectedName"></strong></p>
         <p class="kt-status" id="statusLabel"></p>
-        <div class="kt-punch-grid">
-          <button type="button" class="kt-punch kt-punch--in" id="punchIn">出勤</button>
+
+        <!-- 出勤前：シフト選択 -->
+        <div class="kt-shift-select" id="shiftSelect">
+          <p class="kt-shift-select__label">シフトを選んで出勤してください</p>
+          <div class="kt-shift-grid">
+            <button type="button" class="kt-shift-btn kt-shift-btn--normal" id="punchInNormal">
+              <span class="kt-shift-btn__name">普通番で出勤</span>
+              <span class="kt-shift-btn__sub" id="normalWageLabel"></span>
+            </button>
+            <button type="button" class="kt-shift-btn kt-shift-btn--late" id="punchInLate">
+              <span class="kt-shift-btn__name">遅番で出勤</span>
+              <span class="kt-shift-btn__sub" id="lateWageLabel"></span>
+            </button>
+          </div>
+          <label class="kt-check">
+            <input type="checkbox" id="phoneDutyCheck" />
+            <span>電話番を担当する<small id="phoneAllowanceLabel"></small></span>
+          </label>
+        </div>
+
+        <!-- 出勤後：通常の打刻グリッド -->
+        <div class="kt-punch-grid" id="punchGrid" hidden>
           <button type="button" class="kt-punch kt-punch--out" id="punchOut">退勤</button>
           <button type="button" class="kt-punch kt-punch--break" id="punchBreakStart">休憩 開始</button>
           <button type="button" class="kt-punch kt-punch--break" id="punchBreakEnd">休憩 終了</button>
           <button type="button" class="kt-punch kt-punch--away" id="punchAwayStart">時間内退勤</button>
           <button type="button" class="kt-punch kt-punch--away" id="punchAwayEnd">時間内出勤</button>
         </div>
+
         <p class="kt-msg" id="punchMsg" aria-live="polite"></p>
       </div>
 
@@ -64,13 +91,58 @@ import Layout from '../layouts/Layout.astro';
         <div class="kt-table-wrap">
           <table class="kt-table" id="histTable">
             <thead>
-              <tr><th>日付</th><th>名前</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th></tr>
+              <tr><th>日付</th><th>名前</th><th>シフト</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th><th>売上(税抜)</th><th>カード手数料</th><th>日給</th><th>歩合給</th><th>合計</th></tr>
             </thead>
             <tbody id="histBody"></tbody>
           </table>
         </div>
         <p class="kt-empty" id="histEmpty">この月の記録はありません。</p>
       </div>
+
+      <!-- 月次給与サマリー -->
+      <div class="kt-panel">
+        <h2 class="kt-title">月次給与サマリー</h2>
+        <div class="kt-table-wrap">
+          <table class="kt-table" id="wageTable">
+            <thead>
+              <tr><th>名前</th><th>出勤日数</th><th>実働合計</th><th>日給合計</th><th>売上合計</th><th>歩合給合計</th><th>総支給額</th></tr>
+            </thead>
+            <tbody id="wageBody"></tbody>
+          </table>
+        </div>
+        <p class="kt-empty" id="wageEmpty">この月の記録はありません。</p>
+        <p class="kt-note" id="wageFormula">※ 総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給｛（売上税抜 − カード手数料等）× 歩合率｝</p>
+      </div>
+
+      <!-- 給与設定 -->
+      <div class="kt-panel" id="settingsPanel" hidden>
+        <h2 class="kt-title">給与設定（管理者）</h2>
+        <div class="kt-settings-grid">
+          <label class="kt-field">
+            <span>普通番 基本日給（円）</span>
+            <input type="number" id="setNormalWage" class="kt-input" min="0" />
+          </label>
+          <label class="kt-field">
+            <span>遅番 基本日給（円）</span>
+            <input type="number" id="setLateWage" class="kt-input" min="0" />
+          </label>
+          <label class="kt-field">
+            <span>遅番 割増賃金（円）</span>
+            <input type="number" id="setLateBonus" class="kt-input" min="0" />
+          </label>
+          <label class="kt-field">
+            <span>電話番手当（円）</span>
+            <input type="number" id="setPhoneAllowance" class="kt-input" min="0" />
+          </label>
+          <label class="kt-field">
+            <span>歩合率（％）</span>
+            <input type="number" id="setCommissionRate" class="kt-input" min="0" max="100" step="0.01" />
+          </label>
+        </div>
+        <button type="button" class="kt-btn" id="saveSettingsBtn">設定を保存</button>
+        <p class="kt-note">※ ここで設定した金額・歩合率が、すべてのスタッフの給与計算に使われます。</p>
+      </div>
+      <button type="button" class="kt-btn kt-btn--ghost" id="settingsToggleBtn" hidden>⚙ 給与設定を開く</button>
 
       <p class="kt-note">※ データはこの端末のブラウザ内にのみ保存されます。端末を変えると記録は引き継がれません。月末にCSV出力して保管してください。</p>
 
@@ -82,9 +154,21 @@ import Layout from '../layouts/Layout.astro';
 <script>
   const LS_STAFF = 'fuji-kintai-staff';
   const LS_LOG = 'fuji-kintai-log';
+  const LS_SETTINGS = 'fuji-kintai-settings';
+  const SS_ADMIN = 'fuji-kintai-admin';
+
+  const DEFAULT_SETTINGS = {
+    normalWage: 8400,
+    lateWage: 8400,
+    lateBonus: 700,
+    phoneAllowance: 300,
+    commissionRate: 16.57,
+    adminPassword: '',
+  };
 
   let staff = JSON.parse(localStorage.getItem(LS_STAFF) || '[]');
   let log = JSON.parse(localStorage.getItem(LS_LOG) || '[]');
+  let settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem(LS_SETTINGS) || '{}'));
   let selectedId = null;
 
   const $ = (id) => document.getElementById(id);
@@ -102,6 +186,9 @@ import Layout from '../layouts/Layout.astro';
     localStorage.setItem(LS_STAFF, JSON.stringify(staff));
     localStorage.setItem(LS_LOG, JSON.stringify(log));
   }
+  function saveSettings() {
+    localStorage.setItem(LS_SETTINGS, JSON.stringify(settings));
+  }
 
   function dateKey(d) {
     const dt = d ? new Date(d) : new Date();
@@ -110,6 +197,70 @@ import Layout from '../layouts/Layout.astro';
   function timeStr(iso) {
     return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
   }
+  function yen(n) {
+    return Math.round(n).toLocaleString('ja-JP');
+  }
+
+  // ── 管理者ロック ──
+  function isAdmin() {
+    return sessionStorage.getItem(SS_ADMIN) === '1';
+  }
+  function requireAdmin() {
+    if (isAdmin()) return true;
+    if (!settings.adminPassword) {
+      const p1 = prompt('初めて管理者機能を使います。管理者パスワードを設定してください。');
+      if (!p1) return false;
+      const p2 = prompt('確認のため、もう一度入力してください。');
+      if (p1 !== p2) { alert('パスワードが一致しませんでした。もう一度お試しください。'); return false; }
+      settings.adminPassword = p1;
+      saveSettings();
+      sessionStorage.setItem(SS_ADMIN, '1');
+      return true;
+    }
+    const input = prompt('管理者パスワードを入力してください。');
+    if (input === settings.adminPassword) {
+      sessionStorage.setItem(SS_ADMIN, '1');
+      return true;
+    }
+    if (input !== null) alert('パスワードが違います。');
+    return false;
+  }
+  function renderAdminBar() {
+    const unlocked = isAdmin();
+    $('adminState').textContent = unlocked ? '🔓 売上・給与データを表示中' : '🔒 売上・給与データは非表示中';
+    $('adminToggleBtn').textContent = unlocked ? 'ロックする' : '管理者ロック解除';
+    $('settingsToggleBtn').hidden = !unlocked;
+    if (!unlocked) $('settingsPanel').hidden = true;
+  }
+  $('adminToggleBtn').onclick = () => {
+    if (isAdmin()) {
+      sessionStorage.removeItem(SS_ADMIN);
+    } else {
+      requireAdmin();
+    }
+    renderAdminBar(); renderToday(); renderHist(); renderWage();
+  };
+  $('settingsToggleBtn').onclick = () => {
+    $('settingsPanel').hidden = !$('settingsPanel').hidden;
+    if (!$('settingsPanel').hidden) fillSettingsForm();
+  };
+  function fillSettingsForm() {
+    $('setNormalWage').value = settings.normalWage;
+    $('setLateWage').value = settings.lateWage;
+    $('setLateBonus').value = settings.lateBonus;
+    $('setPhoneAllowance').value = settings.phoneAllowance;
+    $('setCommissionRate').value = settings.commissionRate;
+  }
+  $('saveSettingsBtn').onclick = () => {
+    settings.normalWage = parseInt($('setNormalWage').value, 10) || 0;
+    settings.lateWage = parseInt($('setLateWage').value, 10) || 0;
+    settings.lateBonus = parseInt($('setLateBonus').value, 10) || 0;
+    settings.phoneAllowance = parseInt($('setPhoneAllowance').value, 10) || 0;
+    settings.commissionRate = parseFloat($('setCommissionRate').value) || 0;
+    saveSettings();
+    alert('設定を保存しました。');
+    renderPunch(); renderToday(); renderHist(); renderWage();
+  };
 
   // ── スタッフ ──
   function renderStaff() {
@@ -120,7 +271,9 @@ import Layout from '../layouts/Layout.astro';
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'kt-staff' + (s.id === selectedId ? ' is-active' : '');
-      btn.textContent = s.name;
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = s.name;
+      btn.appendChild(nameSpan);
       btn.onclick = () => { selectedId = s.id; renderStaff(); renderPunch(); };
       const del = document.createElement('span');
       del.className = 'kt-staff__del';
@@ -162,6 +315,7 @@ import Layout from '../layouts/Layout.astro';
     return 'working';                            // 勤務中
   }
   const STATUS_LABEL = { before: '未出勤', working: '勤務中', break: '休憩中', away: '時間内退勤中', done: '退勤済み' };
+  const SHIFT_LABEL = { normal: '普通番', late: '遅番' };
 
   function renderPunch() {
     const panel = $('punchPanel');
@@ -172,8 +326,16 @@ import Layout from '../layouts/Layout.astro';
     $('selectedName').textContent = s.name;
     const rec = todayRec(selectedId);
     const st = statusOf(rec);
-    $('statusLabel').textContent = `現在：${STATUS_LABEL[st]}`;
-    $('punchIn').disabled = st !== 'before';
+    $('statusLabel').textContent = `現在：${STATUS_LABEL[st]}${rec && rec.shiftType ? '（' + SHIFT_LABEL[rec.shiftType] + '）' : ''}`;
+
+    $('normalWageLabel').textContent = `${yen(settings.normalWage)}円`;
+    $('lateWageLabel').textContent = `${yen(settings.lateWage + settings.lateBonus)}円`;
+    $('phoneAllowanceLabel').textContent = `（+${yen(settings.phoneAllowance)}円）`;
+
+    const canPunchIn = st === 'before';
+    $('shiftSelect').hidden = !canPunchIn;
+    $('punchGrid').hidden = canPunchIn;
+
     $('punchOut').disabled = st !== 'working';
     $('punchBreakStart').disabled = st !== 'working';
     $('punchBreakEnd').disabled = st !== 'break';
@@ -181,7 +343,7 @@ import Layout from '../layouts/Layout.astro';
     $('punchAwayEnd').disabled = st !== 'away';
   }
 
-  function punch(type) {
+  function punchIn(shiftType) {
     if (!selectedId) return;
     const now = new Date().toISOString();
     let rec = todayRec(selectedId);
@@ -189,9 +351,36 @@ import Layout from '../layouts/Layout.astro';
       rec = { staffId: selectedId, date: dateKey(), in: null, out: null, breaks: [], leaves: [] };
       log.push(rec);
     }
+    rec.in = now;
+    rec.shiftType = shiftType;
+    rec.phoneDuty = $('phoneDutyCheck').checked;
+    save();
+    const s = staff.find(x => x.id === selectedId);
+    $('punchMsg').textContent = `✅ ${s.name} さんが${SHIFT_LABEL[shiftType]}で出勤しました（${timeStr(now)}）`;
+    $('phoneDutyCheck').checked = false;
+    renderPunch(); renderToday(); renderHist(); renderWage();
+  }
+
+  function punch(type) {
+    if (!selectedId) return;
+    const now = new Date().toISOString();
+    let rec = todayRec(selectedId);
+    if (!rec) return;
     if (!rec.leaves) rec.leaves = [];
-    if (type === 'in') rec.in = now;
-    if (type === 'out') rec.out = now;
+
+    if (type === 'out') {
+      const salesInput = prompt('本日の売上（税抜）を入力してください（円）※不明な場合は空欄でOK');
+      if (salesInput !== null && salesInput.trim() !== '') {
+        const sales = parseFloat(salesInput);
+        if (!isNaN(sales) && sales >= 0) {
+          rec.sales = sales;
+          const feeInput = prompt('カード決済手数料等（差し引く金額）を入力してください（円）※なければ0のままでOK', '0');
+          const fee = parseFloat(feeInput);
+          rec.cardFee = (!isNaN(fee) && fee >= 0) ? fee : 0;
+        }
+      }
+      rec.out = now;
+    }
     if (type === 'breakStart') rec.breaks.push({ start: now, end: null });
     if (type === 'breakEnd') {
       const b = rec.breaks[rec.breaks.length - 1];
@@ -204,11 +393,12 @@ import Layout from '../layouts/Layout.astro';
     }
     save();
     const s = staff.find(x => x.id === selectedId);
-    const labels = { in: '出勤', out: '退勤', breakStart: '休憩開始', breakEnd: '休憩終了', awayStart: '時間内退勤', awayEnd: '時間内出勤' };
+    const labels = { out: '退勤', breakStart: '休憩開始', breakEnd: '休憩終了', awayStart: '時間内退勤', awayEnd: '時間内出勤' };
     $('punchMsg').textContent = `✅ ${s.name} さんの${labels[type]}を ${timeStr(now)} に記録しました`;
-    renderPunch(); renderToday(); renderHist();
+    renderPunch(); renderToday(); renderHist(); renderWage();
   }
-  $('punchIn').onclick = () => punch('in');
+  $('punchInNormal').onclick = () => punchIn('normal');
+  $('punchInLate').onclick = () => punchIn('late');
   $('punchOut').onclick = () => punch('out');
   $('punchBreakStart').onclick = () => punch('breakStart');
   $('punchBreakEnd').onclick = () => punch('breakEnd');
@@ -251,6 +441,25 @@ import Layout from '../layouts/Layout.astro';
     return `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')}`;
   }
 
+  // ── 給与計算 ──
+  function shiftWage(rec) {
+    if (!rec.shiftType) return 0;
+    let w = rec.shiftType === 'late' ? (settings.lateWage + settings.lateBonus) : settings.normalWage;
+    if (rec.phoneDuty) w += settings.phoneAllowance;
+    return w;
+  }
+  function commissionPay(rec) {
+    if (rec.sales == null) return 0;
+    const net = Math.max(0, (rec.sales || 0) - (rec.cardFee || 0));
+    return net * (settings.commissionRate / 100);
+  }
+  function totalPay(rec) {
+    return shiftWage(rec) + commissionPay(rec);
+  }
+  function mask(text) {
+    return isAdmin() ? text : '••••';
+  }
+
   // ── 本日の状況 ──
   function renderToday() {
     const board = $('todayBoard');
@@ -264,7 +473,7 @@ import Layout from '../layouts/Layout.astro';
       div.className = `kt-today-card kt-today-card--${st}`;
       div.innerHTML = `
         <p class="kt-today-card__name">${s ? s.name : '（削除済み）'}</p>
-        <p class="kt-today-card__status">${STATUS_LABEL[st]}</p>
+        <p class="kt-today-card__status">${STATUS_LABEL[st]}${rec.shiftType ? '・' + SHIFT_LABEL[rec.shiftType] : ''}</p>
         <p class="kt-today-card__times">出勤 ${rec.in ? timeStr(rec.in) : '—'} ／ 退勤 ${rec.out ? timeStr(rec.out) : '—'}</p>
       `;
       board.appendChild(div);
@@ -284,54 +493,139 @@ import Layout from '../layouts/Layout.astro';
     $('histTable').style.display = recs.length ? '' : 'none';
     for (const rec of recs) {
       const s = staff.find(x => x.id === rec.staffId);
+      const w = rec.out ? workMinutes(rec) : null;
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${rec.date.slice(5).replace('-', '/')}</td>
         <td>${s ? s.name : '（削除済み）'}</td>
+        <td>${rec.shiftType ? SHIFT_LABEL[rec.shiftType] + (rec.phoneDuty ? '＋電話番' : '') : '—'}</td>
         <td>${rec.in ? timeStr(rec.in) : '—'}</td>
         <td>${rec.out ? timeStr(rec.out) : '—'}</td>
         <td>${hm(breakMinutes(rec))}</td>
         <td>${hm(awayMinutes(rec))}</td>
-        <td class="kt-table__work">${rec.out ? hm(workMinutes(rec)) : '勤務中'}</td>
+        <td class="kt-table__work">${rec.out ? hm(w) : '勤務中'}</td>
+        <td>${mask(rec.sales != null ? yen(rec.sales) + '円' : '—')}</td>
+        <td>${mask(rec.cardFee != null ? yen(rec.cardFee) + '円' : '—')}</td>
+        <td>${mask(rec.shiftType ? yen(shiftWage(rec)) + '円' : '—')}</td>
+        <td>${mask(rec.sales != null ? yen(commissionPay(rec)) + '円' : '—')}</td>
+        <td class="kt-table__total">${rec.out ? mask(yen(totalPay(rec)) + '円') : '—'}</td>
       `;
       body.appendChild(tr);
     }
   }
+
+  // ── 月次給与サマリー ──
+  function renderWage() {
+    const month = currentMonth();
+    const body = $('wageBody');
+    body.innerHTML = '';
+    const recs = log.filter(r => r.date.startsWith(month) && r.out);
+    const totals = {};
+    for (const rec of recs) {
+      if (!totals[rec.staffId]) totals[rec.staffId] = { days: 0, minutes: 0, wage: 0, sales: 0, commission: 0 };
+      const t = totals[rec.staffId];
+      t.days += 1;
+      t.minutes += workMinutes(rec);
+      t.wage += shiftWage(rec);
+      t.sales += (rec.sales || 0);
+      t.commission += commissionPay(rec);
+    }
+    const ids = Object.keys(totals);
+    $('wageEmpty').hidden = ids.length > 0;
+    $('wageTable').style.display = ids.length ? '' : 'none';
+    for (const id of ids) {
+      const s = staff.find(x => x.id === id);
+      const t = totals[id];
+      const total = t.wage + t.commission;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${s ? s.name : '（削除済み）'}</td>
+        <td>${t.days}日</td>
+        <td>${hm(t.minutes)}</td>
+        <td>${mask(yen(t.wage) + '円')}</td>
+        <td>${mask(yen(t.sales) + '円')}</td>
+        <td>${mask(yen(t.commission) + '円')}</td>
+        <td class="kt-table__total">${mask(yen(total) + '円')}</td>
+      `;
+      body.appendChild(tr);
+    }
+  }
+
   $('monthPick').value = dateKey().slice(0, 7);
-  $('monthPick').onchange = renderHist;
+  $('monthPick').onchange = () => { renderHist(); renderWage(); };
 
   // ── CSV出力 ──
   $('csvBtn').onclick = () => {
+    if (!requireAdmin()) return;
+    renderAdminBar();
     const month = currentMonth();
     const recs = log.filter(r => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date));
     if (!recs.length) { alert('この月の記録がありません'); return; }
-    let csv = '﻿日付,名前,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分)\n';
+    let csv = '﻿日付,名前,シフト,電話番,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分),売上税抜(円),カード手数料等(円),シフト日給(円),歩合給(円),合計支給額(円)\n';
     for (const rec of recs) {
       const s = staff.find(x => x.id === rec.staffId);
       const w = rec.out ? workMinutes(rec) : '';
       csv += [
         rec.date,
         s ? s.name : '削除済み',
+        rec.shiftType ? SHIFT_LABEL[rec.shiftType] : '',
+        rec.phoneDuty ? '有' : '',
         rec.in ? timeStr(rec.in) : '',
         rec.out ? timeStr(rec.out) : '',
         breakMinutes(rec),
         awayMinutes(rec),
         w,
         rec.out ? hm(w) : '',
+        rec.sales != null ? rec.sales : '',
+        rec.cardFee != null ? rec.cardFee : '',
+        rec.shiftType ? Math.round(shiftWage(rec)) : '',
+        rec.sales != null ? Math.round(commissionPay(rec)) : '',
+        rec.out ? Math.round(totalPay(rec)) : '',
       ].join(',') + '\n';
     }
+
+    csv += `\n設定：普通番日給${settings.normalWage}円／遅番日給${settings.lateWage + settings.lateBonus}円／電話番手当${settings.phoneAllowance}円／歩合率${settings.commissionRate}%\n`;
+    csv += '\n月次サマリー\n名前,出勤日数,実働合計(分),実働合計(時:分),シフト日給合計(円),売上合計(円),歩合給合計(円),総支給額(円)\n';
+    const totals = {};
+    for (const rec of recs) {
+      if (!rec.out) continue;
+      if (!totals[rec.staffId]) totals[rec.staffId] = { days: 0, minutes: 0, wage: 0, sales: 0, commission: 0 };
+      const t = totals[rec.staffId];
+      t.days += 1;
+      t.minutes += workMinutes(rec);
+      t.wage += shiftWage(rec);
+      t.sales += (rec.sales || 0);
+      t.commission += commissionPay(rec);
+    }
+    for (const id of Object.keys(totals)) {
+      const s = staff.find(x => x.id === id);
+      const t = totals[id];
+      csv += [
+        s ? s.name : '削除済み',
+        t.days,
+        t.minutes,
+        hm(t.minutes),
+        Math.round(t.wage),
+        Math.round(t.sales),
+        Math.round(t.commission),
+        Math.round(t.wage + t.commission),
+      ].join(',') + '\n';
+    }
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `勤怠_${month}.csv`;
+    a.download = `勤怠給与_${month}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
 
+  renderAdminBar();
   renderStaff();
   renderPunch();
   renderToday();
   renderHist();
+  renderWage();
 </script>
 
 <style is:global>
@@ -360,6 +654,23 @@ import Layout from '../layouts/Layout.astro';
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+  }
+
+  .kt-adminbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: var(--radius-lg);
+    padding: 0.85rem 1.25rem;
+  }
+  .kt-adminbar__label {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.9);
   }
 
   .kt-panel {
@@ -408,6 +719,21 @@ import Layout from '../layouts/Layout.astro';
     min-height: 44px;
   }
 
+  .kt-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.85);
+    font-weight: 700;
+  }
+  .kt-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
   .kt-staff-list { display: flex; flex-wrap: wrap; gap: 0.6rem; }
   .kt-staff {
     display: inline-flex;
@@ -442,6 +768,46 @@ import Layout from '../layouts/Layout.astro';
   .kt-selected strong { color: var(--fuji-yellow); font-size: 1.5rem; }
   .kt-status { color: rgba(255,255,255,0.9); font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem; }
 
+  .kt-shift-select { display: flex; flex-direction: column; gap: 1rem; }
+  .kt-shift-select__label { color: rgba(255,255,255,0.85); font-size: 0.95rem; font-weight: 700; }
+  .kt-shift-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+  .kt-shift-btn {
+    border: none;
+    border-radius: var(--radius-lg);
+    padding: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-height: 72px;
+    transition: transform 0.1s;
+  }
+  .kt-shift-btn:active { transform: scale(0.97); }
+  .kt-shift-btn--normal { background: var(--fuji-yellow); color: var(--fuji-black); }
+  .kt-shift-btn--late { background: #8fc5f8; color: #0a0a0a; }
+  .kt-shift-btn__name { font-size: 1.2rem; font-weight: 900; }
+  .kt-shift-btn__sub { font-size: 0.85rem; font-weight: 700; opacity: 0.75; }
+
+  .kt-check {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--fuji-white);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .kt-check input {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--fuji-yellow);
+  }
+  .kt-check small { color: rgba(255,255,255,0.6); margin-left: 0.3rem; font-weight: 600; }
+
   .kt-punch-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -459,12 +825,11 @@ import Layout from '../layouts/Layout.astro';
   }
   .kt-punch:active { transform: scale(0.97); }
   .kt-punch:disabled { opacity: 0.25; cursor: not-allowed; }
-  .kt-punch--in { background: var(--fuji-yellow); color: var(--fuji-black); }
   .kt-punch--out { background: #e05555; color: #fff; }
   .kt-punch--break { background: rgba(255,255,255,0.12); color: var(--fuji-white); border: 1px solid rgba(255,255,255,0.25); }
   .kt-punch--away { background: rgba(106,176,243,0.18); color: #8fc5f8; border: 1px solid rgba(106,176,243,0.45); }
 
-  .kt-msg { margin-top: 1rem; color: var(--fuji-yellow); font-size: var(--text-sm); font-weight: 600; min-height: 1.2em; }
+  .kt-msg { margin-top: 1rem; color: var(--fuji-yellow); font-size: 1.05rem; font-weight: 600; min-height: 1.2em; }
 
   .kt-today { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
   .kt-today-card {
@@ -495,7 +860,7 @@ import Layout from '../layouts/Layout.astro';
   .kt-table th {
     color: var(--fuji-yellow);
     text-align: left;
-    font-size: 1rem;
+    font-size: 0.95rem;
     padding: 0.7rem 0.75rem;
     border-bottom: 2px solid var(--fuji-yellow);
     white-space: nowrap;
@@ -506,6 +871,7 @@ import Layout from '../layouts/Layout.astro';
     white-space: nowrap;
   }
   .kt-table__work { font-weight: 700; color: var(--fuji-yellow); }
+  .kt-table__total { font-weight: 900; color: var(--fuji-yellow); }
 
   .kt-empty { color: rgba(255,255,255,0.75); font-size: 1rem; padding: 0.5rem 0; }
   .kt-note {
@@ -513,5 +879,4 @@ import Layout from '../layouts/Layout.astro';
     color: rgba(255,255,255,0.7);
     line-height: 1.8;
   }
-  .kt-msg { font-size: 1.05rem; }
 </style>

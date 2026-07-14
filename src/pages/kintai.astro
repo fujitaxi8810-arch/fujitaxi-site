@@ -73,6 +73,39 @@ import Layout from '../layouts/Layout.astro';
         <p class="kt-msg" id="punchMsg" aria-live="polite"></p>
       </div>
 
+      <!-- 退勤・売上入力モーダル -->
+      <div class="kt-modal-overlay" id="salesModal" hidden>
+        <div class="kt-modal" role="dialog" aria-modal="true" aria-labelledby="salesModalTitle">
+          <h2 class="kt-title" id="salesModalTitle">退勤前の売上入力</h2>
+          <p class="kt-modal__staff" id="salesModalStaff"></p>
+
+          <label class="kt-field kt-field--sales">
+            <span>本日の売上合計（税抜・円）</span>
+            <input type="number" id="salesTotalInput" class="kt-input" min="0" inputmode="numeric" placeholder="例: 30000" />
+          </label>
+
+          <p class="kt-shift-select__label">決済方法ごとの内訳（該当分のみ入力・現金は不要）</p>
+          <div class="kt-modal__methods" id="salesMethodFields"></div>
+
+          <div class="kt-modal__summary">
+            <div class="kt-modal__summary-row">
+              <span>手数料合計（自動計算）</span>
+              <strong id="salesFeeAuto">0円</strong>
+            </div>
+            <label class="kt-field">
+              <span>手数料合計を手修正する場合（円）</span>
+              <input type="number" id="salesFeeOverride" class="kt-input" min="0" inputmode="numeric" placeholder="空欄なら自動計算を使用" />
+            </label>
+          </div>
+
+          <div class="kt-modal__actions">
+            <button type="button" class="kt-punch kt-punch--out" id="salesModalSubmit">記録して退勤</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="salesModalSkip">売上入力なしで退勤</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="salesModalCancel">キャンセル（退勤しない）</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 本日の状況 -->
       <div class="kt-panel">
         <h2 class="kt-title">本日の状況</h2>
@@ -147,36 +180,14 @@ import Layout from '../layouts/Layout.astro';
             <input type="number" id="setCommissionRate" class="kt-input" min="0" max="100" step="0.01" />
           </label>
           <label class="kt-field">
-            <span>クレジットカード手数料率（％）</span>
-            <input type="number" id="setCardFeeRate" class="kt-input" min="0" max="100" step="0.01" />
-          </label>
-          <label class="kt-field">
-            <span>PayPay手数料率（％）</span>
-            <input type="number" id="setPaypayFeeRate" class="kt-input" min="0" max="100" step="0.01" />
-          </label>
-          <label class="kt-field">
-            <span>d払い手数料率（％）</span>
-            <input type="number" id="setDbaraiFeeRate" class="kt-input" min="0" max="100" step="0.01" />
-          </label>
-          <label class="kt-field">
-            <span>メルペイ手数料率（％）</span>
-            <input type="number" id="setMerpayFeeRate" class="kt-input" min="0" max="100" step="0.01" />
-          </label>
-          <label class="kt-field">
-            <span>愛のタクシーチケット手数料率（％）</span>
-            <input type="number" id="setAiTicketFeeRate" class="kt-input" min="0" max="100" step="0.01" />
-          </label>
-          <label class="kt-field">
-            <span>JCBタクシーチケット手数料率（％）</span>
-            <input type="number" id="setJcbTicketFeeRate" class="kt-input" min="0" max="100" step="0.01" />
-          </label>
-          <label class="kt-field">
             <span>最低賃金（円・確認用）</span>
             <input type="number" id="setMinWage" class="kt-input" min="0" />
           </label>
         </div>
+        <p class="kt-shift-select__label" style="margin-top:1rem;">決済方法ごとの手数料率（％）</p>
+        <div class="kt-settings-grid" id="feeRateFields"></div>
         <button type="button" class="kt-btn" id="saveSettingsBtn">設定を保存</button>
-        <p class="kt-note">※ ここで設定した金額・歩合率が、すべてのスタッフの給与計算に使われます。退勤時に決済方法ごとの内訳（クレジット・PayPay・d払い・メルペイ）を入力すると、それぞれの手数料率で自動計算した金額が目安として入力欄に表示されます。必要に応じて手入力で修正してください。</p>
+        <p class="kt-note">※ ここで設定した金額・歩合率・手数料率が、すべてのスタッフの給与計算に使われます。手数料率はSBペイメントサービス収納明細書（2026年6月分）の実績値を初期値にしています。料率改定があった場合はここで更新してください。</p>
       </div>
       <button type="button" class="kt-btn kt-btn--ghost" id="settingsToggleBtn" hidden>⚙ 給与設定を開く</button>
       <button type="button" class="kt-btn kt-btn--danger" id="clearLogBtn" hidden>🗑 全打刻データを削除</button>
@@ -196,19 +207,30 @@ import Layout from '../layouts/Layout.astro';
   const LS_SETTINGS = 'fuji-kintai-settings';
   const SS_ADMIN = 'fuji-kintai-admin';
 
+  // 決済方法マスタ。rateはSBペイメントサービス収納明細書（2026/06/16-06/30分）の実績値。
+  // 楽天Pay・au PAYは決済手数料3.24%＋決済サービス利用料0.15%の合算。
+  const PAY_METHODS = [
+    { id: 'visa',       label: 'VISA / Mastercard',              rate: 2.8 },
+    { id: 'jcb',        label: 'JCB / AMEX / Diners',            rate: 3.24 },
+    { id: 'transit',    label: '交通系IC',                        rate: 2.0 },
+    { id: 'emoney',     label: '電子マネー（Edy・iD・WAON・nanaco）', rate: 2.9 },
+    { id: 'quicpay',    label: 'QUICPay',                        rate: 3.24 },
+    { id: 'rakuten',    label: '楽天Pay / au PAY',               rate: 3.39 },
+    { id: 'paypay',     label: 'PayPay（別端末）',                rate: 2.18 },
+    { id: 'dbarai',     label: 'd払い（別端末）',                 rate: 2.6 },
+    { id: 'merpay',     label: 'メルペイ（別端末）',               rate: 2.6 },
+    { id: 'aiticket',   label: '愛のタクシーチケット',             rate: 5 },
+    { id: 'jcbticket',  label: 'JCBタクシーチケット',             rate: 4 },
+  ];
+
   const DEFAULT_SETTINGS = {
     normalWage: 8400,
     lateWage: 8400,
     lateBonus: 700,
     phoneAllowance: 300,
     commissionRate: 16.57,
-    cardFeeRate: 3.1, // SBペイメントサービス収納明細書（2026/06/16-06/30分）の実績に基づく目安。月額固定費を除く決済手数料の平均。決済手段の内訳で変動するため手入力で調整可。
-    paypayFeeRate: 2.18, // PayPay（別端末決済）の実際の手数料率
-    dbaraiFeeRate: 2.6,  // d払い（別端末決済）の実際の手数料率
-    merpayFeeRate: 2.6,  // メルペイ（別端末決済）の実際の手数料率
-    aiTicketFeeRate: 5,   // 愛のタクシーチケットの手数料率
-    jcbTicketFeeRate: 4,  // JCBタクシーチケットの手数料率
     minWage: 1033, // 福島県の地域別最低賃金（確認用）
+    feeRates: Object.fromEntries(PAY_METHODS.map(m => [m.id, m.rate])),
     adminPassword: '',
   };
 
@@ -224,7 +246,9 @@ import Layout from '../layouts/Layout.astro';
     localStorage.setItem(LS_STAFF, JSON.stringify(staff));
   }
   let log = JSON.parse(localStorage.getItem(LS_LOG) || '[]');
-  let settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem(LS_SETTINGS) || '{}'));
+  const savedSettings = JSON.parse(localStorage.getItem(LS_SETTINGS) || '{}');
+  let settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings);
+  settings.feeRates = Object.assign({}, DEFAULT_SETTINGS.feeRates, savedSettings.feeRates || {});
   let selectedId = null;
 
   const $ = (id) => document.getElementById(id);
@@ -466,27 +490,37 @@ import Layout from '../layouts/Layout.astro';
     $('setLateBonus').value = settings.lateBonus;
     $('setPhoneAllowance').value = settings.phoneAllowance;
     $('setCommissionRate').value = settings.commissionRate;
-    $('setCardFeeRate').value = settings.cardFeeRate;
-    $('setPaypayFeeRate').value = settings.paypayFeeRate;
-    $('setDbaraiFeeRate').value = settings.dbaraiFeeRate;
-    $('setMerpayFeeRate').value = settings.merpayFeeRate;
-    $('setAiTicketFeeRate').value = settings.aiTicketFeeRate;
-    $('setJcbTicketFeeRate').value = settings.jcbTicketFeeRate;
     $('setMinWage').value = settings.minWage;
+
+    const wrap = $('feeRateFields');
+    wrap.innerHTML = '';
+    for (const m of PAY_METHODS) {
+      const label = document.createElement('label');
+      label.className = 'kt-field';
+      const span = document.createElement('span');
+      span.textContent = m.label;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.className = 'kt-input';
+      input.min = '0'; input.max = '100'; input.step = '0.01';
+      input.dataset.feeId = m.id;
+      input.value = settings.feeRates[m.id];
+      label.appendChild(span);
+      label.appendChild(input);
+      wrap.appendChild(label);
+    }
   }
   $('saveSettingsBtn').onclick = () => {
     settings.normalWage = parseInt($('setNormalWage').value, 10) || 0;
     settings.lateWage = parseInt($('setLateWage').value, 10) || 0;
     settings.lateBonus = parseInt($('setLateBonus').value, 10) || 0;
     settings.phoneAllowance = parseInt($('setPhoneAllowance').value, 10) || 0;
-    settings.cardFeeRate = parseFloat($('setCardFeeRate').value) || 0;
-    settings.paypayFeeRate = parseFloat($('setPaypayFeeRate').value) || 0;
-    settings.dbaraiFeeRate = parseFloat($('setDbaraiFeeRate').value) || 0;
-    settings.merpayFeeRate = parseFloat($('setMerpayFeeRate').value) || 0;
-    settings.aiTicketFeeRate = parseFloat($('setAiTicketFeeRate').value) || 0;
-    settings.jcbTicketFeeRate = parseFloat($('setJcbTicketFeeRate').value) || 0;
     settings.commissionRate = parseFloat($('setCommissionRate').value) || 0;
     settings.minWage = parseInt($('setMinWage').value, 10) || 0;
+    for (const input of $('feeRateFields').querySelectorAll('input[data-fee-id]')) {
+      const v = parseFloat(input.value);
+      settings.feeRates[input.dataset.feeId] = (!isNaN(v) && v >= 0) ? v : 0;
+    }
     saveSettings();
     alert('設定を保存しました。');
     renderPunch(); renderToday(); renderHist(); renderWage();
@@ -602,6 +636,96 @@ import Layout from '../layouts/Layout.astro';
     renderPunch(); renderToday(); renderHist(); renderWage();
   }
 
+  // ── 退勤・売上入力モーダル ──
+  function feeAmounts() {
+    const amounts = {};
+    for (const input of $('salesMethodFields').querySelectorAll('input[data-pay-id]')) {
+      const v = parseFloat(input.value);
+      amounts[input.dataset.payId] = (!isNaN(v) && v >= 0) ? v : 0;
+    }
+    return amounts;
+  }
+  function autoFee(amounts) {
+    let total = 0;
+    for (const m of PAY_METHODS) {
+      total += (amounts[m.id] || 0) * (settings.feeRates[m.id] / 100);
+    }
+    return Math.round(total);
+  }
+  function updateFeePreview() {
+    $('salesFeeAuto').textContent = `${yen(autoFee(feeAmounts()))}円`;
+  }
+  function openSalesModal() {
+    const s = staff.find(x => x.id === selectedId);
+    $('salesModalStaff').textContent = `${s ? s.name : ''} さんの本日分`;
+    $('salesTotalInput').value = '';
+    $('salesFeeOverride').value = '';
+    const wrap = $('salesMethodFields');
+    wrap.innerHTML = '';
+    for (const m of PAY_METHODS) {
+      const label = document.createElement('label');
+      label.className = 'kt-field';
+      const span = document.createElement('span');
+      span.textContent = `${m.label}（${settings.feeRates[m.id]}%）`;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.className = 'kt-input';
+      input.min = '0';
+      input.inputMode = 'numeric';
+      input.placeholder = '0';
+      input.dataset.payId = m.id;
+      input.addEventListener('input', updateFeePreview);
+      label.appendChild(span);
+      label.appendChild(input);
+      wrap.appendChild(label);
+    }
+    updateFeePreview();
+    $('salesModal').hidden = false;
+    $('salesTotalInput').focus();
+  }
+  function closeSalesModal() {
+    $('salesModal').hidden = true;
+  }
+  async function finalizePunchOut(withSales) {
+    const rec = todayRec(selectedId);
+    if (!rec) { closeSalesModal(); return; }
+    if (withSales) {
+      const sales = parseFloat($('salesTotalInput').value);
+      if (isNaN(sales) || sales < 0) {
+        alert('売上合計（税抜）を入力してください。売上が無い場合は「売上入力なしで退勤」を押してください。');
+        return;
+      }
+      const amounts = feeAmounts();
+      const breakdownTotal = PAY_METHODS.reduce((sum, m) => sum + (amounts[m.id] || 0), 0);
+      if (breakdownTotal > sales) {
+        if (!confirm(`決済内訳の合計（${yen(breakdownTotal)}円）が売上合計（${yen(sales)}円）を超えています。このまま記録しますか？`)) return;
+      }
+      rec.sales = sales;
+      rec.payments = amounts;
+      const override = parseFloat($('salesFeeOverride').value);
+      rec.cardFee = (!isNaN(override) && override >= 0) ? override : autoFee(amounts);
+    }
+    rec.out = new Date().toISOString();
+    save();
+    closeSalesModal();
+    const s = staff.find(x => x.id === selectedId);
+    $('punchMsg').textContent = `✅ ${s.name} さんの退勤を ${timeStr(rec.out)} に記録しました`;
+    renderPunch(); renderToday(); renderHist(); renderWage();
+
+    if (isAdmin()) {
+      const handle = await getExcelHandle();
+      if (handle) {
+        const result = await syncUnsyncedToExcel(false);
+        if (result.ok && result.count) {
+          $('punchMsg').textContent += `（Excelにも自動記録しました）`;
+        }
+      }
+    }
+  }
+  $('salesModalSubmit').onclick = () => finalizePunchOut(true);
+  $('salesModalSkip').onclick = () => finalizePunchOut(false);
+  $('salesModalCancel').onclick = () => closeSalesModal();
+
   async function punch(type) {
     if (!selectedId) return;
     const now = new Date().toISOString();
@@ -610,41 +734,8 @@ import Layout from '../layouts/Layout.astro';
     if (!rec.leaves) rec.leaves = [];
 
     if (type === 'out') {
-      const salesInput = prompt('本日の売上（税抜）を入力してください（円）※不明な場合は空欄でOK');
-      if (salesInput !== null && salesInput.trim() !== '') {
-        const sales = parseFloat(salesInput);
-        if (!isNaN(sales) && sales >= 0) {
-          rec.sales = sales;
-
-          const num = (v) => { const n = parseFloat(v); return (!isNaN(n) && n >= 0) ? n : 0; };
-          const creditInput = prompt('うちクレジットカード決済分（円）を入力してください\n※現金・その他はここに含めなくてOK', '0');
-          if (creditInput === null) { /* キャンセルなら手数料0円のまま進む */ }
-          const credit = num(creditInput);
-          const paypayInput = prompt('うちPayPay決済分（円）を入力してください', '0');
-          const paypay = num(paypayInput);
-          const dbaraiInput = prompt('うちd払い決済分（円）を入力してください', '0');
-          const dbarai = num(dbaraiInput);
-          const merpayInput = prompt('うちメルペイ決済分（円）を入力してください', '0');
-          const merpay = num(merpayInput);
-          const aiTicketInput = prompt('うち愛のタクシーチケット分（円）を入力してください', '0');
-          const aiTicket = num(aiTicketInput);
-          const jcbTicketInput = prompt('うちJCBタクシーチケット分（円）を入力してください', '0');
-          const jcbTicket = num(jcbTicketInput);
-
-          const suggestedFee = Math.round(
-            credit * (settings.cardFeeRate / 100) +
-            paypay * (settings.paypayFeeRate / 100) +
-            dbarai * (settings.dbaraiFeeRate / 100) +
-            merpay * (settings.merpayFeeRate / 100) +
-            aiTicket * (settings.aiTicketFeeRate / 100) +
-            jcbTicket * (settings.jcbTicketFeeRate / 100)
-          );
-          const feeInput = prompt(`カード決済手数料等（差し引く金額）を入力してください（円）\n※入力内容から自動計算した目安です。実際の金額が分かれば書き換えてください。`, String(suggestedFee));
-          const fee = parseFloat(feeInput);
-          rec.cardFee = (!isNaN(fee) && fee >= 0) ? fee : suggestedFee;
-        }
-      }
-      rec.out = now;
+      openSalesModal();
+      return; // 実際の退勤記録はモーダルの「記録して退勤」で行う
     }
     if (type === 'breakStart') rec.breaks.push({ start: now, end: null });
     if (type === 'breakEnd') {
@@ -658,19 +749,9 @@ import Layout from '../layouts/Layout.astro';
     }
     save();
     const s = staff.find(x => x.id === selectedId);
-    const labels = { out: '退勤', breakStart: '休憩開始', breakEnd: '休憩終了', awayStart: '時間内退勤', awayEnd: '時間内出勤' };
+    const labels = { breakStart: '休憩開始', breakEnd: '休憩終了', awayStart: '時間内退勤', awayEnd: '時間内出勤' };
     $('punchMsg').textContent = `✅ ${s.name} さんの${labels[type]}を ${timeStr(now)} に記録しました`;
     renderPunch(); renderToday(); renderHist(); renderWage();
-
-    if (type === 'out' && isAdmin()) {
-      const handle = await getExcelHandle();
-      if (handle) {
-        const result = await syncUnsyncedToExcel(false);
-        if (result.ok && result.count) {
-          $('punchMsg').textContent += `（Excelにも自動記録しました）`;
-        }
-      }
-    }
   }
   $('punchInNormal').onclick = () => punchIn('normal');
   $('punchInLate').onclick = () => punchIn('late');
@@ -850,11 +931,13 @@ import Layout from '../layouts/Layout.astro';
     const month = currentMonth();
     const recs = log.filter(r => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date));
     if (!recs.length) { alert('この月の記録がありません'); return; }
-    let csv = '﻿日付,名前,シフト,電話番,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分),売上税抜(円),カード手数料等(円),シフト日給(円),歩合給(円),合計支給額(円),時給換算(円),最低賃金判定\n';
+    const methodHeaders = PAY_METHODS.map(m => `${m.label}(円)`).join(',');
+    let csv = `﻿日付,名前,シフト,電話番,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分),売上税抜(円),カード手数料等(円),シフト日給(円),歩合給(円),合計支給額(円),時給換算(円),最低賃金判定,${methodHeaders}\n`;
     for (const rec of recs) {
       const s = staff.find(x => x.id === rec.staffId);
       const w = rec.out ? workMinutes(rec) : '';
       const rate = hourlyRate(rec);
+      const payments = rec.payments || {};
       csv += [
         rec.date,
         s ? s.name : '削除済み',
@@ -873,10 +956,13 @@ import Layout from '../layouts/Layout.astro';
         rec.out ? Math.round(totalPay(rec)) : '',
         rate !== null ? Math.round(rate) : '',
         rate !== null ? (isBelowMinWage(rec) ? '最低賃金未満' : 'OK') : '',
+        ...PAY_METHODS.map(m => payments[m.id] || ''),
       ].join(',') + '\n';
     }
 
+    const rateNote = PAY_METHODS.map(m => `${m.label}${settings.feeRates[m.id]}%`).join('／');
     csv += `\n設定：普通番日給${settings.normalWage}円／遅番日給${settings.lateWage + settings.lateBonus}円／電話番手当${settings.phoneAllowance}円／歩合率${settings.commissionRate}%／最低賃金${settings.minWage}円\n`;
+    csv += `手数料率：${rateNote}\n`;
     csv += '\n月次サマリー\n名前,出勤日数,実働合計(分),実働合計(時:分),シフト日給合計(円),売上合計(円),歩合給合計(円),総支給額(円)\n';
     const totals = {};
     for (const rec of recs) {
@@ -1021,6 +1107,70 @@ import Layout from '../layouts/Layout.astro';
     color: #ff8a8a;
   }
   .kt-btn--danger:hover { background: rgba(224,85,85,0.24); }
+
+  .kt-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem;
+    overflow-y: auto;
+    z-index: 1000;
+  }
+  .kt-modal {
+    background: #141414;
+    border: 2px solid var(--fuji-yellow);
+    border-radius: var(--radius-xl);
+    padding: 1.75rem;
+    width: 100%;
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .kt-modal__staff {
+    color: var(--fuji-yellow);
+    font-size: 1.15rem;
+    font-weight: 900;
+  }
+  .kt-field--sales span { font-size: 1rem; color: var(--fuji-yellow); }
+  .kt-field--sales .kt-input { font-size: 1.3rem; font-weight: 900; }
+  .kt-modal__methods {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    max-height: 40vh;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+  }
+  @media (max-width: 520px) {
+    .kt-modal__methods { grid-template-columns: 1fr; }
+  }
+  .kt-modal__summary {
+    background: rgba(245,200,0,0.06);
+    border: 1px solid rgba(245,200,0,0.3);
+    border-radius: var(--radius-md);
+    padding: 0.9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .kt-modal__summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .kt-modal__summary-row strong { color: var(--fuji-yellow); font-size: 1.35rem; }
+  .kt-modal__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
 
   .kt-input {
     background: #0f0f0f;

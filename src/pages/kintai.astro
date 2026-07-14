@@ -149,7 +149,7 @@ import Layout from '../layouts/Layout.astro';
           </label>
         </div>
         <button type="button" class="kt-btn" id="saveSettingsBtn">設定を保存</button>
-        <p class="kt-note">※ ここで設定した金額・歩合率が、すべてのスタッフの給与計算に使われます。カード手数料率は退勤時の入力欄に目安として自動入力されます（決済会社の明細に基づく実績値。決済手段の内訳により変動するため、必要に応じて手入力で修正してください）。</p>
+        <p class="kt-note">※ ここで設定した金額・歩合率が、すべてのスタッフの給与計算に使われます。カード手数料率は退勤時の入力欄に目安として自動入力されます（クレジットカード決済の実績値。PayPay・d払いなど別端末での決済分は手数料率が異なるため含まれていません。必要に応じて手入力で修正してください）。</p>
       </div>
       <button type="button" class="kt-btn kt-btn--ghost" id="settingsToggleBtn" hidden>⚙ 給与設定を開く</button>
 
@@ -390,7 +390,7 @@ import Layout from '../layouts/Layout.astro';
         if (!isNaN(sales) && sales >= 0) {
           rec.sales = sales;
           const suggestedFee = Math.round(sales * (settings.cardFeeRate / 100));
-          const feeInput = prompt(`カード決済手数料等（差し引く金額）を入力してください（円）\n※目安として売上の${settings.cardFeeRate}%を自動計算しています。実際の金額が分かれば書き換えてください。`, String(suggestedFee));
+          const feeInput = prompt(`カード決済手数料等（差し引く金額）を入力してください（円）\n※クレジットカード決済分を目安に売上の${settings.cardFeeRate}%を自動計算しています。\n※PayPay・d払いなど別端末決済分は手数料率が異なるため含まれていません。実際の金額が分かれば書き換えてください。`, String(suggestedFee));
           const fee = parseFloat(feeInput);
           rec.cardFee = (!isNaN(fee) && fee >= 0) ? fee : suggestedFee;
         }

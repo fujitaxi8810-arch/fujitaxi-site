@@ -62,9 +62,12 @@ import Layout from '../layouts/Layout.astro';
         <div class="contact-option contact-option--line">
           <div class="contact-option__icon">💬</div>
           <h2 class="contact-option__title">LINEでお問い合わせ</h2>
-          <p class="contact-option__hours">返信：平日 当日〜翌営業日</p>
-          <p class="contact-option__warning">⚠️ LINEでのご予約はできません（お問い合わせのみ）</p>
-          <p class="contact-option__note">メールが苦手な方はLINEでもお気軽にどうぞ。<strong>LINEはお問い合わせのみとなります。</strong>土日祝日の返信はお休みしております。お急ぎのご予約・配車はお電話をご利用ください。</p>
+          <p class="contact-option__hours">返信：平日 当日〜翌営業日（土日祝はお休み）</p>
+          <ul class="contact-option__linelist">
+            <li class="is-ok"><span class="contact-option__linelist-icon">✅</span>できること：ご質問・お問い合わせ</li>
+            <li class="is-ng"><span class="contact-option__linelist-icon">❌</span>できないこと：ご予約・配車の受付</li>
+          </ul>
+          <p class="contact-option__note">ご予約・配車は必ずお電話をご利用ください。</p>
           <a href="https://line.me/R/ti/p/@580lzpne" target="_blank" rel="noopener noreferrer" class="contact-option__line-btn">
             LINEで友だち追加する
           </a>
@@ -339,17 +342,33 @@ import Layout from '../layouts/Layout.astro';
     color: #555;
     line-height: 1.8;
   }
-  .contact-option__warning {
-    display: inline-block;
+  .contact-option__linelist {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .contact-option__linelist li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: var(--text-sm);
     font-weight: 700;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-md);
+  }
+  .contact-option__linelist li.is-ok {
+    color: #15803d;
+    background: rgba(21,128,61,0.08);
+    border: 1px solid rgba(21,128,61,0.25);
+  }
+  .contact-option__linelist li.is-ng {
     color: #b91c1c;
     background: rgba(220,38,38,0.08);
     border: 1px solid rgba(220,38,38,0.3);
-    border-radius: var(--radius-md);
-    padding: 0.4rem 0.75rem;
-    margin-bottom: 0.75rem;
   }
+  .contact-option__linelist-icon { flex-shrink: 0; }
   .contact-option--line {
     border: 2px solid #06C755;
   }

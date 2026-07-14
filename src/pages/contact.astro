@@ -63,7 +63,8 @@ import Layout from '../layouts/Layout.astro';
           <div class="contact-option__icon">💬</div>
           <h2 class="contact-option__title">LINEでお問い合わせ</h2>
           <p class="contact-option__hours">返信：平日 当日〜翌営業日</p>
-          <p class="contact-option__note">メールが苦手な方はLINEでもお気軽にどうぞ。<strong>LINEではご予約は受け付けておらず、お問い合わせのみとなります。</strong>ご予約・配車は必ずお電話をご利用ください。土日祝日の返信はお休みしております。</p>
+          <p class="contact-option__warning">⚠️ LINEでのご予約はできません（お問い合わせのみ）</p>
+          <p class="contact-option__note">メールが苦手な方はLINEでもお気軽にどうぞ。ご予約・配車は必ずお電話をご利用ください。土日祝日の返信はお休みしております。</p>
           <a href="https://line.me/R/ti/p/@580lzpne" target="_blank" rel="noopener noreferrer" class="contact-option__line-btn">
             LINEで友だち追加する
           </a>
@@ -337,6 +338,17 @@ import Layout from '../layouts/Layout.astro';
     font-size: var(--text-sm);
     color: #555;
     line-height: 1.8;
+  }
+  .contact-option__warning {
+    display: inline-block;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: #b91c1c;
+    background: rgba(220,38,38,0.08);
+    border: 1px solid rgba(220,38,38,0.3);
+    border-radius: var(--radius-md);
+    padding: 0.4rem 0.75rem;
+    margin-bottom: 0.75rem;
   }
   .contact-option--line {
     border: 2px solid #06C755;

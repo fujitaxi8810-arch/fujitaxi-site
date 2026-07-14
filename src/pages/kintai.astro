@@ -80,10 +80,10 @@ import Layout from '../layouts/Layout.astro';
         <p class="kt-empty" id="todayEmpty">本日の打刻はまだありません。</p>
       </div>
 
-      <!-- 履歴 -->
-      <div class="kt-panel">
+      <!-- 履歴（管理者のみ） -->
+      <div class="kt-panel" id="histPanel" hidden>
         <div class="kt-panel__head">
-          <h2 class="kt-title">勤務履歴</h2>
+          <h2 class="kt-title">勤務履歴（管理者）</h2>
           <div class="kt-panel__tools">
             <input type="month" id="monthPick" class="kt-input" />
             <button type="button" class="kt-btn" id="csvBtn">CSV出力</button>
@@ -107,9 +107,9 @@ import Layout from '../layouts/Layout.astro';
         <p class="kt-empty" id="histEmpty">この月の記録はありません。</p>
       </div>
 
-      <!-- 月次給与サマリー -->
-      <div class="kt-panel">
-        <h2 class="kt-title">月次給与サマリー</h2>
+      <!-- 月次給与サマリー（管理者のみ） -->
+      <div class="kt-panel" id="wagePanel" hidden>
+        <h2 class="kt-title">月次給与サマリー（管理者）</h2>
         <div class="kt-table-wrap">
           <table class="kt-table" id="wageTable">
             <thead>
@@ -211,7 +211,17 @@ import Layout from '../layouts/Layout.astro';
     adminPassword: '',
   };
 
+  const DEFAULT_STAFF_NAMES = [
+    '小林清美', '渡部晃', '渋佐繁男', '菊地勝治', '堀内洋伯', '佐藤賀子',
+    '小林結', '須江浩子', '佐藤文枝', '菅原元輝', '池内昌信', '荒智章',
+    '中橋常郎', '石川美紀', '小林聖人', '目黒圭吾',
+  ];
+
   let staff = JSON.parse(localStorage.getItem(LS_STAFF) || '[]');
+  if (staff.length === 0) {
+    staff = DEFAULT_STAFF_NAMES.map((name, i) => ({ id: 'st-default-' + (i + 1), name }));
+    localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+  }
   let log = JSON.parse(localStorage.getItem(LS_LOG) || '[]');
   let settings = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(localStorage.getItem(LS_SETTINGS) || '{}'));
   let selectedId = null;
@@ -432,6 +442,8 @@ import Layout from '../layouts/Layout.astro';
     $('adminToggleBtn').textContent = unlocked ? 'ロックする' : '管理者ロック解除';
     $('settingsToggleBtn').hidden = !unlocked;
     if (!unlocked) $('settingsPanel').hidden = true;
+    $('histPanel').hidden = !unlocked;
+    $('wagePanel').hidden = !unlocked;
     renderExcelSyncBox();
   }
   $('adminToggleBtn').onclick = () => {

@@ -139,9 +139,13 @@ import Layout from '../layouts/Layout.astro';
             <span>歩合率（％）</span>
             <input type="number" id="setCommissionRate" class="kt-input" min="0" max="100" step="0.01" />
           </label>
+          <label class="kt-field">
+            <span>カード手数料率（目安・％）</span>
+            <input type="number" id="setCardFeeRate" class="kt-input" min="0" max="100" step="0.01" />
+          </label>
         </div>
         <button type="button" class="kt-btn" id="saveSettingsBtn">設定を保存</button>
-        <p class="kt-note">※ ここで設定した金額・歩合率が、すべてのスタッフの給与計算に使われます。</p>
+        <p class="kt-note">※ ここで設定した金額・歩合率が、すべてのスタッフの給与計算に使われます。カード手数料率は退勤時の入力欄に目安として自動入力されます（決済会社の明細に基づく実績値。決済手段の内訳により変動するため、必要に応じて手入力で修正してください）。</p>
       </div>
       <button type="button" class="kt-btn kt-btn--ghost" id="settingsToggleBtn" hidden>⚙ 給与設定を開く</button>
 
@@ -164,6 +168,7 @@ import Layout from '../layouts/Layout.astro';
     lateBonus: 700,
     phoneAllowance: 300,
     commissionRate: 16.57,
+    cardFeeRate: 3.1, // SBペイメントサービス収納明細書（2026/06/16-06/30分）の実績に基づく目安。月額固定費を除く決済手数料の平均。決済手段の内訳で変動するため手入力で調整可。
     adminPassword: '',
   };
 
@@ -251,12 +256,14 @@ import Layout from '../layouts/Layout.astro';
     $('setLateBonus').value = settings.lateBonus;
     $('setPhoneAllowance').value = settings.phoneAllowance;
     $('setCommissionRate').value = settings.commissionRate;
+    $('setCardFeeRate').value = settings.cardFeeRate;
   }
   $('saveSettingsBtn').onclick = () => {
     settings.normalWage = parseInt($('setNormalWage').value, 10) || 0;
     settings.lateWage = parseInt($('setLateWage').value, 10) || 0;
     settings.lateBonus = parseInt($('setLateBonus').value, 10) || 0;
     settings.phoneAllowance = parseInt($('setPhoneAllowance').value, 10) || 0;
+    settings.cardFeeRate = parseFloat($('setCardFeeRate').value) || 0;
     settings.commissionRate = parseFloat($('setCommissionRate').value) || 0;
     saveSettings();
     alert('設定を保存しました。');
@@ -375,9 +382,10 @@ import Layout from '../layouts/Layout.astro';
         const sales = parseFloat(salesInput);
         if (!isNaN(sales) && sales >= 0) {
           rec.sales = sales;
-          const feeInput = prompt('カード決済手数料等（差し引く金額）を入力してください（円）※なければ0のままでOK', '0');
+          const suggestedFee = Math.round(sales * (settings.cardFeeRate / 100));
+          const feeInput = prompt(`カード決済手数料等（差し引く金額）を入力してください（円）\n※目安として売上の${settings.cardFeeRate}%を自動計算しています。実際の金額が分かれば書き換えてください。`, String(suggestedFee));
           const fee = parseFloat(feeInput);
-          rec.cardFee = (!isNaN(fee) && fee >= 0) ? fee : 0;
+          rec.cardFee = (!isNaN(fee) && fee >= 0) ? fee : suggestedFee;
         }
       }
       rec.out = now;

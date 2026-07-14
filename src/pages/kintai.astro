@@ -92,7 +92,7 @@ import Layout from '../layouts/Layout.astro';
         <div class="kt-table-wrap">
           <table class="kt-table" id="histTable">
             <thead>
-              <tr><th>日付</th><th>名前</th><th>シフト</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th><th>売上(税抜)</th><th>カード手数料</th><th>日給</th><th>歩合給</th><th>合計</th></tr>
+              <tr><th>日付</th><th>名前</th><th>シフト</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th><th>売上(税抜)</th><th>カード手数料</th><th>日給</th><th>歩合給</th><th>合計</th><th>時給換算</th></tr>
             </thead>
             <tbody id="histBody"></tbody>
           </table>
@@ -112,7 +112,7 @@ import Layout from '../layouts/Layout.astro';
           </table>
         </div>
         <p class="kt-empty" id="wageEmpty">この月の記録はありません。</p>
-        <p class="kt-note" id="wageFormula">※ 総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給｛（売上税抜 − カード手数料等）× 歩合率｝</p>
+        <p class="kt-note" id="wageFormula">※ 総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給｛（売上税抜 − カード手数料等）× 歩合率｝<br />※ 勤務履歴の「時給換算」は 総支給額 ÷ 実働時間 で算出し、最低賃金（設定値）を下回った日は赤色で警告表示します。</p>
       </div>
 
       <!-- 給与設定 -->
@@ -143,6 +143,10 @@ import Layout from '../layouts/Layout.astro';
             <span>カード手数料率（目安・％）</span>
             <input type="number" id="setCardFeeRate" class="kt-input" min="0" max="100" step="0.01" />
           </label>
+          <label class="kt-field">
+            <span>最低賃金（円・確認用）</span>
+            <input type="number" id="setMinWage" class="kt-input" min="0" />
+          </label>
         </div>
         <button type="button" class="kt-btn" id="saveSettingsBtn">設定を保存</button>
         <p class="kt-note">※ ここで設定した金額・歩合率が、すべてのスタッフの給与計算に使われます。カード手数料率は退勤時の入力欄に目安として自動入力されます（決済会社の明細に基づく実績値。決済手段の内訳により変動するため、必要に応じて手入力で修正してください）。</p>
@@ -169,6 +173,7 @@ import Layout from '../layouts/Layout.astro';
     phoneAllowance: 300,
     commissionRate: 16.57,
     cardFeeRate: 3.1, // SBペイメントサービス収納明細書（2026/06/16-06/30分）の実績に基づく目安。月額固定費を除く決済手数料の平均。決済手段の内訳で変動するため手入力で調整可。
+    minWage: 1033, // 福島県の地域別最低賃金（確認用）
     adminPassword: '',
   };
 
@@ -257,6 +262,7 @@ import Layout from '../layouts/Layout.astro';
     $('setPhoneAllowance').value = settings.phoneAllowance;
     $('setCommissionRate').value = settings.commissionRate;
     $('setCardFeeRate').value = settings.cardFeeRate;
+    $('setMinWage').value = settings.minWage;
   }
   $('saveSettingsBtn').onclick = () => {
     settings.normalWage = parseInt($('setNormalWage').value, 10) || 0;
@@ -265,6 +271,7 @@ import Layout from '../layouts/Layout.astro';
     settings.phoneAllowance = parseInt($('setPhoneAllowance').value, 10) || 0;
     settings.cardFeeRate = parseFloat($('setCardFeeRate').value) || 0;
     settings.commissionRate = parseFloat($('setCommissionRate').value) || 0;
+    settings.minWage = parseInt($('setMinWage').value, 10) || 0;
     saveSettings();
     alert('設定を保存しました。');
     renderPunch(); renderToday(); renderHist(); renderWage();
@@ -465,6 +472,16 @@ import Layout from '../layouts/Layout.astro';
   function totalPay(rec) {
     return shiftWage(rec) + commissionPay(rec);
   }
+  function hourlyRate(rec) {
+    if (!rec.out) return null;
+    const min = workMinutes(rec);
+    if (!min || min <= 0) return null;
+    return totalPay(rec) / (min / 60);
+  }
+  function isBelowMinWage(rec) {
+    const rate = hourlyRate(rec);
+    return rate !== null && rate < settings.minWage;
+  }
   function mask(text) {
     return isAdmin() ? text : '••••';
   }
@@ -503,7 +520,10 @@ import Layout from '../layouts/Layout.astro';
     for (const rec of recs) {
       const s = staff.find(x => x.id === rec.staffId);
       const w = rec.out ? workMinutes(rec) : null;
+      const belowMin = isAdmin() && isBelowMinWage(rec);
+      const rate = hourlyRate(rec);
       const tr = document.createElement('tr');
+      if (belowMin) tr.className = 'kt-table__row--warn';
       tr.innerHTML = `
         <td>${rec.date.slice(5).replace('-', '/')}</td>
         <td>${s ? s.name : '（削除済み）'}</td>
@@ -518,6 +538,7 @@ import Layout from '../layouts/Layout.astro';
         <td>${mask(rec.shiftType ? yen(shiftWage(rec)) + '円' : '—')}</td>
         <td>${mask(rec.sales != null ? yen(commissionPay(rec)) + '円' : '—')}</td>
         <td class="kt-table__total">${rec.out ? mask(yen(totalPay(rec)) + '円') : '—'}</td>
+        <td>${mask(rate !== null ? yen(rate) + '円' + (belowMin ? ' ⚠️最低賃金未満' : '') : '—')}</td>
       `;
       body.appendChild(tr);
     }
@@ -570,10 +591,11 @@ import Layout from '../layouts/Layout.astro';
     const month = currentMonth();
     const recs = log.filter(r => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date));
     if (!recs.length) { alert('この月の記録がありません'); return; }
-    let csv = '﻿日付,名前,シフト,電話番,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分),売上税抜(円),カード手数料等(円),シフト日給(円),歩合給(円),合計支給額(円)\n';
+    let csv = '﻿日付,名前,シフト,電話番,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分),売上税抜(円),カード手数料等(円),シフト日給(円),歩合給(円),合計支給額(円),時給換算(円),最低賃金判定\n';
     for (const rec of recs) {
       const s = staff.find(x => x.id === rec.staffId);
       const w = rec.out ? workMinutes(rec) : '';
+      const rate = hourlyRate(rec);
       csv += [
         rec.date,
         s ? s.name : '削除済み',
@@ -590,10 +612,12 @@ import Layout from '../layouts/Layout.astro';
         rec.shiftType ? Math.round(shiftWage(rec)) : '',
         rec.sales != null ? Math.round(commissionPay(rec)) : '',
         rec.out ? Math.round(totalPay(rec)) : '',
+        rate !== null ? Math.round(rate) : '',
+        rate !== null ? (isBelowMinWage(rec) ? '最低賃金未満' : 'OK') : '',
       ].join(',') + '\n';
     }
 
-    csv += `\n設定：普通番日給${settings.normalWage}円／遅番日給${settings.lateWage + settings.lateBonus}円／電話番手当${settings.phoneAllowance}円／歩合率${settings.commissionRate}%\n`;
+    csv += `\n設定：普通番日給${settings.normalWage}円／遅番日給${settings.lateWage + settings.lateBonus}円／電話番手当${settings.phoneAllowance}円／歩合率${settings.commissionRate}%／最低賃金${settings.minWage}円\n`;
     csv += '\n月次サマリー\n名前,出勤日数,実働合計(分),実働合計(時:分),シフト日給合計(円),売上合計(円),歩合給合計(円),総支給額(円)\n';
     const totals = {};
     for (const rec of recs) {
@@ -881,6 +905,8 @@ import Layout from '../layouts/Layout.astro';
   }
   .kt-table__work { font-weight: 700; color: var(--fuji-yellow); }
   .kt-table__total { font-weight: 900; color: var(--fuji-yellow); }
+  .kt-table__row--warn td { background: rgba(224,85,85,0.18); }
+  .kt-table__row--warn td:last-child { color: #ff8a8a; font-weight: 900; }
 
   .kt-empty { color: rgba(255,255,255,0.75); font-size: 1rem; padding: 0.5rem 0; }
   .kt-note {

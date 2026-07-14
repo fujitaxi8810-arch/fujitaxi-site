@@ -73,14 +73,14 @@ import Layout from '../layouts/Layout.astro';
         <p class="kt-msg" id="punchMsg" aria-live="polite"></p>
       </div>
 
-      <!-- 退勤・売上入力モーダル -->
+      <!-- 売上入力モーダル（管理者専用・履歴から開く） -->
       <div class="kt-modal-overlay" id="salesModal" hidden>
         <div class="kt-modal" role="dialog" aria-modal="true" aria-labelledby="salesModalTitle">
-          <h2 class="kt-title" id="salesModalTitle">退勤前の売上入力</h2>
+          <h2 class="kt-title" id="salesModalTitle">売上の入力（管理者）</h2>
           <p class="kt-modal__staff" id="salesModalStaff"></p>
 
           <label class="kt-field kt-field--sales">
-            <span>本日の売上合計（税抜・円）</span>
+            <span>その日の売上合計（税抜・円）</span>
             <input type="number" id="salesTotalInput" class="kt-input" min="0" inputmode="numeric" placeholder="例: 30000" />
           </label>
 
@@ -99,9 +99,8 @@ import Layout from '../layouts/Layout.astro';
           </div>
 
           <div class="kt-modal__actions">
-            <button type="button" class="kt-punch kt-punch--out" id="salesModalSubmit">記録して退勤</button>
-            <button type="button" class="kt-btn kt-btn--ghost" id="salesModalSkip">売上入力なしで退勤</button>
-            <button type="button" class="kt-btn kt-btn--ghost" id="salesModalCancel">キャンセル（退勤しない）</button>
+            <button type="button" class="kt-punch kt-punch--out" id="salesModalSubmit">保存する</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="salesModalCancel">キャンセル</button>
           </div>
         </div>
       </div>
@@ -132,7 +131,7 @@ import Layout from '../layouts/Layout.astro';
         <div class="kt-table-wrap">
           <table class="kt-table" id="histTable">
             <thead>
-              <tr><th>日付</th><th>名前</th><th>シフト</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th><th>売上(税抜)</th><th>カード手数料</th><th>日給</th><th>歩合給</th><th>合計</th><th>時給換算</th></tr>
+              <tr><th>日付</th><th>名前</th><th>シフト</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th><th>売上(税抜)</th><th>カード手数料</th><th>日給</th><th>歩合給</th><th>合計</th><th>時給換算</th><th>操作</th></tr>
             </thead>
             <tbody id="histBody"></tbody>
           </table>
@@ -655,13 +654,19 @@ import Layout from '../layouts/Layout.astro';
   function updateFeePreview() {
     $('salesFeeAuto').textContent = `${yen(autoFee(feeAmounts()))}円`;
   }
-  function openSalesModal() {
-    const s = staff.find(x => x.id === selectedId);
-    $('salesModalStaff').textContent = `${s ? s.name : ''} さんの本日分`;
-    $('salesTotalInput').value = '';
-    $('salesFeeOverride').value = '';
+  let salesModalTargetKey = null; // "staffId|date" 形式で編集対象を保持
+
+  function openSalesModal(staffId, date) {
+    const rec = log.find(r => r.staffId === staffId && r.date === date);
+    if (!rec) return;
+    salesModalTargetKey = `${staffId}|${date}`;
+    const s = staff.find(x => x.id === staffId);
+    $('salesModalStaff').textContent = `${s ? s.name : '（削除済み）'} さん・${date.slice(5).replace('-', '/')}`;
+    $('salesTotalInput').value = rec.sales != null ? rec.sales : '';
+    $('salesFeeOverride').value = rec.cardFee != null ? rec.cardFee : '';
     const wrap = $('salesMethodFields');
     wrap.innerHTML = '';
+    const payments = rec.payments || {};
     for (const m of PAY_METHODS) {
       const label = document.createElement('label');
       label.className = 'kt-field';
@@ -674,6 +679,7 @@ import Layout from '../layouts/Layout.astro';
       input.inputMode = 'numeric';
       input.placeholder = '0';
       input.dataset.payId = m.id;
+      input.value = payments[m.id] || '';
       input.addEventListener('input', updateFeePreview);
       label.appendChild(span);
       label.appendChild(input);
@@ -685,45 +691,33 @@ import Layout from '../layouts/Layout.astro';
   }
   function closeSalesModal() {
     $('salesModal').hidden = true;
+    salesModalTargetKey = null;
   }
-  async function finalizePunchOut(withSales) {
-    const rec = todayRec(selectedId);
+  async function saveSalesModal() {
+    if (!salesModalTargetKey) { closeSalesModal(); return; }
+    const [staffId, date] = salesModalTargetKey.split('|');
+    const rec = log.find(r => r.staffId === staffId && r.date === date);
     if (!rec) { closeSalesModal(); return; }
-    if (withSales) {
-      const sales = parseFloat($('salesTotalInput').value);
-      if (isNaN(sales) || sales < 0) {
-        alert('売上合計（税抜）を入力してください。売上が無い場合は「売上入力なしで退勤」を押してください。');
-        return;
-      }
-      const amounts = feeAmounts();
-      const breakdownTotal = PAY_METHODS.reduce((sum, m) => sum + (amounts[m.id] || 0), 0);
-      if (breakdownTotal > sales) {
-        if (!confirm(`決済内訳の合計（${yen(breakdownTotal)}円）が売上合計（${yen(sales)}円）を超えています。このまま記録しますか？`)) return;
-      }
-      rec.sales = sales;
-      rec.payments = amounts;
-      const override = parseFloat($('salesFeeOverride').value);
-      rec.cardFee = (!isNaN(override) && override >= 0) ? override : autoFee(amounts);
+
+    const sales = parseFloat($('salesTotalInput').value);
+    if (isNaN(sales) || sales < 0) {
+      alert('売上合計（税抜）を入力してください。');
+      return;
     }
-    rec.out = new Date().toISOString();
+    const amounts = feeAmounts();
+    const breakdownTotal = PAY_METHODS.reduce((sum, m) => sum + (amounts[m.id] || 0), 0);
+    if (breakdownTotal > sales) {
+      if (!confirm(`決済内訳の合計（${yen(breakdownTotal)}円）が売上合計（${yen(sales)}円）を超えています。このまま保存しますか？`)) return;
+    }
+    rec.sales = sales;
+    rec.payments = amounts;
+    const override = parseFloat($('salesFeeOverride').value);
+    rec.cardFee = (!isNaN(override) && override >= 0) ? override : autoFee(amounts);
     save();
     closeSalesModal();
-    const s = staff.find(x => x.id === selectedId);
-    $('punchMsg').textContent = `✅ ${s.name} さんの退勤を ${timeStr(rec.out)} に記録しました`;
-    renderPunch(); renderToday(); renderHist(); renderWage();
-
-    if (isAdmin()) {
-      const handle = await getExcelHandle();
-      if (handle) {
-        const result = await syncUnsyncedToExcel(false);
-        if (result.ok && result.count) {
-          $('punchMsg').textContent += `（Excelにも自動記録しました）`;
-        }
-      }
-    }
+    renderHist(); renderWage();
   }
-  $('salesModalSubmit').onclick = () => finalizePunchOut(true);
-  $('salesModalSkip').onclick = () => finalizePunchOut(false);
+  $('salesModalSubmit').onclick = () => saveSalesModal();
   $('salesModalCancel').onclick = () => closeSalesModal();
 
   async function punch(type) {
@@ -734,8 +728,21 @@ import Layout from '../layouts/Layout.astro';
     if (!rec.leaves) rec.leaves = [];
 
     if (type === 'out') {
-      openSalesModal();
-      return; // 実際の退勤記録はモーダルの「記録して退勤」で行う
+      rec.out = now;
+      save();
+      const s = staff.find(x => x.id === selectedId);
+      $('punchMsg').textContent = `✅ ${s.name} さんの退勤を ${timeStr(now)} に記録しました。売上は後ほど管理者が入力します。`;
+      renderPunch(); renderToday(); renderHist(); renderWage();
+      if (isAdmin()) {
+        const handle = await getExcelHandle();
+        if (handle) {
+          const result = await syncUnsyncedToExcel(false);
+          if (result.ok && result.count) {
+            $('punchMsg').textContent += `（Excelにも自動記録しました）`;
+          }
+        }
+      }
+      return;
     }
     if (type === 'breakStart') rec.breaks.push({ start: now, end: null });
     if (type === 'breakEnd') {
@@ -879,7 +886,16 @@ import Layout from '../layouts/Layout.astro';
         <td>${mask(rec.sales != null ? yen(commissionPay(rec)) + '円' : '—')}</td>
         <td class="kt-table__total">${rec.out ? mask(yen(totalPay(rec)) + '円') : '—'}</td>
         <td>${mask(rate !== null ? yen(rate) + '円' + (belowMin ? ' ⚠️最低賃金未満' : '') : '—')}</td>
+        <td></td>
       `;
+      if (rec.out) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'kt-btn kt-btn--ghost';
+        btn.textContent = rec.sales != null ? '売上を修正' : '売上を入力';
+        btn.onclick = () => openSalesModal(rec.staffId, rec.date);
+        tr.lastElementChild.appendChild(btn);
+      }
       body.appendChild(tr);
     }
   }

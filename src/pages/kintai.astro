@@ -179,6 +179,7 @@ import Layout from '../layouts/Layout.astro';
         <p class="kt-note">※ ここで設定した金額・歩合率が、すべてのスタッフの給与計算に使われます。退勤時に決済方法ごとの内訳（クレジット・PayPay・d払い・メルペイ）を入力すると、それぞれの手数料率で自動計算した金額が目安として入力欄に表示されます。必要に応じて手入力で修正してください。</p>
       </div>
       <button type="button" class="kt-btn kt-btn--ghost" id="settingsToggleBtn" hidden>⚙ 給与設定を開く</button>
+      <button type="button" class="kt-btn kt-btn--danger" id="clearLogBtn" hidden>🗑 全打刻データを削除</button>
 
       <p class="kt-note">※ データはこの端末のブラウザ内にのみ保存されます。端末を変えると記録は引き継がれません。月末にCSV出力して保管してください。</p>
 
@@ -444,6 +445,7 @@ import Layout from '../layouts/Layout.astro';
     if (!unlocked) $('settingsPanel').hidden = true;
     $('histPanel').hidden = !unlocked;
     $('wagePanel').hidden = !unlocked;
+    $('clearLogBtn').hidden = !unlocked;
     renderExcelSyncBox();
   }
   $('adminToggleBtn').onclick = () => {
@@ -488,6 +490,16 @@ import Layout from '../layouts/Layout.astro';
     saveSettings();
     alert('設定を保存しました。');
     renderPunch(); renderToday(); renderHist(); renderWage();
+  };
+
+  $('clearLogBtn').onclick = () => {
+    if (!confirm('本当にすべての打刻データ（出勤・退勤・売上・給与の記録）を削除しますか？\nこの操作は取り消せません。')) return;
+    if (!confirm('最終確認：削除すると元に戻せません。CSV出力やExcelへの反映は済んでいますか？\n本当に削除してよろしいですか？')) return;
+    log = [];
+    save();
+    selectedId = null;
+    renderStaff(); renderPunch(); renderToday(); renderHist(); renderWage();
+    alert('すべての打刻データを削除しました。');
   };
 
   // ── スタッフ ──
@@ -1003,6 +1015,12 @@ import Layout from '../layouts/Layout.astro';
   }
   .kt-btn:hover { background: rgba(245,200,0,0.22); }
   .kt-btn--ghost { background: transparent; }
+  .kt-btn--danger {
+    background: rgba(224,85,85,0.12);
+    border-color: rgba(224,85,85,0.5);
+    color: #ff8a8a;
+  }
+  .kt-btn--danger:hover { background: rgba(224,85,85,0.24); }
 
   .kt-input {
     background: #0f0f0f;

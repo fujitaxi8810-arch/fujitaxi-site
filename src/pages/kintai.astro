@@ -156,6 +156,14 @@ import Layout from '../layouts/Layout.astro';
             <input type="number" id="setMerpayFeeRate" class="kt-input" min="0" max="100" step="0.01" />
           </label>
           <label class="kt-field">
+            <span>愛のタクシーチケット手数料率（％）</span>
+            <input type="number" id="setAiTicketFeeRate" class="kt-input" min="0" max="100" step="0.01" />
+          </label>
+          <label class="kt-field">
+            <span>JCBタクシーチケット手数料率（％）</span>
+            <input type="number" id="setJcbTicketFeeRate" class="kt-input" min="0" max="100" step="0.01" />
+          </label>
+          <label class="kt-field">
             <span>最低賃金（円・確認用）</span>
             <input type="number" id="setMinWage" class="kt-input" min="0" />
           </label>
@@ -188,6 +196,8 @@ import Layout from '../layouts/Layout.astro';
     paypayFeeRate: 2.18, // PayPay（別端末決済）の実際の手数料率
     dbaraiFeeRate: 2.6,  // d払い（別端末決済）の実際の手数料率
     merpayFeeRate: 2.6,  // メルペイ（別端末決済）の実際の手数料率
+    aiTicketFeeRate: 5,   // 愛のタクシーチケットの手数料率
+    jcbTicketFeeRate: 4,  // JCBタクシーチケットの手数料率
     minWage: 1033, // 福島県の地域別最低賃金（確認用）
     adminPassword: '',
   };
@@ -280,6 +290,8 @@ import Layout from '../layouts/Layout.astro';
     $('setPaypayFeeRate').value = settings.paypayFeeRate;
     $('setDbaraiFeeRate').value = settings.dbaraiFeeRate;
     $('setMerpayFeeRate').value = settings.merpayFeeRate;
+    $('setAiTicketFeeRate').value = settings.aiTicketFeeRate;
+    $('setJcbTicketFeeRate').value = settings.jcbTicketFeeRate;
     $('setMinWage').value = settings.minWage;
   }
   $('saveSettingsBtn').onclick = () => {
@@ -291,6 +303,8 @@ import Layout from '../layouts/Layout.astro';
     settings.paypayFeeRate = parseFloat($('setPaypayFeeRate').value) || 0;
     settings.dbaraiFeeRate = parseFloat($('setDbaraiFeeRate').value) || 0;
     settings.merpayFeeRate = parseFloat($('setMerpayFeeRate').value) || 0;
+    settings.aiTicketFeeRate = parseFloat($('setAiTicketFeeRate').value) || 0;
+    settings.jcbTicketFeeRate = parseFloat($('setJcbTicketFeeRate').value) || 0;
     settings.commissionRate = parseFloat($('setCommissionRate').value) || 0;
     settings.minWage = parseInt($('setMinWage').value, 10) || 0;
     saveSettings();
@@ -421,12 +435,18 @@ import Layout from '../layouts/Layout.astro';
           const dbarai = num(dbaraiInput);
           const merpayInput = prompt('うちメルペイ決済分（円）を入力してください', '0');
           const merpay = num(merpayInput);
+          const aiTicketInput = prompt('うち愛のタクシーチケット分（円）を入力してください', '0');
+          const aiTicket = num(aiTicketInput);
+          const jcbTicketInput = prompt('うちJCBタクシーチケット分（円）を入力してください', '0');
+          const jcbTicket = num(jcbTicketInput);
 
           const suggestedFee = Math.round(
             credit * (settings.cardFeeRate / 100) +
             paypay * (settings.paypayFeeRate / 100) +
             dbarai * (settings.dbaraiFeeRate / 100) +
-            merpay * (settings.merpayFeeRate / 100)
+            merpay * (settings.merpayFeeRate / 100) +
+            aiTicket * (settings.aiTicketFeeRate / 100) +
+            jcbTicket * (settings.jcbTicketFeeRate / 100)
           );
           const feeInput = prompt(`カード決済手数料等（差し引く金額）を入力してください（円）\n※入力内容から自動計算した目安です。実際の金額が分かれば書き換えてください。`, String(suggestedFee));
           const fee = parseFloat(feeInput);

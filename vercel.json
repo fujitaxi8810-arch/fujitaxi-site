@@ -1,0 +1,23 @@
+{
+  "redirects": [
+    { "source": "/富士タクシーについて/", "destination": "/about", "permanent": true },
+    { "source": "/富士タクシーについて", "destination": "/about", "permanent": true },
+    { "source": "/車両紹介/", "destination": "/services", "permanent": true },
+    { "source": "/車両紹介", "destination": "/services", "permanent": true },
+    { "source": "/地域での取り組み/", "destination": "/community", "permanent": true },
+    { "source": "/地域での取り組み", "destination": "/community", "permanent": true },
+    { "source": "/法人の方へ/", "destination": "/corporate", "permanent": true },
+    { "source": "/法人の方へ", "destination": "/corporate", "permanent": true },
+    { "source": "/お知らせ/", "destination": "/news", "permanent": true },
+    { "source": "/お知らせ", "destination": "/news", "permanent": true },
+    { "source": "/採用情報/", "destination": "/recruit", "permanent": true },
+    { "source": "/採用情報", "destination": "/recruit", "permanent": true },
+    { "source": "/予約-お問い合わせ/", "destination": "/contact", "permanent": true },
+    { "source": "/予約-お問い合わせ", "destination": "/contact", "permanent": true },
+    { "source": "/about/", "destination": "/about", "permanent": true },
+    { "source": "/j/privacy", "destination": "/", "permanent": true },
+    { "source": "/ブログ/", "destination": "/news", "permanent": true },
+    { "source": "/ブログ", "destination": "/news", "permanent": true },
+    { "source": "/:year(\\d{4})/:month(\\d{2})/:day(\\d{2})/:slug*", "destination": "/news", "permanent": true }
+  ]
+}

@@ -452,7 +452,7 @@ import Layout from '../layouts/Layout.astro';
     } else {
       requireAdmin();
     }
-    renderAdminBar(); renderToday(); renderHist(); renderWage();
+    renderAdminBar(); renderPunch(); renderToday(); renderHist(); renderWage();
   };
   $('settingsToggleBtn').onclick = () => {
     $('settingsPanel').hidden = !$('settingsPanel').hidden;
@@ -556,9 +556,10 @@ import Layout from '../layouts/Layout.astro';
     const st = statusOf(rec);
     $('statusLabel').textContent = `現在：${STATUS_LABEL[st]}${rec && rec.shiftType ? '（' + SHIFT_LABEL[rec.shiftType] + '）' : ''}`;
 
-    $('normalWageLabel').textContent = `${yen(settings.normalWage)}円`;
-    $('lateWageLabel').textContent = `${yen(settings.lateWage + settings.lateBonus)}円`;
-    $('phoneAllowanceLabel').textContent = `（+${yen(settings.phoneAllowance)}円）`;
+    const showAmounts = isAdmin();
+    $('normalWageLabel').textContent = showAmounts ? `${yen(settings.normalWage)}円` : '';
+    $('lateWageLabel').textContent = showAmounts ? `${yen(settings.lateWage + settings.lateBonus)}円` : '';
+    $('phoneAllowanceLabel').textContent = showAmounts ? `（+${yen(settings.phoneAllowance)}円）` : '';
 
     const canPunchIn = st === 'before';
     $('shiftSelect').hidden = !canPunchIn;

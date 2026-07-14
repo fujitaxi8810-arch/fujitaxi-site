@@ -89,6 +89,13 @@ import Layout from '../layouts/Layout.astro';
             <button type="button" class="kt-btn" id="csvBtn">CSV出力</button>
           </div>
         </div>
+        <div class="kt-excelsync" id="excelSyncBox" hidden>
+          <span class="kt-excelsync__label" id="excelSyncState">Excel自動保存：未設定</span>
+          <div class="kt-excelsync__btns">
+            <button type="button" class="kt-btn kt-btn--ghost" id="excelPickBtn">Excelファイルを選択</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="excelSyncNowBtn">未反映分を書き込む</button>
+          </div>
+        </div>
         <div class="kt-table-wrap">
           <table class="kt-table" id="histTable">
             <thead>
@@ -180,6 +187,8 @@ import Layout from '../layouts/Layout.astro';
 
 </Layout>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
 <script>
   const LS_STAFF = 'fuji-kintai-staff';
   const LS_LOG = 'fuji-kintai-log';
@@ -237,6 +246,162 @@ import Layout from '../layouts/Layout.astro';
     return Math.round(n).toLocaleString('ja-JP');
   }
 
+  // ── Excel自動保存（ファイルシステムアクセスAPI） ──
+  const EXCEL_SHEET_NAME = 'CSV貼り付け';
+  const EXCEL_SUPPORTED = typeof window.showOpenFilePicker === 'function';
+  const IDB_NAME = 'fuji-kintai-db';
+  const IDB_STORE = 'handles';
+  const IDB_KEY = 'excelFile';
+
+  function idbOpen() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbSet(key, value) {
+    const db = await idbOpen();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function idbGet(key) {
+    const db = await idbOpen();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function pickExcelFile() {
+    if (!EXCEL_SUPPORTED) {
+      alert('お使いのブラウザはこの機能に対応していません。Google ChromeまたはMicrosoft Edgeでお試しください。');
+      return;
+    }
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'Excelファイル', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }],
+        excludeAcceptAllOption: false,
+      });
+      await idbSet(IDB_KEY, handle);
+      $('excelSyncState').textContent = `📄 ${handle.name} に接続済み`;
+      renderExcelSyncBox();
+    } catch (e) {
+      if (e.name !== 'AbortError') alert('ファイルの選択に失敗しました：' + e.message);
+    }
+  }
+
+  async function getExcelHandle() {
+    try { return await idbGet(IDB_KEY); } catch { return undefined; }
+  }
+
+  async function ensureExcelPermission(handle) {
+    const opts = { mode: 'readwrite' };
+    if ((await handle.queryPermission(opts)) === 'granted') return true;
+    if ((await handle.requestPermission(opts)) === 'granted') return true;
+    return false;
+  }
+
+  function excelRowFromRec(rec) {
+    const s = staff.find(x => x.id === rec.staffId);
+    const w = rec.out ? workMinutes(rec) : '';
+    const rate = hourlyRate(rec);
+    return [
+      rec.date,
+      s ? s.name : '削除済み',
+      rec.shiftType ? SHIFT_LABEL[rec.shiftType] : '',
+      rec.phoneDuty ? '有' : '',
+      rec.in ? timeStr(rec.in) : '',
+      rec.out ? timeStr(rec.out) : '',
+      breakMinutes(rec),
+      awayMinutes(rec),
+      w,
+      rec.out ? hm(w) : '',
+      rec.sales != null ? rec.sales : '',
+      rec.cardFee != null ? rec.cardFee : '',
+      rec.shiftType ? Math.round(shiftWage(rec)) : '',
+      rec.sales != null ? Math.round(commissionPay(rec)) : '',
+      rec.out ? Math.round(totalPay(rec)) : '',
+      rate !== null ? Math.round(rate) : '',
+      rate !== null ? (isBelowMinWage(rec) ? '最低賃金未満' : 'OK') : '',
+    ];
+  }
+
+  function nextEmptyRowIndex(worksheet) {
+    const ref = worksheet['!ref'] || 'A1:A1';
+    const range = XLSX.utils.decode_range(ref);
+    let lastFilled = 1; // 見出し行（0始まりで0）
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      const cell = worksheet[XLSX.utils.encode_cell({ r, c: 0 })];
+      if (cell && cell.v !== undefined && cell.v !== '') lastFilled = r;
+    }
+    return lastFilled + 1; // 次の空行（0始まり）
+  }
+
+  async function appendRecordsToExcel(recs) {
+    if (!recs.length) return { ok: true, count: 0 };
+    const handle = await getExcelHandle();
+    if (!handle) return { ok: false, reason: 'no-handle' };
+    if (!(await ensureExcelPermission(handle))) return { ok: false, reason: 'no-permission' };
+
+    const file = await handle.getFile();
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellFormula: true });
+    if (!wb.SheetNames.includes(EXCEL_SHEET_NAME)) return { ok: false, reason: 'no-sheet' };
+    const ws = wb.Sheets[EXCEL_SHEET_NAME];
+
+    const startRow = nextEmptyRowIndex(ws);
+    const rows = recs.map(excelRowFromRec);
+    XLSX.utils.sheet_add_aoa(ws, rows, { origin: { r: startRow, c: 0 } });
+
+    const wbout = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    const writable = await handle.createWritable();
+    await writable.write(wbout);
+    await writable.close();
+    return { ok: true, count: recs.length };
+  }
+
+  async function syncUnsyncedToExcel(showAlert) {
+    const unsynced = log.filter(r => r.out && !r.excelSynced);
+    const result = await appendRecordsToExcel(unsynced);
+    if (result.ok) {
+      for (const r of unsynced) r.excelSynced = true;
+      if (result.count) save();
+      if (showAlert) alert(result.count ? `${result.count}件をExcelに書き込みました。` : '未反映のデータはありませんでした。');
+    } else if (showAlert) {
+      const messages = {
+        'no-handle': 'Excelファイルが選択されていません。「Excelファイルを選択」から設定してください。',
+        'no-permission': 'ファイルへのアクセス許可が得られませんでした。',
+        'no-sheet': `選択したファイルに「${EXCEL_SHEET_NAME}」シートが見つかりません。`,
+      };
+      alert(messages[result.reason] || 'Excelへの書き込みに失敗しました。');
+    }
+    return result;
+  }
+
+  async function renderExcelSyncBox() {
+    const box = $('excelSyncBox');
+    box.hidden = !isAdmin();
+    if (!isAdmin()) return;
+    if (!EXCEL_SUPPORTED) {
+      $('excelSyncState').textContent = '⚠️ このブラウザは自動保存に非対応（Chrome/Edgeでご利用ください）';
+      $('excelPickBtn').disabled = true;
+      $('excelSyncNowBtn').disabled = true;
+      return;
+    }
+    const handle = await getExcelHandle();
+    $('excelSyncState').textContent = handle ? `📄 ${handle.name} に接続済み` : 'Excel自動保存：未設定';
+  }
+  $('excelPickBtn').onclick = () => pickExcelFile();
+  $('excelSyncNowBtn').onclick = () => syncUnsyncedToExcel(true);
+
   // ── 管理者ロック ──
   function isAdmin() {
     return sessionStorage.getItem(SS_ADMIN) === '1';
@@ -267,6 +432,7 @@ import Layout from '../layouts/Layout.astro';
     $('adminToggleBtn').textContent = unlocked ? 'ロックする' : '管理者ロック解除';
     $('settingsToggleBtn').hidden = !unlocked;
     if (!unlocked) $('settingsPanel').hidden = true;
+    renderExcelSyncBox();
   }
   $('adminToggleBtn').onclick = () => {
     if (isAdmin()) {
@@ -411,7 +577,7 @@ import Layout from '../layouts/Layout.astro';
     renderPunch(); renderToday(); renderHist(); renderWage();
   }
 
-  function punch(type) {
+  async function punch(type) {
     if (!selectedId) return;
     const now = new Date().toISOString();
     let rec = todayRec(selectedId);
@@ -470,6 +636,16 @@ import Layout from '../layouts/Layout.astro';
     const labels = { out: '退勤', breakStart: '休憩開始', breakEnd: '休憩終了', awayStart: '時間内退勤', awayEnd: '時間内出勤' };
     $('punchMsg').textContent = `✅ ${s.name} さんの${labels[type]}を ${timeStr(now)} に記録しました`;
     renderPunch(); renderToday(); renderHist(); renderWage();
+
+    if (type === 'out' && isAdmin()) {
+      const handle = await getExcelHandle();
+      if (handle) {
+        const result = await syncUnsyncedToExcel(false);
+        if (result.ok && result.count) {
+          $('punchMsg').textContent += `（Excelにも自動記録しました）`;
+        }
+      }
+    }
   }
   $('punchInNormal').onclick = () => punchIn('normal');
   $('punchInLate').onclick = () => punchIn('late');
@@ -780,6 +956,21 @@ import Layout from '../layouts/Layout.astro';
     flex-wrap: wrap;
   }
   .kt-panel__tools { display: flex; gap: 0.6rem; align-items: center; }
+
+  .kt-excelsync {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    background: rgba(255,255,255,0.05);
+    border: 1px dashed rgba(255,255,255,0.2);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .kt-excelsync__label { font-size: 0.9rem; color: rgba(255,255,255,0.85); font-weight: 700; }
+  .kt-excelsync__btns { display: flex; gap: 0.5rem; flex-wrap: wrap; }
   .kt-title {
     font-size: 1.25rem;
     font-weight: 900;

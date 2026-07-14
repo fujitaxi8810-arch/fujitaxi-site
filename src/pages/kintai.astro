@@ -140,8 +140,20 @@ import Layout from '../layouts/Layout.astro';
             <input type="number" id="setCommissionRate" class="kt-input" min="0" max="100" step="0.01" />
           </label>
           <label class="kt-field">
-            <span>カード手数料率（目安・％）</span>
+            <span>クレジットカード手数料率（％）</span>
             <input type="number" id="setCardFeeRate" class="kt-input" min="0" max="100" step="0.01" />
+          </label>
+          <label class="kt-field">
+            <span>PayPay手数料率（％）</span>
+            <input type="number" id="setPaypayFeeRate" class="kt-input" min="0" max="100" step="0.01" />
+          </label>
+          <label class="kt-field">
+            <span>d払い手数料率（％）</span>
+            <input type="number" id="setDbaraiFeeRate" class="kt-input" min="0" max="100" step="0.01" />
+          </label>
+          <label class="kt-field">
+            <span>メルペイ手数料率（％）</span>
+            <input type="number" id="setMerpayFeeRate" class="kt-input" min="0" max="100" step="0.01" />
           </label>
           <label class="kt-field">
             <span>最低賃金（円・確認用）</span>
@@ -149,7 +161,7 @@ import Layout from '../layouts/Layout.astro';
           </label>
         </div>
         <button type="button" class="kt-btn" id="saveSettingsBtn">設定を保存</button>
-        <p class="kt-note">※ ここで設定した金額・歩合率が、すべてのスタッフの給与計算に使われます。カード手数料率は退勤時の入力欄に目安として自動入力されます（クレジットカード決済の実績値。PayPay・d払いなど別端末での決済分は手数料率が異なるため含まれていません。必要に応じて手入力で修正してください）。</p>
+        <p class="kt-note">※ ここで設定した金額・歩合率が、すべてのスタッフの給与計算に使われます。退勤時に決済方法ごとの内訳（クレジット・PayPay・d払い・メルペイ）を入力すると、それぞれの手数料率で自動計算した金額が目安として入力欄に表示されます。必要に応じて手入力で修正してください。</p>
       </div>
       <button type="button" class="kt-btn kt-btn--ghost" id="settingsToggleBtn" hidden>⚙ 給与設定を開く</button>
 
@@ -173,6 +185,9 @@ import Layout from '../layouts/Layout.astro';
     phoneAllowance: 300,
     commissionRate: 16.57,
     cardFeeRate: 3.1, // SBペイメントサービス収納明細書（2026/06/16-06/30分）の実績に基づく目安。月額固定費を除く決済手数料の平均。決済手段の内訳で変動するため手入力で調整可。
+    paypayFeeRate: 2.18, // PayPay（別端末決済）の実際の手数料率
+    dbaraiFeeRate: 2.6,  // d払い（別端末決済）の実際の手数料率
+    merpayFeeRate: 2.6,  // メルペイ（別端末決済）の実際の手数料率
     minWage: 1033, // 福島県の地域別最低賃金（確認用）
     adminPassword: '',
   };
@@ -262,6 +277,9 @@ import Layout from '../layouts/Layout.astro';
     $('setPhoneAllowance').value = settings.phoneAllowance;
     $('setCommissionRate').value = settings.commissionRate;
     $('setCardFeeRate').value = settings.cardFeeRate;
+    $('setPaypayFeeRate').value = settings.paypayFeeRate;
+    $('setDbaraiFeeRate').value = settings.dbaraiFeeRate;
+    $('setMerpayFeeRate').value = settings.merpayFeeRate;
     $('setMinWage').value = settings.minWage;
   }
   $('saveSettingsBtn').onclick = () => {
@@ -270,6 +288,9 @@ import Layout from '../layouts/Layout.astro';
     settings.lateBonus = parseInt($('setLateBonus').value, 10) || 0;
     settings.phoneAllowance = parseInt($('setPhoneAllowance').value, 10) || 0;
     settings.cardFeeRate = parseFloat($('setCardFeeRate').value) || 0;
+    settings.paypayFeeRate = parseFloat($('setPaypayFeeRate').value) || 0;
+    settings.dbaraiFeeRate = parseFloat($('setDbaraiFeeRate').value) || 0;
+    settings.merpayFeeRate = parseFloat($('setMerpayFeeRate').value) || 0;
     settings.commissionRate = parseFloat($('setCommissionRate').value) || 0;
     settings.minWage = parseInt($('setMinWage').value, 10) || 0;
     saveSettings();
@@ -389,8 +410,25 @@ import Layout from '../layouts/Layout.astro';
         const sales = parseFloat(salesInput);
         if (!isNaN(sales) && sales >= 0) {
           rec.sales = sales;
-          const suggestedFee = Math.round(sales * (settings.cardFeeRate / 100));
-          const feeInput = prompt(`カード決済手数料等（差し引く金額）を入力してください（円）\n※クレジットカード決済分を目安に売上の${settings.cardFeeRate}%を自動計算しています。\n※PayPay・d払いなど別端末決済分は手数料率が異なるため含まれていません。実際の金額が分かれば書き換えてください。`, String(suggestedFee));
+
+          const num = (v) => { const n = parseFloat(v); return (!isNaN(n) && n >= 0) ? n : 0; };
+          const creditInput = prompt('うちクレジットカード決済分（円）を入力してください\n※現金・その他はここに含めなくてOK', '0');
+          if (creditInput === null) { /* キャンセルなら手数料0円のまま進む */ }
+          const credit = num(creditInput);
+          const paypayInput = prompt('うちPayPay決済分（円）を入力してください', '0');
+          const paypay = num(paypayInput);
+          const dbaraiInput = prompt('うちd払い決済分（円）を入力してください', '0');
+          const dbarai = num(dbaraiInput);
+          const merpayInput = prompt('うちメルペイ決済分（円）を入力してください', '0');
+          const merpay = num(merpayInput);
+
+          const suggestedFee = Math.round(
+            credit * (settings.cardFeeRate / 100) +
+            paypay * (settings.paypayFeeRate / 100) +
+            dbarai * (settings.dbaraiFeeRate / 100) +
+            merpay * (settings.merpayFeeRate / 100)
+          );
+          const feeInput = prompt(`カード決済手数料等（差し引く金額）を入力してください（円）\n※入力内容から自動計算した目安です。実際の金額が分かれば書き換えてください。`, String(suggestedFee));
           const fee = parseFloat(feeInput);
           rec.cardFee = (!isNaN(fee) && fee >= 0) ? fee : suggestedFee;
         }

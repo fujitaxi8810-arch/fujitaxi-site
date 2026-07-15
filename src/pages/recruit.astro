@@ -137,20 +137,26 @@ const structuredData = {
   <!-- 給与ハイライト -->
   <section class="section bg-black">
     <div class="container">
+      <div class="reveal" style="text-align: center; margin-bottom: var(--space-10);">
+        <p class="eyebrow">Treatment</p>
+        <h2 class="section-h2" style="color: var(--fuji-white);">待遇のポイント</h2>
+        <div class="divider" style="margin: 1rem auto;"></div>
+      </div>
       <div class="salary-highlight reveal">
         <div class="salary-highlight__item">
+          <span class="salary-highlight__icon">💴</span>
           <p class="salary-label">月給 基本給</p>
-          <p class="salary-amount text-yellow"><span class="salary-num">19</span>万円〜</p>
+          <p class="salary-amount text-yellow"><span class="salary-num">19</span><span class="salary-unit">万円〜</span></p>
         </div>
-        <div class="salary-divider" aria-hidden="true"></div>
         <div class="salary-highlight__item">
+          <span class="salary-highlight__icon">🎁</span>
           <p class="salary-label">賞与</p>
-          <p class="salary-amount text-yellow">年<span class="salary-num">3</span>回</p>
+          <p class="salary-amount text-yellow">年<span class="salary-num">3</span><span class="salary-unit">回</span></p>
         </div>
-        <div class="salary-divider" aria-hidden="true"></div>
         <div class="salary-highlight__item">
+          <span class="salary-highlight__icon">🏖️</span>
           <p class="salary-label">週休</p>
-          <p class="salary-amount text-yellow"><span class="salary-num">2</span>日</p>
+          <p class="salary-amount text-yellow"><span class="salary-num">2</span><span class="salary-unit">日</span></p>
         </div>
       </div>
     </div>
@@ -415,38 +421,57 @@ const structuredData = {
 
   /* 給与ハイライト */
   .salary-highlight {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 3rem;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    gap: 1.5rem;
+    max-width: 900px;
+    margin: 0 auto;
   }
   .salary-highlight__item {
     text-align: center;
+    background: var(--fuji-black-card, #1a1a1a);
+    border: 1px solid var(--fuji-gray-border);
+    border-top: 3px solid var(--fuji-yellow);
+    border-radius: var(--radius-xl);
+    padding: 2rem 1.5rem;
+    transition: transform var(--transition-fast), border-color var(--transition-fast);
+  }
+  .salary-highlight__item:hover {
+    transform: translateY(-4px);
+    border-color: var(--fuji-yellow);
+  }
+  .salary-highlight__icon {
+    display: block;
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
   }
   .salary-label {
     font-size: var(--text-sm);
     color: var(--fuji-gray-muted);
-    margin-bottom: 0.25rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
   }
   .salary-amount {
     font-family: var(--font-en);
-    font-size: var(--text-2xl);
-    font-weight: 700;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.15rem;
     color: var(--fuji-yellow);
   }
   .salary-num {
     font-size: var(--text-5xl);
     font-weight: 900;
+    line-height: 1;
   }
-  .salary-divider {
-    width: 1px;
-    height: 80px;
-    background: var(--fuji-gray-border);
+  .salary-unit {
+    font-size: var(--text-lg);
+    font-weight: 700;
   }
-  @media (max-width: 480px) {
-    .salary-divider { display: none; }
-    .salary-highlight { gap: 2rem; }
+  @media (max-width: 640px) {
+    .salary-highlight { grid-template-columns: 1fr; gap: 1rem; }
+    .salary-highlight__item { padding: 1.5rem; }
   }
 
   /* 求人票テーブル */

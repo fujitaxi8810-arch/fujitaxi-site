@@ -1030,6 +1030,10 @@ import Layout from '../layouts/Layout.astro';
 </script>
 
 <style is:global>
+  /* display指定のあるクラスが hidden 属性を打ち消さないようにする */
+  .kintai-wrap [hidden],
+  .kt-modal-overlay[hidden] { display: none !important; }
+
   .page-hero { padding-block: 4rem 2rem; }
   .page-hero h1 {
     font-size: clamp(2rem, 5vw, 3rem);

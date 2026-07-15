@@ -102,6 +102,38 @@ const structuredData = {
     </div>
   </section>
 
+  <!-- スタッフ紹介 -->
+  <section class="section bg-black">
+    <div class="container">
+      <div class="reveal" style="text-align: center; margin-bottom: var(--space-12);">
+        <p class="eyebrow">Our Staff</p>
+        <h2 class="section-h2" style="color: var(--fuji-white);">一緒に働く仲間たち</h2>
+        <div class="divider" style="margin: 1rem auto;"></div>
+      </div>
+      <div class="staff-intro reveal">
+        <div class="staff-intro__photo-wrap">
+          <img
+            src="/images/S__312557572.jpg"
+            alt="富士タクシー本社前でジャンボタクシーと一緒に写るスタッフ3名"
+            class="staff-intro__photo"
+            width="1100" height="1467"
+            loading="lazy"
+          />
+        </div>
+        <div class="staff-intro__text">
+          <p class="staff-intro__lead">
+            「家族のような親しみやすさ」を大切にする富士タクシー。
+            ベテランから若手まで、和気あいあいとした雰囲気の中で働いています。
+          </p>
+          <p class="staff-intro__sub">
+            未経験から入社したスタッフも多数活躍中。分からないことは先輩に何でも聞ける環境です。
+            見学だけでも大歓迎ですので、まずは職場の雰囲気を見に来てください。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- 給与ハイライト -->
   <section class="section bg-black">
     <div class="container">
@@ -337,6 +369,48 @@ const structuredData = {
     font-size: var(--text-sm);
     color: #555;
     line-height: 1.8;
+  }
+
+  /* スタッフ紹介 */
+  .staff-intro {
+    display: grid;
+    grid-template-columns: minmax(240px, 380px) 1fr;
+    gap: 2.5rem;
+    align-items: center;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .staff-intro__photo-wrap {
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    border: 2px solid var(--fuji-yellow);
+  }
+  .staff-intro__photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .staff-intro__lead {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--fuji-white);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .staff-intro__sub {
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    line-height: 1.9;
+  }
+  @media (max-width: 640px) {
+    .staff-intro {
+      grid-template-columns: 1fr;
+    }
+    .staff-intro__photo-wrap {
+      max-width: 320px;
+      margin: 0 auto;
+    }
   }
 
   /* 給与ハイライト */

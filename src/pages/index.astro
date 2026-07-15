@@ -2101,7 +2101,10 @@ const tourism = [
 
 /* 画像エリア */
 .dx-image {
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
 }
 
 .dx-image__img {
@@ -2113,10 +2116,6 @@ const tourism = [
 }
 
 .dx-image__label {
-  position: absolute;
-  bottom: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
   background: var(--fuji-yellow);
   color: var(--fuji-black);
   border-radius: var(--radius-full);
@@ -2142,7 +2141,6 @@ const tourism = [
     grid-template-columns: 1fr;
   }
   .dx-image { order: -1; }
-  .dx-image__label { bottom: 0.75rem; }
 }
 
 /* ─────────────────────────────

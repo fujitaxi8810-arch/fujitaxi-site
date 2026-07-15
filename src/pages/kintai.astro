@@ -119,6 +119,7 @@ import Layout from '../layouts/Layout.astro';
           <div class="kt-panel__tools">
             <input type="month" id="monthPick" class="kt-input" />
             <button type="button" class="kt-btn" id="csvBtn">CSV出力</button>
+            <button type="button" class="kt-btn" id="timecardBtn">給与計算Excel出力</button>
           </div>
         </div>
         <div class="kt-excelsync" id="excelSyncBox" hidden>
@@ -191,7 +192,7 @@ import Layout from '../layouts/Layout.astro';
       <button type="button" class="kt-btn kt-btn--ghost" id="settingsToggleBtn" hidden>⚙ 給与設定を開く</button>
       <button type="button" class="kt-btn kt-btn--danger" id="clearLogBtn" hidden>🗑 全打刻データを削除</button>
 
-      <p class="kt-note">※ データはこの端末のブラウザ内にのみ保存されます。端末を変えると記録は引き継がれません。月末にCSV出力して保管してください。</p>
+      <p class="kt-note">※ データはこの端末のブラウザ内にのみ保存されます。端末を変えると記録は引き継がれません。月末に「給与計算Excel出力」またはCSV出力で保管してください。</p>
 
     </div>
   </section>
@@ -1019,6 +1020,193 @@ import Layout from '../layouts/Layout.astro';
     a.download = `勤怠給与_${month}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
+  };
+
+  // ── 給与計算Excel出力（タイムカード形式：スタッフ別シート＋数式で自動計算） ──
+  const TC_TABLE_START = 11; // 日別テーブルの先頭行（1始まり）
+
+  function tcSetCell(ws, addr, value, opts) {
+    const cell = Object.assign({}, opts);
+    if (typeof value === 'number') { cell.t = 'n'; cell.v = value; }
+    else if (value != null && value !== '') { cell.t = 's'; cell.v = String(value); }
+    else if (!cell.f) return;
+    ws[addr] = cell;
+  }
+  // 数式セル。vはダミーのキャッシュ値（v無しだとSheetJSが書き出し時にセルを捨てる）。
+  // SheetJSはfullCalcOnLoadを立てて出力するため、Excelで開いた時点で全数式が再計算される。
+  function tcFormula(ws, addr, f, z) {
+    const cell = { t: 'n', v: 0, f };
+    if (z) cell.z = z;
+    ws[addr] = cell;
+  }
+  function tcFinalize(ws, lastRow, lastCol) {
+    ws['!ref'] = `A1:${XLSX.utils.encode_col(lastCol)}${lastRow}`;
+  }
+  function tcSheetName(name, used) {
+    let base = name.replace(/[:\\\/?*\[\]]/g, '・').slice(0, 25) || 'スタッフ';
+    let candidate = base;
+    let n = 2;
+    while (used.has(candidate)) candidate = `${base}(${n++})`;
+    used.add(candidate);
+    return candidate;
+  }
+  function tcQuote(sheetName) {
+    return `'${sheetName.replace(/'/g, "''")}'`;
+  }
+  function tcTimeSerial(iso) {
+    const d = new Date(iso);
+    return (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400;
+  }
+
+  function buildStaffSheet(name, recsByDay, year, monthNum, daysInMonth) {
+    const ws = {};
+    const endRow = TC_TABLE_START + daysInMonth - 1;
+
+    tcSetCell(ws, 'A1', `${year}年${monthNum}月 勤務表`);
+    tcSetCell(ws, 'D1', name);
+    tcSetCell(ws, 'A3', '勤務日数');
+    tcFormula(ws, 'B3', `COUNT(N${TC_TABLE_START}:N${endRow})`);
+    tcSetCell(ws, 'A4', '実働合計（時間）');
+    tcFormula(ws, 'B4', `SUM(I${TC_TABLE_START}:I${endRow})`, '0.00');
+    tcSetCell(ws, 'A5', 'シフト日給合計（電話番手当込・円）');
+    tcFormula(ws, 'B5', `SUM(L${TC_TABLE_START}:L${endRow})`, '#,##0');
+    tcSetCell(ws, 'A6', '歩合給合計（円）');
+    tcFormula(ws, 'B6', `SUM(M${TC_TABLE_START}:M${endRow})`, '#,##0');
+    tcSetCell(ws, 'A7', '売上合計（税抜・円）');
+    tcFormula(ws, 'B7', `SUM(J${TC_TABLE_START}:J${endRow})`, '#,##0');
+    tcSetCell(ws, 'A8', '総支給額（円）');
+    tcFormula(ws, 'B8', `SUM(N${TC_TABLE_START}:N${endRow})`, '#,##0');
+
+    const headers = ['日', '曜日', 'シフト', '電話番', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)', '売上税抜(円)', 'カード手数料(円)', 'シフト日給(円)', '歩合給(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
+    headers.forEach((h, i) => tcSetCell(ws, XLSX.utils.encode_cell({ r: TC_TABLE_START - 2, c: i }), h));
+
+    const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const row = TC_TABLE_START + day - 1;
+      const date = new Date(year, monthNum - 1, day);
+      tcSetCell(ws, `A${row}`, day);
+      tcSetCell(ws, `B${row}`, WEEKDAYS[date.getDay()]);
+      const rec = recsByDay[day];
+      if (rec) {
+        tcSetCell(ws, `C${row}`, rec.shiftType ? SHIFT_LABEL[rec.shiftType] : '');
+        tcSetCell(ws, `D${row}`, rec.phoneDuty ? '有' : '');
+        if (rec.in) ws[`E${row}`] = { t: 'n', v: tcTimeSerial(rec.in), z: 'h:mm' };
+        if (rec.out) ws[`F${row}`] = { t: 'n', v: tcTimeSerial(rec.out), z: 'h:mm' };
+        tcSetCell(ws, `G${row}`, breakMinutes(rec));
+        tcSetCell(ws, `H${row}`, awayMinutes(rec));
+        if (rec.sales != null) ws[`J${row}`] = { t: 'n', v: rec.sales, z: '#,##0' };
+        if (rec.cardFee != null) ws[`K${row}`] = { t: 'n', v: rec.cardFee, z: '#,##0' };
+      }
+      tcFormula(ws, `I${row}`, `IF(OR($E${row}="",$F${row}=""),"",ROUND(($F${row}-$E${row}+IF($F${row}<$E${row},1,0))*24-IF($G${row}="",0,$G${row})/60-IF($H${row}="",0,$H${row})/60,2))`, '0.00');
+      tcFormula(ws, `L${row}`, `IF($C${row}="","",IF($C${row}="遅番",設定!$B$3+設定!$B$4,設定!$B$2)+IF($D${row}="有",設定!$B$5,0))`, '#,##0');
+      tcFormula(ws, `M${row}`, `IF($J${row}="","",ROUND(MAX(0,$J${row}-IF($K${row}="",0,$K${row}))*設定!$B$6/100,0))`, '#,##0');
+      tcFormula(ws, `N${row}`, `IF($L${row}="","",$L${row}+IF($M${row}="",0,$M${row}))`, '#,##0');
+      tcFormula(ws, `O${row}`, `IF(OR($I${row}="",$I${row}=0,$N${row}=""),"",ROUND($N${row}/$I${row},0))`, '#,##0');
+      tcFormula(ws, `P${row}`, `IF($O${row}="","",IF($O${row}<設定!$B$7,"最低賃金未満","OK"))`);
+    }
+
+    ws['!cols'] = [{ wch: 4 }, { wch: 5 }, { wch: 8 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 13 }, { wch: 11 }, { wch: 11 }, { wch: 12 }, { wch: 14 }];
+    tcFinalize(ws, endRow, headers.length - 1);
+    return ws;
+  }
+
+  $('timecardBtn').onclick = () => {
+    if (!requireAdmin()) return;
+    renderAdminBar();
+    const month = currentMonth(); // "YYYY-MM"
+    const [year, monthNum] = month.split('-').map(Number);
+    const daysInMonth = new Date(year, monthNum, 0).getDate();
+    const monthRecs = log.filter(r => r.date.startsWith(month));
+    if (!monthRecs.length) { alert('この月の記録がありません'); return; }
+
+    const wb = XLSX.utils.book_new();
+
+    // 設定シート（各シートの数式がここを参照。値を変えると全シート再計算される）
+    const settingRows = [
+      ['項目', '数値', '備考'],
+      ['普通番 基本日給（円）', settings.normalWage, '勤怠アプリ「給与設定」の値を出力時に転記'],
+      ['遅番 基本日給（円）', settings.lateWage, ''],
+      ['遅番 割増賃金（円）', settings.lateBonus, ''],
+      ['電話番手当（円）', settings.phoneAllowance, ''],
+      ['歩合率（％）', settings.commissionRate, '（売上税抜−カード手数料）に掛ける率'],
+      ['最低賃金（円・確認用）', settings.minWage, '福島県の地域別最低賃金'],
+    ];
+    const wsSettings = XLSX.utils.aoa_to_sheet(settingRows);
+    wsSettings['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, wsSettings, '設定');
+
+    // スタッフごとに日別レコードを整理（1日1レコード）
+    const usedNames = new Set(['設定', '全体集計', '使い方']);
+    const staffSheets = []; // { name, sheetName }
+    const byStaff = {};
+    for (const rec of monthRecs) byStaff[rec.staffId] = byStaff[rec.staffId] || {};
+    for (const rec of monthRecs) byStaff[rec.staffId][Number(rec.date.slice(8, 10))] = rec;
+
+    const targets = staff.filter(s => byStaff[s.id]).map(s => ({ name: s.name, days: byStaff[s.id] }));
+    const orphanIds = Object.keys(byStaff).filter(id => !staff.some(s => s.id === id));
+    orphanIds.forEach((id, i) => targets.push({ name: `削除済みスタッフ${i + 1}`, days: byStaff[id] }));
+
+    for (const t of targets) {
+      const sheetName = tcSheetName(t.name, usedNames);
+      staffSheets.push({ name: t.name, sheetName });
+      XLSX.utils.book_append_sheet(wb, buildStaffSheet(t.name, t.days, year, monthNum, daysInMonth), sheetName);
+    }
+
+    // 全体集計シート（各スタッフシートのサマリーを参照）
+    const wsAll = {};
+    tcSetCell(wsAll, 'A1', `${year}年${monthNum}月 給与集計`);
+    ['名前', '勤務日数', '実働合計(時間)', 'シフト日給合計(円)', '歩合給合計(円)', '売上合計(円)', '総支給額(円)'].forEach((h, i) => {
+      tcSetCell(wsAll, XLSX.utils.encode_cell({ r: 2, c: i }), h);
+    });
+    staffSheets.forEach((s, i) => {
+      const row = 4 + i;
+      const q = tcQuote(s.sheetName);
+      tcSetCell(wsAll, `A${row}`, s.name);
+      tcFormula(wsAll, `B${row}`, `${q}!$B$3`);
+      tcFormula(wsAll, `C${row}`, `${q}!$B$4`, '0.00');
+      tcFormula(wsAll, `D${row}`, `${q}!$B$5`, '#,##0');
+      tcFormula(wsAll, `E${row}`, `${q}!$B$6`, '#,##0');
+      tcFormula(wsAll, `F${row}`, `${q}!$B$7`, '#,##0');
+      tcFormula(wsAll, `G${row}`, `${q}!$B$8`, '#,##0');
+    });
+    const totalRow = 4 + staffSheets.length + 1;
+    tcSetCell(wsAll, `A${totalRow}`, '合計');
+    for (const col of ['B', 'C', 'D', 'E', 'F', 'G']) {
+      tcFormula(wsAll, `${col}${totalRow}`, `SUM(${col}4:${col}${totalRow - 1})`, col === 'C' ? '0.00' : '#,##0');
+    }
+    wsAll['!cols'] = [{ wch: 14 }, { wch: 9 }, { wch: 13 }, { wch: 16 }, { wch: 13 }, { wch: 13 }, { wch: 13 }];
+    tcFinalize(wsAll, totalRow, 6);
+    XLSX.utils.book_append_sheet(wb, wsAll, '全体集計');
+    // 全体集計を設定の直後（2番目）に移動
+    wb.SheetNames.splice(wb.SheetNames.indexOf('全体集計'), 1);
+    wb.SheetNames.splice(1, 0, '全体集計');
+
+    // 使い方シート
+    const usage = [
+      ['【このファイルについて】'],
+      ['勤怠アプリ（/kintai）の打刻データから自動生成した給与計算ブックです。'],
+      [`対象月：${year}年${monthNum}月`],
+      [''],
+      ['【給与の計算式】（勤怠アプリと同じ）'],
+      ['　総支給額 ＝ シフト日給（普通番／遅番）＋ 電話番手当 ＋ 歩合給'],
+      ['　歩合給 ＝（売上税抜 − カード手数料等）× 歩合率'],
+      [''],
+      ['【シートの見方】'],
+      ['・スタッフごとに1シート。出勤・退勤・休憩などは打刻データを転記済みです。'],
+      ['・実働時間・日給・歩合給・日合計は数式です。時刻や売上を手で修正すると自動で再計算されます。'],
+      ['・「設定」シートの数値（日給・歩合率など）を変更すると、全シートが再計算されます。'],
+      ['・「全体集計」シートに全員の勤務日数・総支給額がまとまります。'],
+      [''],
+      ['【注意】'],
+      ['・出力時点の打刻データのスナップショットです。以後の打刻は反映されないため、月末に再出力してください。'],
+      ['・カード手数料は決済明細の実績と異なる場合があります。必要に応じてK列を手修正してください。'],
+    ];
+    const wsUsage = XLSX.utils.aoa_to_sheet(usage);
+    wsUsage['!cols'] = [{ wch: 90 }];
+    XLSX.utils.book_append_sheet(wb, wsUsage, '使い方');
+
+    const reiwa = year - 2018;
+    XLSX.writeFile(wb, `タイムカードR${reiwa}.${monthNum}月分_給与計算.xlsx`);
   };
 
   renderAdminBar();

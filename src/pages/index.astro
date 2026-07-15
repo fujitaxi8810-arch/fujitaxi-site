@@ -508,6 +508,7 @@ const tourism = [
      DX配車（富士タクQ）
 ════════════════════════════════════════ -->
 <section class="section dx-section bg-black" aria-labelledby="dx-heading">
+  <div class="dx-section__bg" style="background-image: url('/images/S__37437458.jpg');" aria-hidden="true"></div>
   <div class="container">
     <div class="dx-inner">
 
@@ -1973,9 +1974,25 @@ const tourism = [
 /* ─────────────────────────────
    DX配車（富士タクQ）
 ───────────────────────────── */
-.dx-section { overflow: hidden; }
+.dx-section { overflow: hidden; position: relative; }
+
+.dx-section__bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 30%;
+  opacity: 0.28;
+}
+.dx-section__bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, rgba(10,10,10,0.95) 0%, rgba(10,10,10,0.75) 45%, rgba(10,10,10,0.4) 100%);
+}
 
 .dx-inner {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 1fr 420px;
   gap: 4rem;

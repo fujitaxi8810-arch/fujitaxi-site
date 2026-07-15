@@ -46,7 +46,7 @@ import Layout from '../layouts/Layout.astro';
           <p class="kt-shift-select__label">① 電話番を担当する場合はチェック</p>
           <label class="kt-check">
             <input type="checkbox" id="phoneDutyCheck" />
-            <span>電話番を担当する<small id="phoneAllowanceLabel"></small></span>
+            <span>電話番を担当する</span>
           </label>
           <p class="kt-shift-select__label">② シフトを選んで出勤</p>
           <div class="kt-shift-grid">
@@ -599,8 +599,6 @@ import Layout from '../layouts/Layout.astro';
     const rec = todayRec(selectedId);
     const st = statusOf(rec);
     $('statusLabel').textContent = `現在：${STATUS_LABEL[st]}${rec && rec.shiftType ? '（' + SHIFT_LABEL[rec.shiftType] + '）' : ''}`;
-
-    $('phoneAllowanceLabel').textContent = isAdmin() ? `（+${yen(settings.phoneAllowance)}円）` : '';
 
     const canPunchIn = st === 'before';
     $('shiftSelect').hidden = !canPunchIn;
@@ -1467,18 +1465,18 @@ import Layout from '../layouts/Layout.astro';
   .kt-check {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.8rem;
     color: var(--fuji-white);
-    font-size: 1rem;
-    font-weight: 700;
+    font-size: 1.35rem;
+    font-weight: 900;
     cursor: pointer;
   }
   .kt-check input {
-    width: 22px;
-    height: 22px;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
     accent-color: var(--fuji-yellow);
   }
-  .kt-check small { color: rgba(255,255,255,0.6); margin-left: 0.3rem; font-weight: 600; }
 
   .kt-punch-grid {
     display: grid;

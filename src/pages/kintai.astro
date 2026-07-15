@@ -647,7 +647,8 @@ import Layout from '../layouts/Layout.astro';
   function autoFee(amounts) {
     let total = 0;
     for (const m of PAY_METHODS) {
-      total += (amounts[m.id] || 0) * (settings.feeRates[m.id] / 100);
+      const rate = settings.feeRates?.[m.id] ?? m.rate;
+      total += (amounts[m.id] || 0) * (rate / 100);
     }
     return Math.round(total);
   }
@@ -671,7 +672,7 @@ import Layout from '../layouts/Layout.astro';
       const label = document.createElement('label');
       label.className = 'kt-field';
       const span = document.createElement('span');
-      span.textContent = `${m.label}（${settings.feeRates[m.id]}%）`;
+      span.textContent = `${m.label}（${settings.feeRates?.[m.id] ?? m.rate}%）`;
       const input = document.createElement('input');
       input.type = 'number';
       input.className = 'kt-input';
@@ -693,6 +694,12 @@ import Layout from '../layouts/Layout.astro';
     $('salesModal').hidden = true;
     salesModalTargetKey = null;
   }
+  $('salesModal').addEventListener('click', (e) => {
+    if (e.target.id === 'salesModal') closeSalesModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('salesModal').hidden) closeSalesModal();
+  });
   async function saveSalesModal() {
     if (!salesModalTargetKey) { closeSalesModal(); return; }
     const [staffId, date] = salesModalTargetKey.split('|');

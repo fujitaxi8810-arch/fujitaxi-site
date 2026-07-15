@@ -52,11 +52,9 @@ import Layout from '../layouts/Layout.astro';
           <div class="kt-shift-grid">
             <button type="button" class="kt-shift-btn kt-shift-btn--normal" id="punchInNormal">
               <span class="kt-shift-btn__name">普通番で出勤</span>
-              <span class="kt-shift-btn__sub" id="normalWageLabel"></span>
             </button>
             <button type="button" class="kt-shift-btn kt-shift-btn--late" id="punchInLate">
               <span class="kt-shift-btn__name">遅番で出勤</span>
-              <span class="kt-shift-btn__sub" id="lateWageLabel"></span>
             </button>
           </div>
         </div>
@@ -602,10 +600,7 @@ import Layout from '../layouts/Layout.astro';
     const st = statusOf(rec);
     $('statusLabel').textContent = `現在：${STATUS_LABEL[st]}${rec && rec.shiftType ? '（' + SHIFT_LABEL[rec.shiftType] + '）' : ''}`;
 
-    const showAmounts = isAdmin();
-    $('normalWageLabel').textContent = showAmounts ? `${yen(settings.normalWage)}円` : '';
-    $('lateWageLabel').textContent = showAmounts ? `${yen(settings.lateWage + settings.lateBonus)}円` : '';
-    $('phoneAllowanceLabel').textContent = showAmounts ? `（+${yen(settings.phoneAllowance)}円）` : '';
+    $('phoneAllowanceLabel').textContent = isAdmin() ? `（+${yen(settings.phoneAllowance)}円）` : '';
 
     const canPunchIn = st === 'before';
     $('shiftSelect').hidden = !canPunchIn;
@@ -1468,7 +1463,6 @@ import Layout from '../layouts/Layout.astro';
   .kt-shift-btn--normal { background: var(--fuji-yellow); color: var(--fuji-black); }
   .kt-shift-btn--late { background: #8fc5f8; color: #0a0a0a; }
   .kt-shift-btn__name { font-size: 1.2rem; font-weight: 900; }
-  .kt-shift-btn__sub { font-size: 0.85rem; font-weight: 700; opacity: 0.75; }
 
   .kt-check {
     display: flex;

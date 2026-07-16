@@ -304,6 +304,32 @@ import Layout from '../layouts/Layout.astro';
     }
   }
 
+  // 中橋常郎・須江浩子・佐藤文枝を強制的にパートへ修正（2026-07-16・一度だけ適用）
+  // 区分機能の初期実装時にtype='fulltime'が明示的に入ってしまい、DEFAULT_EMPの
+  // 「未設定の場合のみ適用」ガードが効かなくなっていた端末を救済するため、区分を強制上書きする
+  {
+    const MIGRATION_KEY4 = 'fuji-kintai-migrated-force-part-20260716';
+    if (!localStorage.getItem(MIGRATION_KEY4)) {
+      const FORCE_PART = {
+        '中橋常郎': { hourlyWage: 1050, commuteAllowance: 3000 },
+        '須江浩子': { hourlyWage: 1033, commuteAllowance: 1061 },
+        '佐藤文枝': { hourlyWage: 1033, commuteAllowance: 376 },
+      };
+      let changed = false;
+      for (const s of staff) {
+        const d = FORCE_PART[s.name];
+        if (d) {
+          s.type = 'part';
+          if (s.hourlyWage == null) s.hourlyWage = d.hourlyWage;
+          if (s.commuteAllowance == null) s.commuteAllowance = d.commuteAllowance;
+          changed = true;
+        }
+      }
+      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+      localStorage.setItem(MIGRATION_KEY4, '1');
+    }
+  }
+
   // 交通費の一括設定（2026-07-16・ユーザー指定、一度だけ適用）
   // 区分に関わらず交通費だけ上書きする。以後は✎から個別に変更可能（このマイグレーションは再実行されない）
   {

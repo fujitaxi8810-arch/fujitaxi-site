@@ -41,20 +41,28 @@ import Layout from '../layouts/Layout.astro';
         <p class="kt-selected">選択中：<strong id="selectedName"></strong></p>
         <p class="kt-status" id="statusLabel"></p>
 
-        <!-- 出勤前：シフト選択 -->
+        <!-- 出勤前：シフト選択（正社員） -->
         <div class="kt-shift-select" id="shiftSelect">
-          <p class="kt-shift-select__label">① 電話番を担当する場合はチェック</p>
-          <label class="kt-check">
-            <input type="checkbox" id="phoneDutyCheck" />
-            <span>電話番を担当する</span>
-          </label>
-          <p class="kt-shift-select__label">② シフトを選んで出勤</p>
-          <div class="kt-shift-grid">
+          <div id="phoneDutyBlock">
+            <p class="kt-shift-select__label">① 電話番を担当する場合はチェック</p>
+            <label class="kt-check">
+              <input type="checkbox" id="phoneDutyCheck" />
+              <span>電話番を担当する</span>
+            </label>
+            <p class="kt-shift-select__label">② シフトを選んで出勤</p>
+          </div>
+          <div class="kt-shift-grid" id="fulltimeShiftGrid">
             <button type="button" class="kt-shift-btn kt-shift-btn--normal" id="punchInNormal">
               <span class="kt-shift-btn__name">普通番で出勤</span>
             </button>
             <button type="button" class="kt-shift-btn kt-shift-btn--late" id="punchInLate">
               <span class="kt-shift-btn__name">遅番で出勤</span>
+            </button>
+          </div>
+          <!-- 出勤前（パート）：シフトなしの単一出勤ボタン -->
+          <div class="kt-shift-grid" id="partShiftGrid" hidden>
+            <button type="button" class="kt-shift-btn kt-shift-btn--normal" id="punchInPart">
+              <span class="kt-shift-btn__name">出勤</span>
             </button>
           </div>
         </div>
@@ -130,7 +138,7 @@ import Layout from '../layouts/Layout.astro';
         <div class="kt-table-wrap">
           <table class="kt-table" id="histTable">
             <thead>
-              <tr><th>日付</th><th>名前</th><th>シフト</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th><th>売上(税抜)</th><th>カード手数料</th><th>日給</th><th>歩合給</th><th>合計</th><th>時給換算</th><th>操作</th></tr>
+              <tr><th>日付</th><th>名前</th><th>区分</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th><th>売上(税抜)</th><th>カード手数料</th><th>基本給</th><th>歩合・手当</th><th>合計</th><th>時給換算</th><th>操作</th></tr>
             </thead>
             <tbody id="histBody"></tbody>
           </table>
@@ -144,13 +152,13 @@ import Layout from '../layouts/Layout.astro';
         <div class="kt-table-wrap">
           <table class="kt-table" id="wageTable">
             <thead>
-              <tr><th>名前</th><th>出勤日数</th><th>実働合計</th><th>日給合計</th><th>売上合計</th><th>歩合給合計</th><th>総支給額</th></tr>
+              <tr><th>名前</th><th>区分</th><th>出勤日数</th><th>実働合計</th><th>基本給合計</th><th>売上合計</th><th>歩合・手当合計</th><th>総支給額</th></tr>
             </thead>
             <tbody id="wageBody"></tbody>
           </table>
         </div>
         <p class="kt-empty" id="wageEmpty">この月の記録はありません。</p>
-        <p class="kt-note" id="wageFormula">※ 総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給｛（売上税抜 − カード手数料等）× 歩合率｝<br />※ 勤務履歴の「時給換算」は 総支給額 ÷ 実働時間 で算出し、最低賃金（設定値）を下回った日は赤色で警告表示します。</p>
+        <p class="kt-note" id="wageFormula">※ 正社員：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給｛（売上税抜 − カード手数料等）× 歩合率｝<br />※ パート：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費（日額）<br />※ 勤務履歴の「時給換算」は 総支給額 ÷ 実働時間 で算出し、最低賃金（設定値）を下回った日は赤色で警告表示します。</p>
       </div>
 
       <!-- 給与設定 -->
@@ -346,10 +354,12 @@ import Layout from '../layouts/Layout.astro';
     const s = staff.find(x => x.id === rec.staffId);
     const w = rec.out ? workMinutes(rec) : '';
     const rate = hourlyRate(rec);
+    const p = payParts(rec);
+    const isPart = recEmpType(rec) === 'part';
     return [
       rec.date,
       s ? s.name : '削除済み',
-      rec.shiftType ? SHIFT_LABEL[rec.shiftType] : '',
+      isPart ? 'パート' : (rec.shiftType ? SHIFT_LABEL[rec.shiftType] : ''),
       rec.phoneDuty ? '有' : '',
       rec.in ? timeStr(rec.in) : '',
       rec.out ? timeStr(rec.out) : '',
@@ -357,10 +367,10 @@ import Layout from '../layouts/Layout.astro';
       awayMinutes(rec),
       w,
       rec.out ? hm(w) : '',
-      rec.sales != null ? rec.sales : '',
-      rec.cardFee != null ? rec.cardFee : '',
-      rec.shiftType ? Math.round(shiftWage(rec)) : '',
-      rec.sales != null ? Math.round(commissionPay(rec)) : '',
+      !isPart && rec.sales != null ? rec.sales : '',
+      !isPart && rec.cardFee != null ? rec.cardFee : '',
+      rec.out || rec.shiftType ? p.base : '',
+      isPart ? (rec.out ? p.extra : '') : (rec.sales != null ? p.extra : ''),
       rec.out ? Math.round(totalPay(rec)) : '',
       rate !== null ? Math.round(rate) : '',
       rate !== null ? (isBelowMinWage(rec) ? '最低賃金未満' : 'OK') : '',
@@ -535,40 +545,113 @@ import Layout from '../layouts/Layout.astro';
   };
 
   // ── スタッフ ──
+  function makeStaffChip(s) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'kt-staff' + (s.id === selectedId ? ' is-active' : '');
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = s.name;
+    btn.appendChild(nameSpan);
+    btn.onclick = () => {
+      // もう一度タップで選択解除
+      selectedId = (selectedId === s.id) ? null : s.id;
+      renderStaff(); renderPunch();
+    };
+    const edit = document.createElement('span');
+    edit.className = 'kt-staff__edit';
+    edit.textContent = '✎';
+    edit.setAttribute('role', 'button');
+    edit.setAttribute('aria-label', `${s.name}の区分を変更`);
+    edit.onclick = (e) => {
+      e.stopPropagation();
+      editStaff(s);
+    };
+    btn.appendChild(edit);
+    const del = document.createElement('span');
+    del.className = 'kt-staff__del';
+    del.textContent = '×';
+    del.setAttribute('role', 'button');
+    del.setAttribute('aria-label', `${s.name}を削除`);
+    del.onclick = (e) => {
+      e.stopPropagation();
+      if (confirm(`${s.name} を削除しますか？（打刻履歴は残ります）`)) {
+        staff = staff.filter(x => x.id !== s.id);
+        if (selectedId === s.id) selectedId = null;
+        save(); renderStaff(); renderPunch();
+      }
+    };
+    btn.appendChild(del);
+    return btn;
+  }
   function renderStaff() {
     const list = $('staffList');
     list.innerHTML = '';
     $('staffEmpty').hidden = staff.length > 0;
-    for (const s of staff) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'kt-staff' + (s.id === selectedId ? ' is-active' : '');
-      const nameSpan = document.createElement('span');
-      nameSpan.textContent = s.name;
-      btn.appendChild(nameSpan);
-      btn.onclick = () => { selectedId = s.id; renderStaff(); renderPunch(); };
-      const del = document.createElement('span');
-      del.className = 'kt-staff__del';
-      del.textContent = '×';
-      del.setAttribute('role', 'button');
-      del.setAttribute('aria-label', `${s.name}を削除`);
-      del.onclick = (e) => {
-        e.stopPropagation();
-        if (confirm(`${s.name} を削除しますか？（打刻履歴は残ります）`)) {
-          staff = staff.filter(x => x.id !== s.id);
-          if (selectedId === s.id) selectedId = null;
-          save(); renderStaff(); renderPunch();
-        }
-      };
-      btn.appendChild(del);
-      list.appendChild(btn);
+    const fulltime = staff.filter(s => staffType(s) === 'fulltime');
+    const part = staff.filter(s => staffType(s) === 'part');
+    const groups = [['正社員', fulltime], ['パート', part]];
+    for (const [label, members] of groups) {
+      if (!members.length) continue;
+      if (part.length) { // 両区分あるときだけ見出しを表示
+        const head = document.createElement('p');
+        head.className = 'kt-staff-group';
+        head.textContent = label;
+        list.appendChild(head);
+      }
+      const wrap = document.createElement('div');
+      wrap.className = 'kt-staff-grid';
+      for (const s of members) wrap.appendChild(makeStaffChip(s));
+      list.appendChild(wrap);
     }
+  }
+
+  // 区分・時給・交通費の入力（管理者のみ）
+  function promptEmpType(s) {
+    const cur = staffType(s);
+    const input = prompt(`${s.name} の区分を選んでください（現在：${EMP_LABEL[cur]}）\n1 = 正社員（シフト日給＋歩合）\n2 = パート（時給制）`, cur === 'part' ? '2' : '1');
+    if (input === null) return null;
+    if (input.trim() === '2') return 'part';
+    if (input.trim() === '1') return 'fulltime';
+    alert('1 か 2 を入力してください。');
+    return null;
+  }
+  function promptPartWages(s) {
+    const hw = prompt(`${s.name} の時間給（円）を入力してください`, s.hourlyWage != null ? String(s.hourlyWage) : String(settings.minWage));
+    if (hw === null) return false;
+    const hwNum = parseInt(hw, 10);
+    if (isNaN(hwNum) || hwNum <= 0) { alert('時間給は正の数字で入力してください。'); return false; }
+    const cm = prompt(`${s.name} の交通費（1日あたり・円）を入力してください（なければ 0）`, s.commuteAllowance != null ? String(s.commuteAllowance) : '0');
+    if (cm === null) return false;
+    const cmNum = parseInt(cm, 10);
+    if (isNaN(cmNum) || cmNum < 0) { alert('交通費は 0 以上の数字で入力してください。'); return false; }
+    s.hourlyWage = hwNum;
+    s.commuteAllowance = cmNum;
+    return true;
+  }
+  function editStaff(s) {
+    if (!requireAdmin()) return;
+    renderAdminBar();
+    const type = promptEmpType(s);
+    if (type === null) return;
+    if (type === 'part' && !promptPartWages(s)) return;
+    s.type = type;
+    save(); renderStaff(); renderPunch();
+    alert(`${s.name} を ${EMP_LABEL[type]} に設定しました。${type === 'part' ? `（時間給 ${yen(s.hourlyWage)}円／交通費 ${yen(s.commuteAllowance)}円）` : ''}`);
   }
 
   $('addStaffBtn').onclick = () => {
     const name = prompt('スタッフの名前を入力してください');
     if (!name || !name.trim()) return;
-    staff.push({ id: 'st' + Date.now(), name: name.trim() });
+    const s = { id: 'st' + Date.now(), name: name.trim() };
+    const type = promptEmpType(s);
+    if (type === null) return;
+    if (type === 'part') {
+      if (!requireAdmin()) { alert('パートの時給設定には管理者パスワードが必要です。'); return; }
+      renderAdminBar();
+      if (!promptPartWages(s)) return;
+    }
+    s.type = type;
+    staff.push(s);
     save(); renderStaff();
   };
 
@@ -587,7 +670,39 @@ import Layout from '../layouts/Layout.astro';
     return 'working';                            // 勤務中
   }
   const STATUS_LABEL = { before: '未出勤', working: '勤務中', break: '休憩中', away: '時間内退勤中', done: '退勤済み' };
-  const SHIFT_LABEL = { normal: '普通番', late: '遅番' };
+  const SHIFT_LABEL = { normal: '普通番', late: '遅番', part: 'パート' };
+
+  // ── 雇用区分（正社員＝日給＋歩合／パート＝時給制） ──
+  const EMP_LABEL = { fulltime: '正社員', part: 'パート' };
+  const OT_RATE = 0.25;    // 残業割増率（8時間超）
+  const NIGHT_RATE = 0.25; // 深夜割増率（22時以降）
+  const NIGHT_START_HOUR = 22;
+
+  function staffType(s) {
+    return s && s.type === 'part' ? 'part' : 'fulltime';
+  }
+  function recEmpType(rec) {
+    if (rec.empType) return rec.empType;
+    return staffType(staff.find(x => x.id === rec.staffId));
+  }
+  function recHourlyWage(rec) {
+    if (rec.hourlyWage != null) return rec.hourlyWage;
+    const s = staff.find(x => x.id === rec.staffId);
+    return (s && s.hourlyWage != null) ? s.hourlyWage : settings.minWage;
+  }
+  function recCommute(rec) {
+    if (rec.commute != null) return rec.commute;
+    const s = staff.find(x => x.id === rec.staffId);
+    return (s && s.commuteAllowance != null) ? s.commuteAllowance : 0;
+  }
+  // 22時以降の勤務分（分）。退勤時刻ベースの近似（22時以降の休憩は考慮しない）
+  function nightMinutes(rec) {
+    if (!rec.out) return 0;
+    const out = new Date(rec.out);
+    const t22 = new Date(out);
+    t22.setHours(NIGHT_START_HOUR, 0, 0, 0);
+    return Math.max(0, Math.round((out - t22) / 60000));
+  }
 
   function renderPunch() {
     const panel = $('punchPanel');
@@ -595,10 +710,15 @@ import Layout from '../layouts/Layout.astro';
     const s = staff.find(x => x.id === selectedId);
     if (!s) { panel.hidden = true; return; }
     panel.hidden = false;
-    $('selectedName').textContent = s.name;
+    $('selectedName').textContent = `${s.name}（${EMP_LABEL[staffType(s)]}）`;
     const rec = todayRec(selectedId);
     const st = statusOf(rec);
     $('statusLabel').textContent = `現在：${STATUS_LABEL[st]}${rec && rec.shiftType ? '（' + SHIFT_LABEL[rec.shiftType] + '）' : ''}`;
+
+    const isPart = staffType(s) === 'part';
+    $('phoneDutyBlock').hidden = isPart;
+    $('fulltimeShiftGrid').hidden = isPart;
+    $('partShiftGrid').hidden = !isPart;
 
     const canPunchIn = st === 'before';
     $('shiftSelect').hidden = !canPunchIn;
@@ -619,12 +739,20 @@ import Layout from '../layouts/Layout.astro';
       rec = { staffId: selectedId, date: dateKey(), in: null, out: null, breaks: [], leaves: [] };
       log.push(rec);
     }
+    const s = staff.find(x => x.id === selectedId);
     rec.in = now;
     rec.shiftType = shiftType;
-    rec.phoneDuty = $('phoneDutyCheck').checked;
+    rec.phoneDuty = shiftType === 'part' ? false : $('phoneDutyCheck').checked;
+    // 給与計算条件を出勤時点でレコードに固定（後から区分や時給を変えても過去分に影響しない）
+    rec.empType = staffType(s);
+    if (rec.empType === 'part') {
+      rec.hourlyWage = s.hourlyWage != null ? s.hourlyWage : settings.minWage;
+      rec.commute = s.commuteAllowance != null ? s.commuteAllowance : 0;
+    }
     save();
-    const s = staff.find(x => x.id === selectedId);
-    $('punchMsg').textContent = `✅ ${s.name} さんが${SHIFT_LABEL[shiftType]}で出勤しました（${timeStr(now)}）`;
+    $('punchMsg').textContent = shiftType === 'part'
+      ? `✅ ${s.name} さんが出勤しました（${timeStr(now)}）`
+      : `✅ ${s.name} さんが${SHIFT_LABEL[shiftType]}で出勤しました（${timeStr(now)}）`;
     $('phoneDutyCheck').checked = false;
     renderPunch(); renderToday(); renderHist(); renderWage();
   }
@@ -763,6 +891,7 @@ import Layout from '../layouts/Layout.astro';
   }
   $('punchInNormal').onclick = () => punchIn('normal');
   $('punchInLate').onclick = () => punchIn('late');
+  $('punchInPart').onclick = () => punchIn('part');
   $('punchOut').onclick = () => punch('out');
   $('punchBreakStart').onclick = () => punch('breakStart');
   $('punchBreakEnd').onclick = () => punch('breakEnd');
@@ -807,7 +936,7 @@ import Layout from '../layouts/Layout.astro';
 
   // ── 給与計算 ──
   function shiftWage(rec) {
-    if (!rec.shiftType) return 0;
+    if (!rec.shiftType || rec.shiftType === 'part') return 0;
     let w = rec.shiftType === 'late' ? (settings.lateWage + settings.lateBonus) : settings.normalWage;
     if (rec.phoneDuty) w += settings.phoneAllowance;
     return w;
@@ -817,8 +946,23 @@ import Layout from '../layouts/Layout.astro';
     const net = Math.max(0, (rec.sales || 0) - (rec.cardFee || 0));
     return net * (settings.commissionRate / 100);
   }
+  // 区分ごとの内訳。base＝基本給（正社員：シフト日給＋電話番手当／パート：時給×実働）
+  // extra＝歩合・手当（正社員：歩合給／パート：残業・深夜割増＋交通費）
+  function payParts(rec) {
+    if (recEmpType(rec) === 'part') {
+      const min = workMinutes(rec) || 0;
+      const hw = recHourlyWage(rec);
+      const base = Math.round(hw * min / 60);
+      const ot = Math.round(Math.max(0, min / 60 - 8) * hw * OT_RATE);
+      const night = Math.round(nightMinutes(rec) / 60 * hw * NIGHT_RATE);
+      const commute = rec.in ? recCommute(rec) : 0;
+      return { base, extra: ot + night + commute, ot, night, commute };
+    }
+    return { base: shiftWage(rec), extra: commissionPay(rec), ot: 0, night: 0, commute: 0 };
+  }
   function totalPay(rec) {
-    return shiftWage(rec) + commissionPay(rec);
+    const p = payParts(rec);
+    return p.base + p.extra;
   }
   function hourlyRate(rec) {
     if (!rec.out) return null;
@@ -870,26 +1014,31 @@ import Layout from '../layouts/Layout.astro';
       const w = rec.out ? workMinutes(rec) : null;
       const belowMin = isAdmin() && isBelowMinWage(rec);
       const rate = hourlyRate(rec);
+      const isPart = recEmpType(rec) === 'part';
+      const p = payParts(rec);
+      const kubun = isPart
+        ? 'パート'
+        : (rec.shiftType ? SHIFT_LABEL[rec.shiftType] + (rec.phoneDuty ? '＋電話番' : '') : '—');
       const tr = document.createElement('tr');
       if (belowMin) tr.className = 'kt-table__row--warn';
       tr.innerHTML = `
         <td>${rec.date.slice(5).replace('-', '/')}</td>
         <td>${s ? s.name : '（削除済み）'}</td>
-        <td>${rec.shiftType ? SHIFT_LABEL[rec.shiftType] + (rec.phoneDuty ? '＋電話番' : '') : '—'}</td>
+        <td>${kubun}</td>
         <td>${rec.in ? timeStr(rec.in) : '—'}</td>
         <td>${rec.out ? timeStr(rec.out) : '—'}</td>
         <td>${hm(breakMinutes(rec))}</td>
         <td>${hm(awayMinutes(rec))}</td>
         <td class="kt-table__work">${rec.out ? hm(w) : '勤務中'}</td>
-        <td>${mask(rec.sales != null ? yen(rec.sales) + '円' : '—')}</td>
-        <td>${mask(rec.cardFee != null ? yen(rec.cardFee) + '円' : '—')}</td>
-        <td>${mask(rec.shiftType ? yen(shiftWage(rec)) + '円' : '—')}</td>
-        <td>${mask(rec.sales != null ? yen(commissionPay(rec)) + '円' : '—')}</td>
+        <td>${isPart ? '—' : mask(rec.sales != null ? yen(rec.sales) + '円' : '—')}</td>
+        <td>${isPart ? '—' : mask(rec.cardFee != null ? yen(rec.cardFee) + '円' : '—')}</td>
+        <td>${mask(rec.out || rec.shiftType ? yen(p.base) + '円' : '—')}</td>
+        <td>${mask(isPart ? (rec.out ? yen(p.extra) + '円' : '—') : (rec.sales != null ? yen(p.extra) + '円' : '—'))}</td>
         <td class="kt-table__total">${rec.out ? mask(yen(totalPay(rec)) + '円') : '—'}</td>
         <td>${mask(rate !== null ? yen(rate) + '円' + (belowMin ? ' ⚠️最低賃金未満' : '') : '—')}</td>
         <td></td>
       `;
-      if (rec.out) {
+      if (rec.out && !isPart) {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'kt-btn kt-btn--ghost';
@@ -909,13 +1058,14 @@ import Layout from '../layouts/Layout.astro';
     const recs = log.filter(r => r.date.startsWith(month) && r.out);
     const totals = {};
     for (const rec of recs) {
-      if (!totals[rec.staffId]) totals[rec.staffId] = { days: 0, minutes: 0, wage: 0, sales: 0, commission: 0 };
+      if (!totals[rec.staffId]) totals[rec.staffId] = { days: 0, minutes: 0, wage: 0, sales: 0, commission: 0, empType: recEmpType(rec) };
       const t = totals[rec.staffId];
+      const p = payParts(rec);
       t.days += 1;
       t.minutes += workMinutes(rec);
-      t.wage += shiftWage(rec);
+      t.wage += p.base;
       t.sales += (rec.sales || 0);
-      t.commission += commissionPay(rec);
+      t.commission += p.extra;
     }
     const ids = Object.keys(totals);
     $('wageEmpty').hidden = ids.length > 0;
@@ -927,10 +1077,11 @@ import Layout from '../layouts/Layout.astro';
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${s ? s.name : '（削除済み）'}</td>
+        <td>${EMP_LABEL[t.empType]}</td>
         <td>${t.days}日</td>
         <td>${hm(t.minutes)}</td>
         <td>${mask(yen(t.wage) + '円')}</td>
-        <td>${mask(yen(t.sales) + '円')}</td>
+        <td>${t.empType === 'part' ? '—' : mask(yen(t.sales) + '円')}</td>
         <td>${mask(yen(t.commission) + '円')}</td>
         <td class="kt-table__total">${mask(yen(total) + '円')}</td>
       `;
@@ -949,54 +1100,35 @@ import Layout from '../layouts/Layout.astro';
     const recs = log.filter(r => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date));
     if (!recs.length) { alert('この月の記録がありません'); return; }
     const methodHeaders = PAY_METHODS.map(m => `${m.label}(円)`).join(',');
-    let csv = `﻿日付,名前,シフト,電話番,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分),売上税抜(円),カード手数料等(円),シフト日給(円),歩合給(円),合計支給額(円),時給換算(円),最低賃金判定,${methodHeaders}\n`;
+    let csv = `﻿日付,名前,区分,電話番,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分),売上税抜(円),カード手数料等(円),基本給(円),歩合・手当(円),合計支給額(円),時給換算(円),最低賃金判定,${methodHeaders}\n`;
     for (const rec of recs) {
-      const s = staff.find(x => x.id === rec.staffId);
-      const w = rec.out ? workMinutes(rec) : '';
-      const rate = hourlyRate(rec);
       const payments = rec.payments || {};
-      csv += [
-        rec.date,
-        s ? s.name : '削除済み',
-        rec.shiftType ? SHIFT_LABEL[rec.shiftType] : '',
-        rec.phoneDuty ? '有' : '',
-        rec.in ? timeStr(rec.in) : '',
-        rec.out ? timeStr(rec.out) : '',
-        breakMinutes(rec),
-        awayMinutes(rec),
-        w,
-        rec.out ? hm(w) : '',
-        rec.sales != null ? rec.sales : '',
-        rec.cardFee != null ? rec.cardFee : '',
-        rec.shiftType ? Math.round(shiftWage(rec)) : '',
-        rec.sales != null ? Math.round(commissionPay(rec)) : '',
-        rec.out ? Math.round(totalPay(rec)) : '',
-        rate !== null ? Math.round(rate) : '',
-        rate !== null ? (isBelowMinWage(rec) ? '最低賃金未満' : 'OK') : '',
-        ...PAY_METHODS.map(m => payments[m.id] || ''),
-      ].join(',') + '\n';
+      csv += [...excelRowFromRec(rec), ...PAY_METHODS.map(m => payments[m.id] || '')].join(',') + '\n';
     }
 
     const rateNote = PAY_METHODS.map(m => `${m.label}${settings.feeRates[m.id]}%`).join('／');
     csv += `\n設定：普通番日給${settings.normalWage}円／遅番日給${settings.lateWage + settings.lateBonus}円／電話番手当${settings.phoneAllowance}円／歩合率${settings.commissionRate}%／最低賃金${settings.minWage}円\n`;
+    csv += `パート：時間給×実働＋残業割増(8時間超×${OT_RATE * 100}%)＋深夜割増(${NIGHT_START_HOUR}時以降×${NIGHT_RATE * 100}%)＋交通費(日額)\n`;
     csv += `手数料率：${rateNote}\n`;
-    csv += '\n月次サマリー\n名前,出勤日数,実働合計(分),実働合計(時:分),シフト日給合計(円),売上合計(円),歩合給合計(円),総支給額(円)\n';
+    csv += '\n月次サマリー\n名前,区分,出勤日数,実働合計(分),実働合計(時:分),基本給合計(円),売上合計(円),歩合・手当合計(円),総支給額(円)\n';
     const totals = {};
     for (const rec of recs) {
       if (!rec.out) continue;
-      if (!totals[rec.staffId]) totals[rec.staffId] = { days: 0, minutes: 0, wage: 0, sales: 0, commission: 0 };
+      if (!totals[rec.staffId]) totals[rec.staffId] = { days: 0, minutes: 0, wage: 0, sales: 0, commission: 0, empType: recEmpType(rec) };
       const t = totals[rec.staffId];
+      const p = payParts(rec);
       t.days += 1;
       t.minutes += workMinutes(rec);
-      t.wage += shiftWage(rec);
+      t.wage += p.base;
       t.sales += (rec.sales || 0);
-      t.commission += commissionPay(rec);
+      t.commission += p.extra;
     }
     for (const id of Object.keys(totals)) {
       const s = staff.find(x => x.id === id);
       const t = totals[id];
       csv += [
         s ? s.name : '削除済み',
+        EMP_LABEL[t.empType],
         t.days,
         t.minutes,
         hm(t.minutes),
@@ -1103,6 +1235,61 @@ import Layout from '../layouts/Layout.astro';
     return ws;
   }
 
+  // パート（時給制）用シート。サマリーは正社員シートと同じ番地（B3〜B8）に置き、全体集計から共通参照する
+  function buildPartSheet(name, recsByDay, year, monthNum, daysInMonth, hourlyWage, commute) {
+    const ws = {};
+    const endRow = TC_TABLE_START + daysInMonth - 1;
+
+    tcSetCell(ws, 'A1', `${year}年${monthNum}月 勤務表（パート）`);
+    tcSetCell(ws, 'D1', name);
+    tcSetCell(ws, 'A3', '勤務日数');
+    tcFormula(ws, 'B3', `COUNT(L${TC_TABLE_START}:L${endRow})`);
+    tcSetCell(ws, 'A4', '実働合計（時間）');
+    tcFormula(ws, 'B4', `SUM(G${TC_TABLE_START}:G${endRow})`, '0.00');
+    tcSetCell(ws, 'A5', '基本賃金合計（円）');
+    tcFormula(ws, 'B5', `SUM(H${TC_TABLE_START}:H${endRow})`, '#,##0');
+    tcSetCell(ws, 'A6', '割増・交通費合計（円）');
+    tcFormula(ws, 'B6', `SUM(I${TC_TABLE_START}:I${endRow})+SUM(J${TC_TABLE_START}:J${endRow})+SUM(K${TC_TABLE_START}:K${endRow})`, '#,##0');
+    tcSetCell(ws, 'A7', '売上合計（パートは対象外）');
+    tcSetCell(ws, 'B7', 0);
+    tcSetCell(ws, 'A8', '総支給額（円）');
+    tcFormula(ws, 'B8', `SUM(L${TC_TABLE_START}:L${endRow})`, '#,##0');
+    tcSetCell(ws, 'C3', '時間給（円）');
+    ws['D3'] = { t: 'n', v: hourlyWage, z: '#,##0' };
+    tcSetCell(ws, 'C4', '交通費（1日・円）');
+    ws['D4'] = { t: 'n', v: commute, z: '#,##0' };
+
+    const headers = ['日', '曜日', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)', '基本賃金(円)', '残業割増(円)', '深夜割増(円)', '交通費(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
+    headers.forEach((h, i) => tcSetCell(ws, XLSX.utils.encode_cell({ r: TC_TABLE_START - 2, c: i }), h));
+
+    const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const row = TC_TABLE_START + day - 1;
+      const date = new Date(year, monthNum - 1, day);
+      tcSetCell(ws, `A${row}`, day);
+      tcSetCell(ws, `B${row}`, WEEKDAYS[date.getDay()]);
+      const rec = recsByDay[day];
+      if (rec) {
+        if (rec.in) ws[`C${row}`] = { t: 'n', v: tcTimeSerial(rec.in), z: 'h:mm' };
+        if (rec.out) ws[`D${row}`] = { t: 'n', v: tcTimeSerial(rec.out), z: 'h:mm' };
+        tcSetCell(ws, `E${row}`, breakMinutes(rec));
+        tcSetCell(ws, `F${row}`, awayMinutes(rec));
+      }
+      tcFormula(ws, `G${row}`, `IF(OR($C${row}="",$D${row}=""),"",ROUND(($D${row}-$C${row}+IF($D${row}<$C${row},1,0))*24-IF($E${row}="",0,$E${row})/60-IF($F${row}="",0,$F${row})/60,2))`, '0.00');
+      tcFormula(ws, `H${row}`, `IF($G${row}="","",ROUND($G${row}*$D$3,0))`, '#,##0');
+      tcFormula(ws, `I${row}`, `IF($G${row}="","",ROUND(MAX(0,$G${row}-8)*$D$3*設定!$B$8/100,0))`, '#,##0');
+      tcFormula(ws, `J${row}`, `IF($D${row}="","",ROUND(MAX(0,($D${row}-${NIGHT_START_HOUR}/24))*24*$D$3*設定!$B$8/100,0))`, '#,##0');
+      tcFormula(ws, `K${row}`, `IF($G${row}="","",$D$4)`, '#,##0');
+      tcFormula(ws, `L${row}`, `IF($H${row}="","",$H${row}+$I${row}+$J${row}+$K${row})`, '#,##0');
+      tcFormula(ws, `M${row}`, `IF(OR($G${row}="",$G${row}=0,$L${row}=""),"",ROUND($L${row}/$G${row},0))`, '#,##0');
+      tcFormula(ws, `N${row}`, `IF($M${row}="","",IF($M${row}<設定!$B$7,"最低賃金未満","OK"))`);
+    }
+
+    ws['!cols'] = [{ wch: 4 }, { wch: 5 }, { wch: 7 }, { wch: 7 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 11 }, { wch: 11 }, { wch: 10 }, { wch: 11 }, { wch: 12 }, { wch: 14 }];
+    tcFinalize(ws, endRow, headers.length - 1);
+    return ws;
+  }
+
   $('timecardBtn').onclick = () => {
     if (!requireAdmin()) return;
     renderAdminBar();
@@ -1123,6 +1310,7 @@ import Layout from '../layouts/Layout.astro';
       ['電話番手当（円）', settings.phoneAllowance, ''],
       ['歩合率（％）', settings.commissionRate, '（売上税抜−カード手数料）に掛ける率'],
       ['最低賃金（円・確認用）', settings.minWage, '福島県の地域別最低賃金'],
+      ['残業・深夜割増率（％）', OT_RATE * 100, `パート用：8時間超と${NIGHT_START_HOUR}時以降に時間給へ上乗せする率（法定25%）`],
     ];
     const wsSettings = XLSX.utils.aoa_to_sheet(settingRows);
     wsSettings['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 40 }];
@@ -1135,14 +1323,29 @@ import Layout from '../layouts/Layout.astro';
     for (const rec of monthRecs) byStaff[rec.staffId] = byStaff[rec.staffId] || {};
     for (const rec of monthRecs) byStaff[rec.staffId][Number(rec.date.slice(8, 10))] = rec;
 
-    const targets = staff.filter(s => byStaff[s.id]).map(s => ({ name: s.name, days: byStaff[s.id] }));
+    // 区分と時給・交通費は打刻時のスナップショット（rec）優先、無ければスタッフの現在値
+    function targetOf(name, days, staffObj) {
+      const recs = Object.values(days);
+      const isPart = recs.some(r => recEmpType(r) === 'part');
+      const src = recs.find(r => r.hourlyWage != null) || {};
+      return {
+        name, days,
+        isPart,
+        hourlyWage: src.hourlyWage ?? (staffObj && staffObj.hourlyWage) ?? settings.minWage,
+        commute: src.commute ?? (staffObj && staffObj.commuteAllowance) ?? 0,
+      };
+    }
+    const targets = staff.filter(s => byStaff[s.id]).map(s => targetOf(s.name, byStaff[s.id], s));
     const orphanIds = Object.keys(byStaff).filter(id => !staff.some(s => s.id === id));
-    orphanIds.forEach((id, i) => targets.push({ name: `削除済みスタッフ${i + 1}`, days: byStaff[id] }));
+    orphanIds.forEach((id, i) => targets.push(targetOf(`削除済みスタッフ${i + 1}`, byStaff[id], null)));
 
     for (const t of targets) {
       const sheetName = tcSheetName(t.name, usedNames);
-      staffSheets.push({ name: t.name, sheetName });
-      XLSX.utils.book_append_sheet(wb, buildStaffSheet(t.name, t.days, year, monthNum, daysInMonth), sheetName);
+      staffSheets.push({ name: t.name, sheetName, isPart: t.isPart });
+      const sheet = t.isPart
+        ? buildPartSheet(t.name, t.days, year, monthNum, daysInMonth, t.hourlyWage, t.commute)
+        : buildStaffSheet(t.name, t.days, year, monthNum, daysInMonth);
+      XLSX.utils.book_append_sheet(wb, sheet, sheetName);
     }
 
     // 全体集計シート（各スタッフシートのサマリーを参照）
@@ -1181,11 +1384,13 @@ import Layout from '../layouts/Layout.astro';
       [`対象月：${year}年${monthNum}月`],
       [''],
       ['【給与の計算式】（勤怠アプリと同じ）'],
-      ['　総支給額 ＝ シフト日給（普通番／遅番）＋ 電話番手当 ＋ 歩合給'],
-      ['　歩合給 ＝（売上税抜 − カード手数料等）× 歩合率'],
+      ['◎ 正社員：総支給額 ＝ シフト日給（普通番／遅番）＋ 電話番手当 ＋ 歩合給'],
+      ['　　歩合給 ＝（売上税抜 − カード手数料等）× 歩合率'],
+      ['◎ パート：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費（日額）'],
+      ['　　時間給・交通費は各スタッフのシート右上（D3・D4）で変更できます。'],
       [''],
       ['【シートの見方】'],
-      ['・スタッフごとに1シート。出勤・退勤・休憩などは打刻データを転記済みです。'],
+      ['・スタッフごとに1シート（正社員とパートで列構成が異なります）。出勤・退勤・休憩などは打刻データを転記済みです。'],
       ['・実働時間・日給・歩合給・日合計は数式です。時刻や売上を手で修正すると自動で再計算されます。'],
       ['・「設定」シートの数値（日給・歩合率など）を変更すると、全シートが再計算されます。'],
       ['・「全体集計」シートに全員の勤務日数・総支給額がまとまります。'],
@@ -1405,7 +1610,23 @@ import Layout from '../layouts/Layout.astro';
     margin-bottom: 1.25rem;
   }
 
-  .kt-staff-list { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+  .kt-staff-list { display: flex; flex-direction: column; gap: 0.6rem; }
+  .kt-staff-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+  .kt-staff-group {
+    color: var(--fuji-yellow);
+    font-size: 1rem;
+    font-weight: 900;
+    margin-top: 0.5rem;
+    border-bottom: 1px solid rgba(245,200,0,0.35);
+    padding-bottom: 0.2rem;
+  }
+  .kt-staff__edit {
+    opacity: 0.55;
+    font-weight: 900;
+    padding: 0 0.2rem;
+    font-size: 1rem;
+  }
+  .kt-staff__edit:hover { opacity: 1; }
   .kt-staff {
     display: inline-flex;
     align-items: center;
@@ -1446,6 +1667,7 @@ import Layout from '../layouts/Layout.astro';
     grid-template-columns: 1fr 1fr;
     gap: 0.75rem;
   }
+  #partShiftGrid { grid-template-columns: 1fr; }
   .kt-shift-btn {
     border: none;
     border-radius: var(--radius-lg);

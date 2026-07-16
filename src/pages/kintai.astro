@@ -86,8 +86,14 @@ import Layout from '../layouts/Layout.astro';
           <p class="kt-modal__staff" id="salesModalStaff"></p>
 
           <label class="kt-field kt-field--sales">
-            <span>その日の売上合計（税抜・円）</span>
+            <span>その日の売上合計（税込・円）</span>
             <input type="number" id="salesTotalInput" class="kt-input" min="0" inputmode="numeric" placeholder="例: 30000" />
+          </label>
+          <p class="kt-modal__taxnote" id="salesNetPreview">税抜：0円（歩合給の計算に使用）</p>
+
+          <label class="kt-field">
+            <span>未収（円・掛け／請求書払いなど当日未回収分）</span>
+            <input type="number" id="salesUncollectedInput" class="kt-input" min="0" inputmode="numeric" placeholder="例: 0" />
           </label>
 
           <p class="kt-shift-select__label">決済方法ごとの内訳（該当分のみ入力・現金は不要）</p>
@@ -138,7 +144,7 @@ import Layout from '../layouts/Layout.astro';
         <div class="kt-table-wrap">
           <table class="kt-table" id="histTable">
             <thead>
-              <tr><th>日付</th><th>名前</th><th>区分</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th><th>売上(税抜)</th><th>カード手数料</th><th>基本給</th><th>歩合・手当</th><th>合計</th><th>時給換算</th><th>操作</th></tr>
+              <tr><th>日付</th><th>名前</th><th>区分</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th><th>売上(税込)</th><th>未収</th><th>カード手数料</th><th>基本給</th><th>歩合・手当</th><th>合計</th><th>時給換算</th><th>操作</th></tr>
             </thead>
             <tbody id="histBody"></tbody>
           </table>
@@ -158,7 +164,7 @@ import Layout from '../layouts/Layout.astro';
           </table>
         </div>
         <p class="kt-empty" id="wageEmpty">この月の記録はありません。</p>
-        <p class="kt-note" id="wageFormula">※ 正社員：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給｛（売上税抜 − カード手数料等）× 歩合率｝＋ 交通費（設定した場合）<br />※ 正社員（基本給のみ）：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 交通費（設定した場合）｛歩合給なし｝<br />※ 時給制（パート・正社員(時給)）：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費（日額）<br />※ 月給制（正社員(月給)）：総支給額 ＝ 月給（固定）＋ 交通費（日額）<br />※ 勤務履歴の「時給換算」は 総支給額 ÷ 実働時間 で算出し、最低賃金（設定値）を下回った日は赤色で警告表示します（月給制は対象外）。</p>
+        <p class="kt-note" id="wageFormula">※ 正社員：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給｛（売上税抜 − カード手数料等）× 歩合率｝＋ 交通費（設定した場合）<br />※ 正社員（基本給のみ）：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 交通費（設定した場合）｛歩合給なし｝<br />※ 時給制（パート・正社員(時給)）：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費（日額）<br />※ 月給制（正社員(月給)）：総支給額 ＝ 月給（固定）＋ 交通費（日額）<br />※ 勤務履歴の「時給換算」は 総支給額 ÷ 実働時間 で算出し、最低賃金（設定値）を下回った日は赤色で警告表示します（月給制は対象外）。<br />※ 売上は税込で入力すると税抜が自動計算されます（歩合給の計算には税抜額を使用）。未収（掛け・請求書払いなど当日未回収分）は歩合給の計算には影響しません。</p>
       </div>
 
       <!-- 給与設定 -->
@@ -525,10 +531,12 @@ import Layout from '../layouts/Layout.astro';
       awayMinutes(rec),
       w,
       rec.out ? hm(w) : '',
+      showsSales && rec.salesGross != null ? rec.salesGross : '',
       showsSales && rec.sales != null ? rec.sales : '',
+      showsSales && rec.uncollected ? rec.uncollected : '',
       showsSales && rec.cardFee != null ? rec.cardFee : '',
-      rec.out || rec.shiftType ? p.base : '',
-      rec.out ? p.extra : '',
+      rec.out || rec.shiftType ? Math.round(p.base) : '',
+      rec.out ? Math.round(p.extra) : '',
       rec.out ? Math.round(totalPay(rec)) : '',
       rate !== null ? Math.round(rate) : '',
       rate !== null ? (isBelowMinWage(rec) ? '最低賃金未満' : 'OK') : '',
@@ -976,6 +984,15 @@ import Layout from '../layouts/Layout.astro';
   }
 
   // ── 退勤・売上入力モーダル ──
+  const CONSUMPTION_TAX_RATE = 0.10; // 消費税率（標準10%）
+  function taxExcluded(gross) {
+    return Math.round(gross / (1 + CONSUMPTION_TAX_RATE));
+  }
+  function updateSalesNetPreview() {
+    const gross = parseFloat($('salesTotalInput').value);
+    const net = (!isNaN(gross) && gross >= 0) ? taxExcluded(gross) : 0;
+    $('salesNetPreview').textContent = `税抜：${yen(net)}円（歩合給の計算に使用）`;
+  }
   function feeAmounts() {
     const amounts = {};
     for (const input of $('salesMethodFields').querySelectorAll('input[data-pay-id]')) {
@@ -1003,8 +1020,10 @@ import Layout from '../layouts/Layout.astro';
     salesModalTargetKey = `${staffId}|${date}`;
     const s = staff.find(x => x.id === staffId);
     $('salesModalStaff').textContent = `${s ? s.name : '（削除済み）'} さん・${date.slice(5).replace('-', '/')}`;
-    $('salesTotalInput').value = rec.sales != null ? rec.sales : '';
+    $('salesTotalInput').value = rec.salesGross != null ? rec.salesGross : (rec.sales != null ? rec.sales : '');
+    $('salesUncollectedInput').value = rec.uncollected != null ? rec.uncollected : '';
     $('salesFeeOverride').value = rec.cardFee != null ? rec.cardFee : '';
+    updateSalesNetPreview();
     const wrap = $('salesMethodFields');
     wrap.innerHTML = '';
     const payments = rec.payments || {};
@@ -1046,17 +1065,20 @@ import Layout from '../layouts/Layout.astro';
     const rec = log.find(r => r.staffId === staffId && r.date === date);
     if (!rec) { closeSalesModal(); return; }
 
-    const sales = parseFloat($('salesTotalInput').value);
-    if (isNaN(sales) || sales < 0) {
-      alert('売上合計（税抜）を入力してください。');
+    const gross = parseFloat($('salesTotalInput').value);
+    if (isNaN(gross) || gross < 0) {
+      alert('売上合計（税込）を入力してください。');
       return;
     }
     const amounts = feeAmounts();
     const breakdownTotal = PAY_METHODS.reduce((sum, m) => sum + (amounts[m.id] || 0), 0);
-    if (breakdownTotal > sales) {
-      if (!confirm(`決済内訳の合計（${yen(breakdownTotal)}円）が売上合計（${yen(sales)}円）を超えています。このまま保存しますか？`)) return;
+    if (breakdownTotal > gross) {
+      if (!confirm(`決済内訳の合計（${yen(breakdownTotal)}円）が売上合計（${yen(gross)}円）を超えています。このまま保存しますか？`)) return;
     }
-    rec.sales = sales;
+    const uncollectedRaw = parseFloat($('salesUncollectedInput').value);
+    rec.salesGross = gross;
+    rec.sales = taxExcluded(gross);
+    rec.uncollected = (!isNaN(uncollectedRaw) && uncollectedRaw >= 0) ? uncollectedRaw : 0;
     rec.payments = amounts;
     const override = parseFloat($('salesFeeOverride').value);
     rec.cardFee = (!isNaN(override) && override >= 0) ? override : autoFee(amounts);
@@ -1066,6 +1088,7 @@ import Layout from '../layouts/Layout.astro';
   }
   $('salesModalSubmit').onclick = () => saveSalesModal();
   $('salesModalCancel').onclick = () => closeSalesModal();
+  $('salesTotalInput').addEventListener('input', updateSalesNetPreview);
 
   async function punch(type) {
     if (!selectedId) return;
@@ -1258,7 +1281,8 @@ import Layout from '../layouts/Layout.astro';
         <td>${hm(breakMinutes(rec))}</td>
         <td>${hm(awayMinutes(rec))}</td>
         <td class="kt-table__work">${rec.out ? hm(w) : '勤務中'}</td>
-        <td>${showsSales ? mask(rec.sales != null ? yen(rec.sales) + '円' : '—') : '—'}</td>
+        <td>${showsSales ? mask(rec.salesGross != null ? yen(rec.salesGross) + '円' : (rec.sales != null ? yen(rec.sales) + '円' : '—')) : '—'}</td>
+        <td>${showsSales ? mask(rec.uncollected ? yen(rec.uncollected) + '円' : '—') : '—'}</td>
         <td>${showsSales ? mask(rec.cardFee != null ? yen(rec.cardFee) + '円' : '—') : '—'}</td>
         <td>${mask(rec.out || rec.shiftType ? yen(p.base) + '円' : '—')}</td>
         <td>${mask(rec.out ? yen(p.extra) + '円' : '—')}</td>
@@ -1330,7 +1354,7 @@ import Layout from '../layouts/Layout.astro';
     const recs = log.filter(r => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date));
     if (!recs.length) { alert('この月の記録がありません'); return; }
     const methodHeaders = PAY_METHODS.map(m => `${m.label}(円)`).join(',');
-    let csv = `﻿日付,名前,区分,電話番,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分),売上税抜(円),カード手数料等(円),基本給(円),歩合・手当(円),合計支給額(円),時給換算(円),最低賃金判定,${methodHeaders}\n`;
+    let csv = `﻿日付,名前,区分,電話番,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分),売上税込(円),売上税抜(円),未収(円),カード手数料等(円),基本給(円),歩合・手当(円),合計支給額(円),時給換算(円),最低賃金判定,${methodHeaders}\n`;
     for (const rec of recs) {
       const payments = rec.payments || {};
       csv += [...excelRowFromRec(rec), ...PAY_METHODS.map(m => payments[m.id] || '')].join(',') + '\n';
@@ -1883,6 +1907,7 @@ import Layout from '../layouts/Layout.astro';
     font-weight: 700;
   }
   .kt-modal__summary-row strong { color: var(--fuji-yellow); font-size: 1.35rem; }
+  .kt-modal__taxnote { color: rgba(255,255,255,0.7); font-size: 0.9rem; margin-top: -0.75rem; }
   .kt-modal__actions {
     display: flex;
     flex-direction: column;

@@ -23,10 +23,7 @@ import Layout from '../layouts/Layout.astro';
       <!-- 管理者ロック -->
       <div class="kt-adminbar">
         <span class="kt-adminbar__label" id="adminState">🔒 売上・給与データは非表示中</span>
-        <span class="kt-adminbar__btns">
-          <a class="kt-btn kt-btn--ghost" href="/nippo">📝 乗務日報へ</a>
-          <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
-        </span>
+        <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
       </div>
 
       <!-- スタッフ選択 -->
@@ -1810,13 +1807,6 @@ import Layout from '../layouts/Layout.astro';
     border-radius: var(--radius-lg);
     padding: 0.85rem 1.25rem;
   }
-  .kt-adminbar__btns {
-    display: flex;
-    gap: 0.6rem;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .kt-adminbar__btns a { text-decoration: none; }
   .kt-adminbar__label {
     font-size: 0.95rem;
     font-weight: 700;

@@ -158,7 +158,7 @@ import Layout from '../layouts/Layout.astro';
           </table>
         </div>
         <p class="kt-empty" id="wageEmpty">この月の記録はありません。</p>
-        <p class="kt-note" id="wageFormula">※ 正社員：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給｛（売上税抜 − カード手数料等）× 歩合率｝<br />※ 時給制（パート・正社員(時給)）：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費（日額）<br />※ 勤務履歴の「時給換算」は 総支給額 ÷ 実働時間 で算出し、最低賃金（設定値）を下回った日は赤色で警告表示します。</p>
+        <p class="kt-note" id="wageFormula">※ 正社員：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給｛（売上税抜 − カード手数料等）× 歩合率｝＋ 交通費（設定した場合）<br />※ 時給制（パート・正社員(時給)）：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費（日額）<br />※ 勤務履歴の「時給換算」は 総支給額 ÷ 実働時間 で算出し、最低賃金（設定値）を下回った日は赤色で警告表示します。</p>
       </div>
 
       <!-- 給与設定 -->
@@ -272,6 +272,24 @@ import Layout from '../layouts/Layout.astro';
       }
     }
     if (staffChanged) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+  }
+
+  // 交通費の一括設定（2026-07-16・ユーザー指定、一度だけ適用）
+  // 区分に関わらず交通費だけ上書きする。以後は✎から個別に変更可能（このマイグレーションは再実行されない）
+  {
+    const MIGRATION_KEY = 'fuji-kintai-migrated-commute-20260716';
+    if (!localStorage.getItem(MIGRATION_KEY)) {
+      const COMMUTE_UPDATE = { '小林清美': 3000, '池内昌信': 3000, '荒智章': 3000, '中橋常郎': 3000 };
+      let changed = false;
+      for (const s of staff) {
+        if (COMMUTE_UPDATE[s.name] != null) {
+          s.commuteAllowance = COMMUTE_UPDATE[s.name];
+          changed = true;
+        }
+      }
+      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+      localStorage.setItem(MIGRATION_KEY, '1');
+    }
   }
   let log = JSON.parse(localStorage.getItem(LS_LOG) || '[]');
   const savedSettings = JSON.parse(localStorage.getItem(LS_SETTINGS) || '{}');
@@ -392,7 +410,7 @@ import Layout from '../layouts/Layout.astro';
       !isPart && rec.sales != null ? rec.sales : '',
       !isPart && rec.cardFee != null ? rec.cardFee : '',
       rec.out || rec.shiftType ? p.base : '',
-      isPart ? (rec.out ? p.extra : '') : (rec.sales != null ? p.extra : ''),
+      rec.out ? p.extra : '',
       rec.out ? Math.round(totalPay(rec)) : '',
       rate !== null ? Math.round(rate) : '',
       rate !== null ? (isBelowMinWage(rec) ? '最低賃金未満' : 'OK') : '',
@@ -640,28 +658,32 @@ import Layout from '../layouts/Layout.astro';
     alert('1〜3 の番号を入力してください。');
     return null;
   }
+  function promptCommute(s) {
+    const cm = prompt(`${s.name} の交通費（1日あたり・円）を入力してください（なければ 0）`, s.commuteAllowance != null ? String(s.commuteAllowance) : '0');
+    if (cm === null) return false;
+    const cmNum = parseInt(cm, 10);
+    if (isNaN(cmNum) || cmNum < 0) { alert('交通費は 0 以上の数字で入力してください。'); return false; }
+    s.commuteAllowance = cmNum;
+    return true;
+  }
   function promptPartWages(s) {
     const hw = prompt(`${s.name} の時間給（円）を入力してください`, s.hourlyWage != null ? String(s.hourlyWage) : String(settings.minWage));
     if (hw === null) return false;
     const hwNum = parseInt(hw, 10);
     if (isNaN(hwNum) || hwNum <= 0) { alert('時間給は正の数字で入力してください。'); return false; }
-    const cm = prompt(`${s.name} の交通費（1日あたり・円）を入力してください（なければ 0）`, s.commuteAllowance != null ? String(s.commuteAllowance) : '0');
-    if (cm === null) return false;
-    const cmNum = parseInt(cm, 10);
-    if (isNaN(cmNum) || cmNum < 0) { alert('交通費は 0 以上の数字で入力してください。'); return false; }
     s.hourlyWage = hwNum;
-    s.commuteAllowance = cmNum;
-    return true;
+    return promptCommute(s);
   }
   function editStaff(s) {
     if (!requireAdmin()) return;
     renderAdminBar();
     const type = promptEmpType(s);
     if (type === null) return;
-    if (isHourlyType(type) && !promptPartWages(s)) return;
+    const ok = isHourlyType(type) ? promptPartWages(s) : promptCommute(s);
+    if (!ok) return;
     s.type = type;
     save(); renderStaff(); renderPunch();
-    alert(`${s.name} を ${EMP_LABEL[type]} に設定しました。${isHourlyType(type) ? `（時間給 ${yen(s.hourlyWage)}円／交通費 ${yen(s.commuteAllowance)}円）` : ''}`);
+    alert(`${s.name} を ${EMP_LABEL[type]} に設定しました。${isHourlyType(type) ? `（時間給 ${yen(s.hourlyWage)}円／交通費 ${yen(s.commuteAllowance)}円）` : `（交通費 ${yen(s.commuteAllowance)}円）`}`);
   }
 
   $('addStaffBtn').onclick = () => {
@@ -773,11 +795,11 @@ import Layout from '../layouts/Layout.astro';
     rec.in = now;
     rec.shiftType = shiftType;
     rec.phoneDuty = shiftType === 'part' ? false : $('phoneDutyCheck').checked;
-    // 給与計算条件を出勤時点でレコードに固定（後から区分や時給を変えても過去分に影響しない）
+    // 給与計算条件を出勤時点でレコードに固定（後から区分や時給・交通費を変えても過去分に影響しない）
     rec.empType = staffType(s);
+    rec.commute = s.commuteAllowance != null ? s.commuteAllowance : 0;
     if (isHourlyType(rec.empType)) {
       rec.hourlyWage = s.hourlyWage != null ? s.hourlyWage : settings.minWage;
-      rec.commute = s.commuteAllowance != null ? s.commuteAllowance : 0;
     }
     save();
     $('punchMsg').textContent = shiftType === 'part'
@@ -979,16 +1001,16 @@ import Layout from '../layouts/Layout.astro';
   // 区分ごとの内訳。base＝基本給（正社員：シフト日給＋電話番手当／パート：時給×実働）
   // extra＝歩合・手当（正社員：歩合給／パート：残業・深夜割増＋交通費）
   function payParts(rec) {
+    const commute = rec.in ? recCommute(rec) : 0;
     if (isHourlyType(recEmpType(rec))) {
       const min = workMinutes(rec) || 0;
       const hw = recHourlyWage(rec);
       const base = Math.round(hw * min / 60);
       const ot = Math.round(Math.max(0, min / 60 - 8) * hw * OT_RATE);
       const night = Math.round(nightMinutes(rec) / 60 * hw * NIGHT_RATE);
-      const commute = rec.in ? recCommute(rec) : 0;
       return { base, extra: ot + night + commute, ot, night, commute };
     }
-    return { base: shiftWage(rec), extra: commissionPay(rec), ot: 0, night: 0, commute: 0 };
+    return { base: shiftWage(rec), extra: commissionPay(rec) + commute, ot: 0, night: 0, commute };
   }
   function totalPay(rec) {
     const p = payParts(rec);
@@ -1063,7 +1085,7 @@ import Layout from '../layouts/Layout.astro';
         <td>${isPart ? '—' : mask(rec.sales != null ? yen(rec.sales) + '円' : '—')}</td>
         <td>${isPart ? '—' : mask(rec.cardFee != null ? yen(rec.cardFee) + '円' : '—')}</td>
         <td>${mask(rec.out || rec.shiftType ? yen(p.base) + '円' : '—')}</td>
-        <td>${mask(isPart ? (rec.out ? yen(p.extra) + '円' : '—') : (rec.sales != null ? yen(p.extra) + '円' : '—'))}</td>
+        <td>${mask(rec.out ? yen(p.extra) + '円' : '—')}</td>
         <td class="kt-table__total">${rec.out ? mask(yen(totalPay(rec)) + '円') : '—'}</td>
         <td>${mask(rate !== null ? yen(rate) + '円' + (belowMin ? ' ⚠️最低賃金未満' : '') : '—')}</td>
         <td></td>
@@ -1219,8 +1241,10 @@ import Layout from '../layouts/Layout.astro';
 
     tcSetCell(ws, 'A1', `${year}年${monthNum}月 勤務表`);
     tcSetCell(ws, 'D1', name);
+    tcSetCell(ws, 'A2', '交通費合計（円）');
+    tcFormula(ws, 'B2', `SUM(N${TC_TABLE_START}:N${endRow})`, '#,##0');
     tcSetCell(ws, 'A3', '勤務日数');
-    tcFormula(ws, 'B3', `COUNT(N${TC_TABLE_START}:N${endRow})`);
+    tcFormula(ws, 'B3', `COUNT(O${TC_TABLE_START}:O${endRow})`);
     tcSetCell(ws, 'A4', '実働合計（時間）');
     tcFormula(ws, 'B4', `SUM(I${TC_TABLE_START}:I${endRow})`, '0.00');
     tcSetCell(ws, 'A5', 'シフト日給合計（電話番手当込・円）');
@@ -1230,9 +1254,9 @@ import Layout from '../layouts/Layout.astro';
     tcSetCell(ws, 'A7', '売上合計（税抜・円）');
     tcFormula(ws, 'B7', `SUM(J${TC_TABLE_START}:J${endRow})`, '#,##0');
     tcSetCell(ws, 'A8', '総支給額（円）');
-    tcFormula(ws, 'B8', `SUM(N${TC_TABLE_START}:N${endRow})`, '#,##0');
+    tcFormula(ws, 'B8', `SUM(O${TC_TABLE_START}:O${endRow})`, '#,##0');
 
-    const headers = ['日', '曜日', 'シフト', '電話番', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)', '売上税抜(円)', 'カード手数料(円)', 'シフト日給(円)', '歩合給(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
+    const headers = ['日', '曜日', 'シフト', '電話番', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)', '売上税抜(円)', 'カード手数料(円)', 'シフト日給(円)', '歩合給(円)', '交通費(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
     headers.forEach((h, i) => tcSetCell(ws, XLSX.utils.encode_cell({ r: TC_TABLE_START - 2, c: i }), h));
 
     const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -1251,16 +1275,17 @@ import Layout from '../layouts/Layout.astro';
         tcSetCell(ws, `H${row}`, awayMinutes(rec));
         if (rec.sales != null) ws[`J${row}`] = { t: 'n', v: rec.sales, z: '#,##0' };
         if (rec.cardFee != null) ws[`K${row}`] = { t: 'n', v: rec.cardFee, z: '#,##0' };
+        if (rec.in) ws[`N${row}`] = { t: 'n', v: recCommute(rec), z: '#,##0' };
       }
       tcFormula(ws, `I${row}`, `IF(OR($E${row}="",$F${row}=""),"",ROUND(($F${row}-$E${row}+IF($F${row}<$E${row},1,0))*24-IF($G${row}="",0,$G${row})/60-IF($H${row}="",0,$H${row})/60,2))`, '0.00');
       tcFormula(ws, `L${row}`, `IF($C${row}="","",IF($C${row}="遅番",設定!$B$3+設定!$B$4,設定!$B$2)+IF($D${row}="有",設定!$B$5,0))`, '#,##0');
       tcFormula(ws, `M${row}`, `IF($J${row}="","",ROUND(MAX(0,$J${row}-IF($K${row}="",0,$K${row}))*設定!$B$6/100,0))`, '#,##0');
-      tcFormula(ws, `N${row}`, `IF($L${row}="","",$L${row}+IF($M${row}="",0,$M${row}))`, '#,##0');
-      tcFormula(ws, `O${row}`, `IF(OR($I${row}="",$I${row}=0,$N${row}=""),"",ROUND($N${row}/$I${row},0))`, '#,##0');
-      tcFormula(ws, `P${row}`, `IF($O${row}="","",IF($O${row}<設定!$B$7,"最低賃金未満","OK"))`);
+      tcFormula(ws, `O${row}`, `IF($L${row}="","",$L${row}+IF($M${row}="",0,$M${row})+IF($N${row}="",0,$N${row}))`, '#,##0');
+      tcFormula(ws, `P${row}`, `IF(OR($I${row}="",$I${row}=0,$O${row}=""),"",ROUND($O${row}/$I${row},0))`, '#,##0');
+      tcFormula(ws, `Q${row}`, `IF($P${row}="","",IF($P${row}<設定!$B$7,"最低賃金未満","OK"))`);
     }
 
-    ws['!cols'] = [{ wch: 4 }, { wch: 5 }, { wch: 8 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 13 }, { wch: 11 }, { wch: 11 }, { wch: 12 }, { wch: 14 }];
+    ws['!cols'] = [{ wch: 4 }, { wch: 5 }, { wch: 8 }, { wch: 7 }, { wch: 7 }, { wch: 7 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 13 }, { wch: 11 }, { wch: 11 }, { wch: 11 }, { wch: 12 }, { wch: 14 }];
     tcFinalize(ws, endRow, headers.length - 1);
     return ws;
   }
@@ -1414,7 +1439,7 @@ import Layout from '../layouts/Layout.astro';
       [`対象月：${year}年${monthNum}月`],
       [''],
       ['【給与の計算式】（勤怠アプリと同じ）'],
-      ['◎ 正社員：総支給額 ＝ シフト日給（普通番／遅番）＋ 電話番手当 ＋ 歩合給'],
+      ['◎ 正社員：総支給額 ＝ シフト日給（普通番／遅番）＋ 電話番手当 ＋ 歩合給 ＋ 交通費（設定した場合）'],
       ['　　歩合給 ＝（売上税抜 − カード手数料等）× 歩合率'],
       ['◎ 時給制（パート・正社員(時給)）：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費（日額）'],
       ['　　時間給・交通費は各スタッフのシート右上（D3・D4）で変更できます。'],

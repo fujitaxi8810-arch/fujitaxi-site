@@ -260,7 +260,7 @@ import Layout from '../layouts/Layout.astro';
     '佐藤文枝': { type: 'part', hourlyWage: 1033, commuteAllowance: 376 },
     '佐藤賀子': { type: 'fulltime-hourly', hourlyWage: 1200, commuteAllowance: 1000 },
     '小林聖人': { type: 'monthly', monthlyWage: 300000, commuteAllowance: 0 },
-    '菊地勝治': { type: 'fulltime-base', dailyWage: 8400, commuteAllowance: 0 },
+    '菊地勝治': { type: 'fulltime-base', dailyWage: 8000, commuteAllowance: 0 },
   };
   {
     let staffChanged = false;
@@ -285,10 +285,22 @@ import Layout from '../layouts/Layout.astro';
     if (!localStorage.getItem(MIGRATION_KEY2)) {
       const s = staff.find(x => x.name === '菊地勝治');
       if (s && s.dailyWage == null) {
-        s.dailyWage = 8400;
+        s.dailyWage = 8000;
         localStorage.setItem(LS_STAFF, JSON.stringify(staff));
       }
       localStorage.setItem(MIGRATION_KEY2, '1');
+    }
+  }
+  // 菊地勝治の基本日給を8000円に修正（2026-07-16・当初8400円で設定してしまったための訂正、一度だけ適用）
+  {
+    const MIGRATION_KEY3 = 'fuji-kintai-migrated-dailywage-kikuchi-fix-8000-20260716';
+    if (!localStorage.getItem(MIGRATION_KEY3)) {
+      const s = staff.find(x => x.name === '菊地勝治');
+      if (s && s.dailyWage === 8400) {
+        s.dailyWage = 8000;
+        localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+      }
+      localStorage.setItem(MIGRATION_KEY3, '1');
     }
   }
 

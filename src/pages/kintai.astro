@@ -397,6 +397,25 @@ import Layout from '../layouts/Layout.astro';
     }
   }
 
+  // 遅番出勤ボタン・電話番チェック欄を非表示にするスタッフ（2026-07-16・ユーザー指定、一度だけ適用）
+  {
+    const MIGRATION_KEY7 = 'fuji-kintai-migrated-no-late-shift-20260716';
+    if (!localStorage.getItem(MIGRATION_KEY7)) {
+      const NO_LATE_SHIFT_NAMES = ['小林清美', '渋佐繁男', '菊地勝治', '小林結'].map(normalizeName);
+      let changed = false;
+      for (const s of staff) {
+        const nn = normalizeName(s.name);
+        if (NO_LATE_SHIFT_NAMES.includes(nn)) {
+          s.lateShiftDisabled = true;
+          s.phoneDutyDisabled = true;
+          changed = true;
+        }
+      }
+      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+      localStorage.setItem(MIGRATION_KEY7, '1');
+    }
+  }
+
   // 交通費の一括設定（2026-07-16・ユーザー指定、一度だけ適用）
   // 区分に関わらず交通費だけ上書きする。以後は✎から個別に変更可能（このマイグレーションは再実行されない）
   {
@@ -940,6 +959,8 @@ import Layout from '../layouts/Layout.astro';
     const isSimple = usesSimplePunch(staffType(s));
     $('phoneDutyBlock').hidden = isSimple || !!s.phoneDutyDisabled;
     $('fulltimeShiftGrid').hidden = isSimple;
+    $('fulltimeShiftGrid').classList.toggle('kt-shift-grid--single', !!s.lateShiftDisabled);
+    $('punchInLate').hidden = !!s.lateShiftDisabled;
     $('partShiftGrid').hidden = !isSimple;
 
     const canPunchIn = st === 'before';
@@ -1997,6 +2018,7 @@ import Layout from '../layouts/Layout.astro';
     gap: 0.75rem;
   }
   #partShiftGrid { grid-template-columns: 1fr; }
+  .kt-shift-grid--single { grid-template-columns: 1fr; }
   .kt-shift-btn {
     border: none;
     border-radius: var(--radius-lg);

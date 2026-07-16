@@ -260,7 +260,7 @@ import Layout from '../layouts/Layout.astro';
     '佐藤文枝': { type: 'part', hourlyWage: 1033, commuteAllowance: 376 },
     '佐藤賀子': { type: 'fulltime-hourly', hourlyWage: 1200, commuteAllowance: 1000 },
     '小林聖人': { type: 'monthly', monthlyWage: 300000, commuteAllowance: 0 },
-    '菊地勝治': { type: 'fulltime-base', commuteAllowance: 0 },
+    '菊地勝治': { type: 'fulltime-base', dailyWage: 8400, commuteAllowance: 0 },
   };
   {
     let staffChanged = false;
@@ -270,11 +270,26 @@ import Layout from '../layouts/Layout.astro';
         s.type = d.type;
         if (d.hourlyWage != null && s.hourlyWage == null) s.hourlyWage = d.hourlyWage;
         if (d.monthlyWage != null && s.monthlyWage == null) s.monthlyWage = d.monthlyWage;
+        if (d.dailyWage != null && s.dailyWage == null) s.dailyWage = d.dailyWage;
         if (s.commuteAllowance == null) s.commuteAllowance = d.commuteAllowance;
         staffChanged = true;
       }
     }
     if (staffChanged) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+  }
+
+  // 菊地勝治の基本日給を固定（2026-07-16・ユーザー指定、一度だけ適用）
+  // すでに区分が設定済みの端末では上のDEFAULT_EMPが効かないため、別途一度だけ強制適用する
+  {
+    const MIGRATION_KEY2 = 'fuji-kintai-migrated-dailywage-kikuchi-20260716';
+    if (!localStorage.getItem(MIGRATION_KEY2)) {
+      const s = staff.find(x => x.name === '菊地勝治');
+      if (s && s.dailyWage == null) {
+        s.dailyWage = 8400;
+        localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+      }
+      localStorage.setItem(MIGRATION_KEY2, '1');
+    }
   }
 
   // 交通費の一括設定（2026-07-16・ユーザー指定、一度だけ適用）
@@ -689,14 +704,24 @@ import Layout from '../layouts/Layout.astro';
     s.monthlyWage = mwNum;
     return promptCommute(s);
   }
+  function promptDailyWage(s) {
+    const dw = prompt(`${s.name} の基本日給（円・普通番／遅番に関わらず固定）を入力してください`, s.dailyWage != null ? String(s.dailyWage) : String(settings.normalWage));
+    if (dw === null) return false;
+    const dwNum = parseInt(dw, 10);
+    if (isNaN(dwNum) || dwNum <= 0) { alert('基本日給は正の数字で入力してください。'); return false; }
+    s.dailyWage = dwNum;
+    return promptCommute(s);
+  }
   function promptWagesFor(type, s) {
     if (isHourlyType(type)) return promptPartWages(s);
     if (isMonthlyType(type)) return promptMonthlyWage(s);
+    if (type === 'fulltime-base') return promptDailyWage(s);
     return promptCommute(s);
   }
   function wageNoteFor(type, s) {
     if (isHourlyType(type)) return `（時間給 ${yen(s.hourlyWage)}円／交通費 ${yen(s.commuteAllowance)}円）`;
     if (isMonthlyType(type)) return `（月給 ${yen(s.monthlyWage)}円／交通費 ${yen(s.commuteAllowance)}円）`;
+    if (type === 'fulltime-base') return `（基本日給 ${yen(s.dailyWage)}円／交通費 ${yen(s.commuteAllowance)}円）`;
     return `（交通費 ${yen(s.commuteAllowance)}円）`;
   }
   function editStaff(s) {
@@ -716,8 +741,8 @@ import Layout from '../layouts/Layout.astro';
     const s = { id: 'st' + Date.now(), name: name.trim() };
     const type = promptEmpType(s);
     if (type === null) return;
-    if (isHourlyType(type) || isMonthlyType(type)) {
-      if (!requireAdmin()) { alert('時給・月給の設定には管理者パスワードが必要です。'); return; }
+    if (isHourlyType(type) || isMonthlyType(type) || type === 'fulltime-base') {
+      if (!requireAdmin()) { alert('時給・月給・基本日給の設定には管理者パスワードが必要です。'); return; }
       renderAdminBar();
       if (!promptWagesFor(type, s)) return;
     }
@@ -839,6 +864,7 @@ import Layout from '../layouts/Layout.astro';
     if (isMonthlyType(rec.empType)) {
       rec.monthlyWage = s.monthlyWage != null ? s.monthlyWage : 0;
     }
+    if (s.dailyWage != null) rec.dailyWage = s.dailyWage;
     save();
     $('punchMsg').textContent = shiftType === 'part'
       ? `✅ ${s.name} さんが出勤しました（${timeStr(now)}）`
@@ -1025,9 +1051,16 @@ import Layout from '../layouts/Layout.astro';
   }
 
   // ── 給与計算 ──
+  // 個人固定の基本日給（シフトに関わらず一定）。未設定なら会社共通の設定値を使用
+  function recDailyWage(rec) {
+    if (rec.dailyWage != null) return rec.dailyWage;
+    const s = staff.find(x => x.id === rec.staffId);
+    return (s && s.dailyWage != null) ? s.dailyWage : null;
+  }
   function shiftWage(rec) {
     if (!rec.shiftType || rec.shiftType === 'part') return 0;
-    let w = rec.shiftType === 'late' ? (settings.lateWage + settings.lateBonus) : settings.normalWage;
+    const override = recDailyWage(rec);
+    let w = override != null ? override : (rec.shiftType === 'late' ? (settings.lateWage + settings.lateBonus) : settings.normalWage);
     if (rec.phoneDuty) w += settings.phoneAllowance;
     return w;
   }
@@ -1282,7 +1315,7 @@ import Layout from '../layouts/Layout.astro';
     return (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400;
   }
 
-  function buildStaffSheet(name, recsByDay, year, monthNum, daysInMonth) {
+  function buildStaffSheet(name, recsByDay, year, monthNum, daysInMonth, dailyWageOverride) {
     const ws = {};
     const endRow = TC_TABLE_START + daysInMonth - 1;
 
@@ -1290,6 +1323,10 @@ import Layout from '../layouts/Layout.astro';
     tcSetCell(ws, 'D1', name);
     tcSetCell(ws, 'A2', '交通費合計（円）');
     tcFormula(ws, 'B2', `SUM(N${TC_TABLE_START}:N${endRow})`, '#,##0');
+    if (dailyWageOverride != null) {
+      tcSetCell(ws, 'C3', '基本日給（固定・円）');
+      ws['D3'] = { t: 'n', v: dailyWageOverride, z: '#,##0' };
+    }
     tcSetCell(ws, 'A3', '勤務日数');
     tcFormula(ws, 'B3', `COUNT(O${TC_TABLE_START}:O${endRow})`);
     tcSetCell(ws, 'A4', '実働合計（時間）');
@@ -1325,7 +1362,10 @@ import Layout from '../layouts/Layout.astro';
         if (rec.in) ws[`N${row}`] = { t: 'n', v: recCommute(rec), z: '#,##0' };
       }
       tcFormula(ws, `I${row}`, `IF(OR($E${row}="",$F${row}=""),"",ROUND(($F${row}-$E${row}+IF($F${row}<$E${row},1,0))*24-IF($G${row}="",0,$G${row})/60-IF($H${row}="",0,$H${row})/60,2))`, '0.00');
-      tcFormula(ws, `L${row}`, `IF($C${row}="","",IF($C${row}="遅番",設定!$B$3+設定!$B$4,設定!$B$2)+IF($D${row}="有",設定!$B$5,0))`, '#,##0');
+      const dayWageFormula = dailyWageOverride != null
+        ? `IF($C${row}="","",$D$3+IF($D${row}="有",設定!$B$5,0))`
+        : `IF($C${row}="","",IF($C${row}="遅番",設定!$B$3+設定!$B$4,設定!$B$2)+IF($D${row}="有",設定!$B$5,0))`;
+      tcFormula(ws, `L${row}`, dayWageFormula, '#,##0');
       tcFormula(ws, `M${row}`, `IF($J${row}="","",ROUND(MAX(0,$J${row}-IF($K${row}="",0,$K${row}))*設定!$B$6/100,0))`, '#,##0');
       tcFormula(ws, `O${row}`, `IF($L${row}="","",$L${row}+IF($M${row}="",0,$M${row})+IF($N${row}="",0,$N${row}))`, '#,##0');
       tcFormula(ws, `P${row}`, `IF(OR($I${row}="",$I${row}=0,$O${row}=""),"",ROUND($O${row}/$I${row},0))`, '#,##0');
@@ -1482,11 +1522,13 @@ import Layout from '../layouts/Layout.astro';
       const isMonthly = recs.some(r => isMonthlyType(recEmpType(r)));
       const src = recs.find(r => r.hourlyWage != null) || {};
       const monthlySrc = recs.find(r => r.monthlyWage != null) || {};
+      const dailyWageSrc = recs.find(r => r.dailyWage != null);
       return {
         name, days,
         isPart, isMonthly,
         hourlyWage: src.hourlyWage ?? (staffObj && staffObj.hourlyWage) ?? settings.minWage,
         monthlyWage: monthlySrc.monthlyWage ?? (staffObj && staffObj.monthlyWage) ?? 0,
+        dailyWage: dailyWageSrc ? dailyWageSrc.dailyWage : ((staffObj && staffObj.dailyWage != null) ? staffObj.dailyWage : null),
         commute: src.commute ?? monthlySrc.commute ?? (staffObj && staffObj.commuteAllowance) ?? 0,
       };
     }
@@ -1501,7 +1543,7 @@ import Layout from '../layouts/Layout.astro';
         ? buildMonthlySheet(t.name, t.days, year, monthNum, daysInMonth, t.monthlyWage, t.commute)
         : t.isPart
           ? buildPartSheet(t.name, t.days, year, monthNum, daysInMonth, t.hourlyWage, t.commute)
-          : buildStaffSheet(t.name, t.days, year, monthNum, daysInMonth);
+          : buildStaffSheet(t.name, t.days, year, monthNum, daysInMonth, t.dailyWage);
       XLSX.utils.book_append_sheet(wb, sheet, sheetName);
     }
 

@@ -252,6 +252,11 @@ import Layout from '../layouts/Layout.astro';
     localStorage.setItem(LS_STAFF, JSON.stringify(staff));
   }
 
+  // 名前の空白ゆれ（全角スペース等）を無視して比較するためのヘルパー
+  function normalizeName(n) {
+    return (n || '').replace(/[\s　]/g, '');
+  }
+
   // 時給制・月給制スタッフの初期区分（時間給／月給・交通費はタイムカードR8.6月分・ユーザー指定の値を初期値に。✎から変更可能）
   // 区分が未設定の場合のみ適用するため、✎で手動設定した内容は上書きしない
   const DEFAULT_EMP = {
@@ -344,6 +349,45 @@ import Layout from '../layouts/Layout.astro';
       }
       if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
       localStorage.setItem(MIGRATION_KEY5, '1');
+    }
+  }
+
+  // 区分・賃金の総点検（2026-07-16・ユーザー指定、一度だけ適用）
+  // 佐藤賀子・須江浩子・佐藤文枝・小林聖人などで区分がまだ反映されていない端末があったため、
+  // 名前の空白ゆれを無視したうえで区分・時給・月給・基本日給・交通費・電話番非表示をまとめて強制上書きする
+  {
+    const MIGRATION_KEY6 = 'fuji-kintai-migrated-force-all-20260716';
+    if (!localStorage.getItem(MIGRATION_KEY6)) {
+      const FORCE_ALL = {
+        '中橋常郎': { type: 'part', hourlyWage: 1050, commuteAllowance: 3000 },
+        '須江浩子': { type: 'part', hourlyWage: 1033, commuteAllowance: 1061 },
+        '佐藤文枝': { type: 'part', hourlyWage: 1033, commuteAllowance: 376 },
+        '佐藤賀子': { type: 'fulltime-hourly', hourlyWage: 1200, commuteAllowance: 1000 },
+        '小林聖人': { type: 'monthly', monthlyWage: 300000, commuteAllowance: 0 },
+        '菊地勝治': { type: 'fulltime-base', dailyWage: 8000, commuteAllowance: 0 },
+      };
+      const PHONE_DUTY_DISABLED_NAMES2 = ['小林清美', '渋佐繁男', '佐藤賀子', '須江浩子', '佐藤文枝', '池内昌信', '小林聖人'].map(normalizeName);
+      const normMap = {};
+      for (const k of Object.keys(FORCE_ALL)) normMap[normalizeName(k)] = FORCE_ALL[k];
+      let changed = false;
+      for (const s of staff) {
+        const nn = normalizeName(s.name);
+        const d = normMap[nn];
+        if (d) {
+          s.type = d.type;
+          if (d.hourlyWage != null) s.hourlyWage = d.hourlyWage;
+          if (d.monthlyWage != null) s.monthlyWage = d.monthlyWage;
+          if (d.dailyWage != null) s.dailyWage = d.dailyWage;
+          s.commuteAllowance = d.commuteAllowance;
+          changed = true;
+        }
+        if (PHONE_DUTY_DISABLED_NAMES2.includes(nn)) {
+          s.phoneDutyDisabled = true;
+          changed = true;
+        }
+      }
+      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+      localStorage.setItem(MIGRATION_KEY6, '1');
     }
   }
 

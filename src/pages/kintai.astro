@@ -251,6 +251,27 @@ import Layout from '../layouts/Layout.astro';
     staff = DEFAULT_STAFF_NAMES.map((name, i) => ({ id: 'st-default-' + (i + 1), name }));
     localStorage.setItem(LS_STAFF, JSON.stringify(staff));
   }
+
+  // パートの初期区分（時間給・交通費はタイムカードR8.6月分の値を初期値に。✎から変更可能）
+  // 区分が未設定の場合のみ適用するため、✎で手動設定した内容は上書きしない
+  const DEFAULT_PART = {
+    '中橋常郎': { hourlyWage: 1050, commuteAllowance: 0 },
+    '須江浩子': { hourlyWage: 1033, commuteAllowance: 1061 },
+    '佐藤文枝': { hourlyWage: 1033, commuteAllowance: 376 },
+  };
+  {
+    let staffChanged = false;
+    for (const s of staff) {
+      const d = DEFAULT_PART[s.name];
+      if (d && !s.type) {
+        s.type = 'part';
+        if (s.hourlyWage == null) s.hourlyWage = d.hourlyWage;
+        if (s.commuteAllowance == null) s.commuteAllowance = d.commuteAllowance;
+        staffChanged = true;
+      }
+    }
+    if (staffChanged) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+  }
   let log = JSON.parse(localStorage.getItem(LS_LOG) || '[]');
   const savedSettings = JSON.parse(localStorage.getItem(LS_SETTINGS) || '{}');
   let settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings);

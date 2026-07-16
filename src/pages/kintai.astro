@@ -330,6 +330,23 @@ import Layout from '../layouts/Layout.astro';
     }
   }
 
+  // 電話番チェック欄を非表示にするスタッフ（2026-07-16・ユーザー指定、一度だけ適用）
+  {
+    const MIGRATION_KEY5 = 'fuji-kintai-migrated-phoneduty-disabled-20260716';
+    if (!localStorage.getItem(MIGRATION_KEY5)) {
+      const PHONE_DUTY_DISABLED_NAMES = ['小林清美', '渋佐繁男', '佐藤賀子', '須江浩子', '佐藤文枝', '池内昌信', '小林聖人'];
+      let changed = false;
+      for (const s of staff) {
+        if (PHONE_DUTY_DISABLED_NAMES.includes(s.name)) {
+          s.phoneDutyDisabled = true;
+          changed = true;
+        }
+      }
+      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+      localStorage.setItem(MIGRATION_KEY5, '1');
+    }
+  }
+
   // 交通費の一括設定（2026-07-16・ユーザー指定、一度だけ適用）
   // 区分に関わらず交通費だけ上書きする。以後は✎から個別に変更可能（このマイグレーションは再実行されない）
   {
@@ -866,7 +883,7 @@ import Layout from '../layouts/Layout.astro';
     $('statusLabel').textContent = `現在：${STATUS_LABEL[st]}${shiftNote}`;
 
     const isSimple = usesSimplePunch(staffType(s));
-    $('phoneDutyBlock').hidden = isSimple;
+    $('phoneDutyBlock').hidden = isSimple || !!s.phoneDutyDisabled;
     $('fulltimeShiftGrid').hidden = isSimple;
     $('partShiftGrid').hidden = !isSimple;
 
@@ -892,7 +909,7 @@ import Layout from '../layouts/Layout.astro';
     const s = staff.find(x => x.id === selectedId);
     rec.in = now;
     rec.shiftType = shiftType;
-    rec.phoneDuty = shiftType === 'part' ? false : $('phoneDutyCheck').checked;
+    rec.phoneDuty = (shiftType === 'part' || s.phoneDutyDisabled) ? false : $('phoneDutyCheck').checked;
     // 給与計算条件を出勤時点でレコードに固定（後から区分や時給・交通費を変えても過去分に影響しない）
     rec.empType = staffType(s);
     rec.commute = s.commuteAllowance != null ? s.commuteAllowance : 0;

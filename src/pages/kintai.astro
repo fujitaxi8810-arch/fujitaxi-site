@@ -158,7 +158,7 @@ import Layout from '../layouts/Layout.astro';
           </table>
         </div>
         <p class="kt-empty" id="wageEmpty">この月の記録はありません。</p>
-        <p class="kt-note" id="wageFormula">※ 正社員：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給｛（売上税抜 − カード手数料等）× 歩合率｝＋ 交通費（設定した場合）<br />※ 時給制（パート・正社員(時給)）：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費（日額）<br />※ 月給制（正社員(月給)）：総支給額 ＝ 月給（固定）＋ 交通費（日額）<br />※ 勤務履歴の「時給換算」は 総支給額 ÷ 実働時間 で算出し、最低賃金（設定値）を下回った日は赤色で警告表示します（月給制は対象外）。</p>
+        <p class="kt-note" id="wageFormula">※ 正社員：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給｛（売上税抜 − カード手数料等）× 歩合率｝＋ 交通費（設定した場合）<br />※ 正社員（基本給のみ）：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 交通費（設定した場合）｛歩合給なし｝<br />※ 時給制（パート・正社員(時給)）：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費（日額）<br />※ 月給制（正社員(月給)）：総支給額 ＝ 月給（固定）＋ 交通費（日額）<br />※ 勤務履歴の「時給換算」は 総支給額 ÷ 実働時間 で算出し、最低賃金（設定値）を下回った日は赤色で警告表示します（月給制は対象外）。</p>
       </div>
 
       <!-- 給与設定 -->
@@ -260,6 +260,7 @@ import Layout from '../layouts/Layout.astro';
     '佐藤文枝': { type: 'part', hourlyWage: 1033, commuteAllowance: 376 },
     '佐藤賀子': { type: 'fulltime-hourly', hourlyWage: 1200, commuteAllowance: 1000 },
     '小林聖人': { type: 'monthly', monthlyWage: 300000, commuteAllowance: 0 },
+    '菊地勝治': { type: 'fulltime-base', commuteAllowance: 0 },
   };
   {
     let staffChanged = false;
@@ -398,6 +399,7 @@ import Layout from '../layouts/Layout.astro';
     const rate = hourlyRate(rec);
     const p = payParts(rec);
     const isSimple = usesSimplePunch(recEmpType(rec));
+    const showsSales = hasCommission(recEmpType(rec));
     return [
       rec.date,
       s ? s.name : '削除済み',
@@ -409,8 +411,8 @@ import Layout from '../layouts/Layout.astro';
       awayMinutes(rec),
       w,
       rec.out ? hm(w) : '',
-      !isSimple && rec.sales != null ? rec.sales : '',
-      !isSimple && rec.cardFee != null ? rec.cardFee : '',
+      showsSales && rec.sales != null ? rec.sales : '',
+      showsSales && rec.cardFee != null ? rec.cardFee : '',
       rec.out || rec.shiftType ? p.base : '',
       rec.out ? p.extra : '',
       rec.out ? Math.round(totalPay(rec)) : '',
@@ -651,14 +653,16 @@ import Layout from '../layouts/Layout.astro';
   // 区分・時給・月給・交通費の入力（管理者のみ）
   function promptEmpType(s) {
     const cur = staffType(s);
-    const defAns = cur === 'part' ? '2' : (cur === 'fulltime-hourly' ? '3' : (cur === 'monthly' ? '4' : '1'));
-    const input = prompt(`${s.name} の区分を選んでください（現在：${EMP_LABEL[cur]}）\n1 = 正社員（シフト日給＋歩合）\n2 = パート（時給制）\n3 = 正社員（時給制）\n4 = 正社員（月給制）`, defAns);
+    const defAnsMap = { part: '2', 'fulltime-hourly': '3', monthly: '4', 'fulltime-base': '5' };
+    const defAns = defAnsMap[cur] || '1';
+    const input = prompt(`${s.name} の区分を選んでください（現在：${EMP_LABEL[cur]}）\n1 = 正社員（シフト日給＋歩合）\n2 = パート（時給制）\n3 = 正社員（時給制）\n4 = 正社員（月給制）\n5 = 正社員（基本給のみ・歩合なし）`, defAns);
     if (input === null) return null;
     if (input.trim() === '1') return 'fulltime';
     if (input.trim() === '2') return 'part';
     if (input.trim() === '3') return 'fulltime-hourly';
     if (input.trim() === '4') return 'monthly';
-    alert('1〜4 の番号を入力してください。');
+    if (input.trim() === '5') return 'fulltime-base';
+    alert('1〜5 の番号を入力してください。');
     return null;
   }
   function promptCommute(s) {
@@ -739,19 +743,22 @@ import Layout from '../layouts/Layout.astro';
   const STATUS_LABEL = { before: '未出勤', working: '勤務中', break: '休憩中', away: '時間内退勤中', done: '退勤済み' };
   const SHIFT_LABEL = { normal: '普通番', late: '遅番', part: 'パート' };
 
-  // ── 雇用区分（正社員＝日給＋歩合／パート・正社員(時給)＝時給制／正社員(月給)＝固定給） ──
-  const EMP_LABEL = { fulltime: '正社員', part: 'パート', 'fulltime-hourly': '正社員（時給）', monthly: '正社員（月給）' };
+  // ── 雇用区分（正社員＝日給＋歩合／パート・正社員(時給)＝時給制／正社員(月給)＝固定給／正社員(基本給のみ)＝日給のみ・歩合なし） ──
+  const EMP_LABEL = { fulltime: '正社員', part: 'パート', 'fulltime-hourly': '正社員（時給）', monthly: '正社員（月給）', 'fulltime-base': '正社員（基本給のみ）' };
   // 時給制（時間給×実働＋割増＋交通費）で計算する区分か。パートと「正社員だが時給制」の両方が該当
   function isHourlyType(t) { return t === 'part' || t === 'fulltime-hourly'; }
   function isMonthlyType(t) { return t === 'monthly'; }
   // シフト選択なしの単一出勤ボタンを使う区分（時給制・月給制）
   function usesSimplePunch(t) { return isHourlyType(t) || isMonthlyType(t); }
+  // 歩合給（売上連動）を計算する区分か。通常の正社員のみ対象
+  function hasCommission(t) { return t === 'fulltime'; }
   const OT_RATE = 0.25;    // 残業割増率（8時間超）
   const NIGHT_RATE = 0.25; // 深夜割増率（22時以降）
   const NIGHT_START_HOUR = 22;
 
   function staffType(s) {
-    return s && (s.type === 'part' || s.type === 'fulltime-hourly' || s.type === 'monthly') ? s.type : 'fulltime';
+    const t = s && s.type;
+    return (t === 'part' || t === 'fulltime-hourly' || t === 'monthly' || t === 'fulltime-base') ? t : 'fulltime';
   }
   function recEmpType(rec) {
     if (rec.empType) return rec.empType;
@@ -1041,7 +1048,8 @@ import Layout from '../layouts/Layout.astro';
       const night = Math.round(nightMinutes(rec) / 60 * hw * NIGHT_RATE);
       return { base, extra: ot + night + commute, ot, night, commute };
     }
-    return { base: shiftWage(rec), extra: commissionPay(rec) + commute, ot: 0, night: 0, commute };
+    const commission = hasCommission(recEmpType(rec)) ? commissionPay(rec) : 0;
+    return { base: shiftWage(rec), extra: commission + commute, ot: 0, night: 0, commute };
   }
   function totalPay(rec) {
     const p = payParts(rec);
@@ -1099,6 +1107,7 @@ import Layout from '../layouts/Layout.astro';
       const belowMin = isAdmin() && isBelowMinWage(rec);
       const rate = hourlyRate(rec);
       const isSimple = usesSimplePunch(recEmpType(rec));
+      const showsSales = hasCommission(recEmpType(rec));
       const p = payParts(rec);
       const kubun = isSimple
         ? EMP_LABEL[recEmpType(rec)]
@@ -1114,15 +1123,15 @@ import Layout from '../layouts/Layout.astro';
         <td>${hm(breakMinutes(rec))}</td>
         <td>${hm(awayMinutes(rec))}</td>
         <td class="kt-table__work">${rec.out ? hm(w) : '勤務中'}</td>
-        <td>${isSimple ? '—' : mask(rec.sales != null ? yen(rec.sales) + '円' : '—')}</td>
-        <td>${isSimple ? '—' : mask(rec.cardFee != null ? yen(rec.cardFee) + '円' : '—')}</td>
+        <td>${showsSales ? mask(rec.sales != null ? yen(rec.sales) + '円' : '—') : '—'}</td>
+        <td>${showsSales ? mask(rec.cardFee != null ? yen(rec.cardFee) + '円' : '—') : '—'}</td>
         <td>${mask(rec.out || rec.shiftType ? yen(p.base) + '円' : '—')}</td>
         <td>${mask(rec.out ? yen(p.extra) + '円' : '—')}</td>
         <td class="kt-table__total">${rec.out ? mask(yen(totalPay(rec)) + '円') : '—'}</td>
         <td>${mask(rate !== null ? yen(rate) + '円' + (belowMin ? ' ⚠️最低賃金未満' : '') : '—')}</td>
         <td></td>
       `;
-      if (rec.out && !isSimple) {
+      if (rec.out && showsSales) {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'kt-btn kt-btn--ghost';
@@ -1167,7 +1176,7 @@ import Layout from '../layouts/Layout.astro';
         <td>${t.days}日</td>
         <td>${hm(t.minutes)}</td>
         <td>${mask(yen(baseDisplay) + '円')}</td>
-        <td>${usesSimplePunch(t.empType) ? '—' : mask(yen(t.sales) + '円')}</td>
+        <td>${hasCommission(t.empType) ? mask(yen(t.sales) + '円') : '—'}</td>
         <td>${mask(yen(t.commission) + '円')}</td>
         <td class="kt-table__total">${mask(yen(total) + '円')}</td>
       `;
@@ -1196,6 +1205,7 @@ import Layout from '../layouts/Layout.astro';
     csv += `\n設定：普通番日給${settings.normalWage}円／遅番日給${settings.lateWage + settings.lateBonus}円／電話番手当${settings.phoneAllowance}円／歩合率${settings.commissionRate}%／最低賃金${settings.minWage}円\n`;
     csv += `時給制（パート・正社員(時給)）：時間給×実働＋残業割増(8時間超×${OT_RATE * 100}%)＋深夜割増(${NIGHT_START_HOUR}時以降×${NIGHT_RATE * 100}%)＋交通費(日額)\n`;
     csv += `月給制（正社員(月給)）：総支給額＝月給（固定）＋交通費(日額)\n`;
+    csv += `正社員（基本給のみ）：総支給額＝シフト日給＋電話番手当＋交通費(日額)（歩合給なし）\n`;
     csv += `手数料率：${rateNote}\n`;
     csv += '\n月次サマリー\n名前,区分,出勤日数,実働合計(分),実働合計(時:分),基本給合計(円),売上合計(円),歩合・手当合計(円),総支給額(円)\n';
     const totals = {};
@@ -1533,6 +1543,7 @@ import Layout from '../layouts/Layout.astro';
       ['【給与の計算式】（勤怠アプリと同じ）'],
       ['◎ 正社員：総支給額 ＝ シフト日給（普通番／遅番）＋ 電話番手当 ＋ 歩合給 ＋ 交通費（設定した場合）'],
       ['　　歩合給 ＝（売上税抜 − カード手数料等）× 歩合率'],
+      ['◎ 正社員（基本給のみ）：総支給額 ＝ シフト日給（普通番／遅番）＋ 電話番手当 ＋ 交通費（設定した場合）（歩合給はなし）'],
       ['◎ 時給制（パート・正社員(時給)）：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費（日額）'],
       ['　　時間給・交通費は各スタッフのシート右上（D3・D4）で変更できます。'],
       ['◎ 月給制（正社員(月給)）：総支給額 ＝ 月給（固定額）＋ 交通費（日額）'],

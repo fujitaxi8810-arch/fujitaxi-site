@@ -20,12 +20,6 @@ import Layout from '../layouts/Layout.astro';
   <section class="section bg-black" style="padding-top: 1rem;">
     <div class="container kintai-wrap">
 
-      <!-- 管理者ロック -->
-      <div class="kt-adminbar">
-        <span class="kt-adminbar__label" id="adminState">🔒 売上・給与データは非表示中</span>
-        <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
-      </div>
-
       <!-- スタッフ選択 -->
       <div class="kt-panel">
         <div class="kt-panel__head">
@@ -122,6 +116,12 @@ import Layout from '../layouts/Layout.astro';
         <h2 class="kt-title">本日の状況</h2>
         <div class="kt-today" id="todayBoard"></div>
         <p class="kt-empty" id="todayEmpty">本日の打刻はまだありません。</p>
+      </div>
+
+      <!-- 管理者ロック -->
+      <div class="kt-adminbar">
+        <span class="kt-adminbar__label" id="adminState">🔒 売上・給与データは非表示中</span>
+        <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
       </div>
 
       <!-- 履歴（管理者のみ） -->
@@ -1793,31 +1793,31 @@ import Layout from '../layouts/Layout.astro';
   .kintai-wrap [hidden],
   .kt-modal-overlay[hidden] { display: none !important; }
 
-  .page-hero { padding-block: 4rem 2rem; }
+  .page-hero { padding-block: 1rem 0.5rem; }
   .page-hero h1 {
-    font-size: clamp(2rem, 5vw, 3rem);
+    font-size: clamp(1.25rem, 2.5vw, 1.6rem);
     font-weight: 900;
     color: var(--fuji-white);
-    margin-block: 0.5rem;
+    margin-block: 0.15rem;
   }
-  .page-hero__lead { color: rgba(255,255,255,0.85); font-size: var(--text-base); }
+  .page-hero__lead { color: rgba(255,255,255,0.85); font-size: var(--text-sm); margin: 0; }
   .kintai-clock {
     font-family: var(--font-en);
-    font-size: clamp(4rem, 12vw, 7rem);
+    font-size: clamp(1.9rem, 5vw, 2.8rem);
     font-weight: 900;
     color: var(--fuji-yellow);
     line-height: 1.1;
-    margin-top: 1rem;
+    margin-top: 0.35rem;
     letter-spacing: 0.02em;
   }
-  .kintai-date { color: rgba(255,255,255,0.9); font-size: clamp(1.3rem, 3vw, 1.8rem); font-weight: 700; margin-top: 0.25rem; }
+  .kintai-date { color: rgba(255,255,255,0.9); font-size: clamp(0.9rem, 1.8vw, 1.05rem); font-weight: 700; margin-top: 0.1rem; }
 
   .kintai-wrap {
     max-width: 1280px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 0.75rem;
   }
 
   .kt-adminbar {
@@ -1841,7 +1841,7 @@ import Layout from '../layouts/Layout.astro';
     background: var(--fuji-black-card, #1a1a1a);
     border: 1px solid rgba(255,255,255,0.12);
     border-radius: var(--radius-xl);
-    padding: 1.5rem;
+    padding: 0.9rem 1.1rem;
   }
   .kt-panel--punch { border-color: var(--fuji-yellow); }
   .kt-panel__head {
@@ -1849,7 +1849,7 @@ import Layout from '../layouts/Layout.astro';
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.6rem;
     flex-wrap: wrap;
   }
   .kt-panel__tools { display: flex; gap: 0.6rem; align-items: center; }
@@ -2009,11 +2009,11 @@ import Layout from '../layouts/Layout.astro';
     border: 2px solid rgba(255,255,255,0.6);
     border-radius: var(--radius-full);
     color: #ffffff;
-    font-size: 1.2rem;
+    font-size: 1rem;
     font-weight: 900;
-    padding: 0.8rem 1.5rem;
+    padding: 0.45rem 0.9rem;
     cursor: pointer;
-    min-height: 56px;
+    min-height: 40px;
     text-shadow: 0 1px 2px rgba(0,0,0,0.5);
   }
   .kt-staff:hover { border-color: var(--fuji-yellow); }

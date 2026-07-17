@@ -263,6 +263,28 @@ import Layout from '../layouts/Layout.astro';
     return (n || '').replace(/[\s　]/g, '');
   }
 
+  // 「渋佐」姓のスタッフの表記ゆれを是正（2026-07-16・一度だけ適用）
+  // 端末側のデータが全角スペース入り・異体字（例：繫）で保存され、他の名前一致マイグレーションが
+  // 効かなくなっていたため、氏名を「渋佐繁男」に統一する（id・区分・設定はそのまま維持）
+  {
+    const MIGRATION_KEY8 = 'fuji-kintai-fix-shibusa-name-20260716';
+    if (!localStorage.getItem(MIGRATION_KEY8)) {
+      let changed = false;
+      for (const s of staff) {
+        const nn = normalizeName(s.name);
+        if (nn.startsWith('渋佐') && nn.endsWith('男') && nn.length === 4) {
+          s.name = '渋佐繁男';
+          // 他の名前一致マイグレーションが既に完了済みで再実行されない場合に備え、ここでも直接適用する
+          s.phoneDutyDisabled = true;
+          s.lateShiftDisabled = true;
+          changed = true;
+        }
+      }
+      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+      localStorage.setItem(MIGRATION_KEY8, '1');
+    }
+  }
+
   // 時給制・月給制スタッフの初期区分（時間給／月給・交通費はタイムカードR8.6月分・ユーザー指定の値を初期値に。✎から変更可能）
   // 区分が未設定の場合のみ適用するため、✎で手動設定した内容は上書きしない
   const DEFAULT_EMP = {

@@ -946,7 +946,7 @@ import Layout from '../layouts/Layout.astro';
     if (!s) { panel.hidden = true; return; }
     panel.hidden = false;
     // 選択中ラベルは表示を簡略化（正社員（時給）／正社員（月給）は単に「正社員」と表示。区分自体・計算方法は変更なし）
-    const SIMPLIFIED_PUNCH_TYPES = ['fulltime-hourly', 'monthly'];
+    const SIMPLIFIED_PUNCH_TYPES = ['fulltime-hourly', 'monthly', 'fulltime-base'];
     const punchLabel = SIMPLIFIED_PUNCH_TYPES.includes(staffType(s)) ? '正社員' : EMP_LABEL[staffType(s)];
     $('selectedName').textContent = `${s.name}（${punchLabel}）`;
     const rec = todayRec(selectedId);

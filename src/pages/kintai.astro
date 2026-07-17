@@ -214,10 +214,12 @@ import Layout from '../layouts/Layout.astro';
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <script>
-  const LS_STAFF = 'fuji-kintai-staff';
-  const LS_LOG = 'fuji-kintai-log';
-  const LS_SETTINGS = 'fuji-kintai-settings';
-  const SS_ADMIN = 'fuji-kintai-admin';
+  import {
+    initAuth, isAdmin, signInAdmin, signOutToKiosk,
+    fetchStaff, insertStaff, updateStaff, deactivateStaff,
+    fetchSettings, updateSettings as dbUpdateSettings,
+    fetchMonth, fetchToday, upsertAttendance, deleteAllAttendance,
+  } from '../lib/kintai-db';
 
   // 決済方法マスタ。rateはSBペイメントサービス収納明細書（2026/06/16-06/30分）の実績値。
   // 楽天Pay・au PAYは決済手数料3.24%＋決済サービス利用料0.15%の合算。
@@ -235,250 +237,15 @@ import Layout from '../layouts/Layout.astro';
     { id: 'jcbticket',  label: 'JCBタクシーチケット',             rate: 4 },
   ];
 
-  const DEFAULT_SETTINGS = {
-    normalWage: 8400,
-    lateWage: 8400,
-    lateBonus: 700,
-    phoneAllowance: 300,
-    commissionRate: 16.57,
-    minWage: 1033, // 福島県の地域別最低賃金（確認用）
-    feeRates: Object.fromEntries(PAY_METHODS.map(m => [m.id, m.rate])),
-    adminPassword: '',
-  };
-
-  const DEFAULT_STAFF_NAMES = [
-    '小林清美', '渡部晃', '渋佐繁男', '菊地勝治', '堀内洋伯', '佐藤賀子',
-    '小林結', '須江浩子', '佐藤文枝', '菅原元輝', '池内昌信', '荒智章',
-    '中橋常郎', '石川美紀', '小林聖人', '目黒圭吾',
-  ];
-
-  let staff = JSON.parse(localStorage.getItem(LS_STAFF) || '[]');
-  if (staff.length === 0) {
-    staff = DEFAULT_STAFF_NAMES.map((name, i) => ({ id: 'st-default-' + (i + 1), name }));
-    localStorage.setItem(LS_STAFF, JSON.stringify(staff));
-  }
-
-  // 名前の空白ゆれ（全角スペース等）を無視して比較するためのヘルパー
-  function normalizeName(n) {
-    return (n || '').replace(/[\s　]/g, '');
-  }
-
-  // 「渋佐」姓のスタッフの表記ゆれを是正（2026-07-16・一度だけ適用）
-  // 端末側のデータが全角スペース入り・異体字（例：繫）で保存され、他の名前一致マイグレーションが
-  // 効かなくなっていたため、氏名を「渋佐繁男」に統一する（id・区分・設定はそのまま維持）
-  {
-    const MIGRATION_KEY8 = 'fuji-kintai-fix-shibusa-name-20260716';
-    if (!localStorage.getItem(MIGRATION_KEY8)) {
-      let changed = false;
-      for (const s of staff) {
-        const nn = normalizeName(s.name);
-        if (nn.startsWith('渋佐') && nn.endsWith('男') && nn.length === 4) {
-          s.name = '渋佐　繁男';
-          // 他の名前一致マイグレーションが既に完了済みで再実行されない場合に備え、ここでも直接適用する
-          s.phoneDutyDisabled = true;
-          s.lateShiftDisabled = true;
-          changed = true;
-        }
-      }
-      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
-      localStorage.setItem(MIGRATION_KEY8, '1');
-    }
-  }
-
-  // 「渋佐繁男」の表記に全角スペースを補う（2026-07-16・一度だけ適用）
-  // 上のマイグレーションが先にスペース無しで確定させてしまった端末を、他のスタッフ名と同じ表記へ再修正する
-  {
-    const MIGRATION_KEY9 = 'fuji-kintai-fix-shibusa-space-20260716';
-    if (!localStorage.getItem(MIGRATION_KEY9)) {
-      let changed = false;
-      for (const s of staff) {
-        if (s.name === '渋佐繁男') {
-          s.name = '渋佐　繁男';
-          changed = true;
-        }
-      }
-      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
-      localStorage.setItem(MIGRATION_KEY9, '1');
-    }
-  }
-
-  // 時給制・月給制スタッフの初期区分（時間給／月給・交通費はタイムカードR8.6月分・ユーザー指定の値を初期値に。✎から変更可能）
-  // 区分が未設定の場合のみ適用するため、✎で手動設定した内容は上書きしない
-  const DEFAULT_EMP = {
-    '中橋常郎': { type: 'part', hourlyWage: 1050, commuteAllowance: 0 },
-    '須江浩子': { type: 'part', hourlyWage: 1033, commuteAllowance: 1061 },
-    '佐藤文枝': { type: 'part', hourlyWage: 1033, commuteAllowance: 376 },
-    '佐藤賀子': { type: 'fulltime-hourly', hourlyWage: 1200, commuteAllowance: 1000 },
-    '小林聖人': { type: 'monthly', monthlyWage: 300000, commuteAllowance: 0 },
-    '菊地勝治': { type: 'fulltime-base', dailyWage: 8000, commuteAllowance: 0 },
-  };
-  {
-    let staffChanged = false;
-    for (const s of staff) {
-      const d = DEFAULT_EMP[s.name];
-      if (d && !s.type) {
-        s.type = d.type;
-        if (d.hourlyWage != null && s.hourlyWage == null) s.hourlyWage = d.hourlyWage;
-        if (d.monthlyWage != null && s.monthlyWage == null) s.monthlyWage = d.monthlyWage;
-        if (d.dailyWage != null && s.dailyWage == null) s.dailyWage = d.dailyWage;
-        if (s.commuteAllowance == null) s.commuteAllowance = d.commuteAllowance;
-        staffChanged = true;
-      }
-    }
-    if (staffChanged) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
-  }
-
-  // 菊地勝治の基本日給を固定（2026-07-16・ユーザー指定、一度だけ適用）
-  // すでに区分が設定済みの端末では上のDEFAULT_EMPが効かないため、別途一度だけ強制適用する
-  {
-    const MIGRATION_KEY2 = 'fuji-kintai-migrated-dailywage-kikuchi-20260716';
-    if (!localStorage.getItem(MIGRATION_KEY2)) {
-      const s = staff.find(x => x.name === '菊地勝治');
-      if (s && s.dailyWage == null) {
-        s.dailyWage = 8000;
-        localStorage.setItem(LS_STAFF, JSON.stringify(staff));
-      }
-      localStorage.setItem(MIGRATION_KEY2, '1');
-    }
-  }
-  // 菊地勝治の基本日給を8000円に修正（2026-07-16・当初8400円で設定してしまったための訂正、一度だけ適用）
-  {
-    const MIGRATION_KEY3 = 'fuji-kintai-migrated-dailywage-kikuchi-fix-8000-20260716';
-    if (!localStorage.getItem(MIGRATION_KEY3)) {
-      const s = staff.find(x => x.name === '菊地勝治');
-      if (s && s.dailyWage === 8400) {
-        s.dailyWage = 8000;
-        localStorage.setItem(LS_STAFF, JSON.stringify(staff));
-      }
-      localStorage.setItem(MIGRATION_KEY3, '1');
-    }
-  }
-
-  // 中橋常郎・須江浩子・佐藤文枝を強制的にパートへ修正（2026-07-16・一度だけ適用）
-  // 区分機能の初期実装時にtype='fulltime'が明示的に入ってしまい、DEFAULT_EMPの
-  // 「未設定の場合のみ適用」ガードが効かなくなっていた端末を救済するため、区分を強制上書きする
-  {
-    const MIGRATION_KEY4 = 'fuji-kintai-migrated-force-part-20260716';
-    if (!localStorage.getItem(MIGRATION_KEY4)) {
-      const FORCE_PART = {
-        '中橋常郎': { hourlyWage: 1050, commuteAllowance: 3000 },
-        '須江浩子': { hourlyWage: 1033, commuteAllowance: 1061 },
-        '佐藤文枝': { hourlyWage: 1033, commuteAllowance: 376 },
-      };
-      let changed = false;
-      for (const s of staff) {
-        const d = FORCE_PART[s.name];
-        if (d) {
-          s.type = 'part';
-          if (s.hourlyWage == null) s.hourlyWage = d.hourlyWage;
-          if (s.commuteAllowance == null) s.commuteAllowance = d.commuteAllowance;
-          changed = true;
-        }
-      }
-      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
-      localStorage.setItem(MIGRATION_KEY4, '1');
-    }
-  }
-
-  // 電話番チェック欄を非表示にするスタッフ（2026-07-16・ユーザー指定、一度だけ適用）
-  {
-    const MIGRATION_KEY5 = 'fuji-kintai-migrated-phoneduty-disabled-20260716';
-    if (!localStorage.getItem(MIGRATION_KEY5)) {
-      const PHONE_DUTY_DISABLED_NAMES = ['小林清美', '渋佐繁男', '佐藤賀子', '須江浩子', '佐藤文枝', '池内昌信', '小林聖人'];
-      let changed = false;
-      for (const s of staff) {
-        if (PHONE_DUTY_DISABLED_NAMES.includes(s.name)) {
-          s.phoneDutyDisabled = true;
-          changed = true;
-        }
-      }
-      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
-      localStorage.setItem(MIGRATION_KEY5, '1');
-    }
-  }
-
-  // 区分・賃金の総点検（2026-07-16・ユーザー指定、一度だけ適用）
-  // 佐藤賀子・須江浩子・佐藤文枝・小林聖人などで区分がまだ反映されていない端末があったため、
-  // 名前の空白ゆれを無視したうえで区分・時給・月給・基本日給・交通費・電話番非表示をまとめて強制上書きする
-  {
-    const MIGRATION_KEY6 = 'fuji-kintai-migrated-force-all-20260716';
-    if (!localStorage.getItem(MIGRATION_KEY6)) {
-      const FORCE_ALL = {
-        '中橋常郎': { type: 'part', hourlyWage: 1050, commuteAllowance: 3000 },
-        '須江浩子': { type: 'part', hourlyWage: 1033, commuteAllowance: 1061 },
-        '佐藤文枝': { type: 'part', hourlyWage: 1033, commuteAllowance: 376 },
-        '佐藤賀子': { type: 'fulltime-hourly', hourlyWage: 1200, commuteAllowance: 1000 },
-        '小林聖人': { type: 'monthly', monthlyWage: 300000, commuteAllowance: 0 },
-        '菊地勝治': { type: 'fulltime-base', dailyWage: 8000, commuteAllowance: 0 },
-      };
-      const PHONE_DUTY_DISABLED_NAMES2 = ['小林清美', '渋佐繁男', '佐藤賀子', '須江浩子', '佐藤文枝', '池内昌信', '小林聖人'].map(normalizeName);
-      const normMap = {};
-      for (const k of Object.keys(FORCE_ALL)) normMap[normalizeName(k)] = FORCE_ALL[k];
-      let changed = false;
-      for (const s of staff) {
-        const nn = normalizeName(s.name);
-        const d = normMap[nn];
-        if (d) {
-          s.type = d.type;
-          if (d.hourlyWage != null) s.hourlyWage = d.hourlyWage;
-          if (d.monthlyWage != null) s.monthlyWage = d.monthlyWage;
-          if (d.dailyWage != null) s.dailyWage = d.dailyWage;
-          s.commuteAllowance = d.commuteAllowance;
-          changed = true;
-        }
-        if (PHONE_DUTY_DISABLED_NAMES2.includes(nn)) {
-          s.phoneDutyDisabled = true;
-          changed = true;
-        }
-      }
-      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
-      localStorage.setItem(MIGRATION_KEY6, '1');
-    }
-  }
-
-  // 遅番出勤ボタン・電話番チェック欄を非表示にするスタッフ（2026-07-16・ユーザー指定、一度だけ適用）
-  {
-    const MIGRATION_KEY7 = 'fuji-kintai-migrated-no-late-shift-20260716';
-    if (!localStorage.getItem(MIGRATION_KEY7)) {
-      const NO_LATE_SHIFT_NAMES = ['小林清美', '渋佐繁男', '菊地勝治', '小林結'].map(normalizeName);
-      let changed = false;
-      for (const s of staff) {
-        const nn = normalizeName(s.name);
-        if (NO_LATE_SHIFT_NAMES.includes(nn)) {
-          s.lateShiftDisabled = true;
-          s.phoneDutyDisabled = true;
-          changed = true;
-        }
-      }
-      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
-      localStorage.setItem(MIGRATION_KEY7, '1');
-    }
-  }
-
-  // 交通費の一括設定（2026-07-16・ユーザー指定、一度だけ適用）
-  // 区分に関わらず交通費だけ上書きする。以後は✎から個別に変更可能（このマイグレーションは再実行されない）
-  {
-    const MIGRATION_KEY = 'fuji-kintai-migrated-commute-20260716';
-    if (!localStorage.getItem(MIGRATION_KEY)) {
-      const COMMUTE_UPDATE = { '小林清美': 3000, '池内昌信': 3000, '荒智章': 3000, '中橋常郎': 3000 };
-      let changed = false;
-      for (const s of staff) {
-        if (COMMUTE_UPDATE[s.name] != null) {
-          s.commuteAllowance = COMMUTE_UPDATE[s.name];
-          changed = true;
-        }
-      }
-      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
-      localStorage.setItem(MIGRATION_KEY, '1');
-    }
-  }
-  let log = JSON.parse(localStorage.getItem(LS_LOG) || '[]');
-  const savedSettings = JSON.parse(localStorage.getItem(LS_SETTINGS) || '{}');
-  let settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings);
-  settings.feeRates = Object.assign({}, DEFAULT_SETTINGS.feeRates, savedSettings.feeRates || {});
+  // データはSupabaseが正。起動時にboot()でまとめて読み込む
+  let staff = [];
+  let settings = null;
+  let log = [];       // 表示中の月（monthPick）の打刻データ
+  let todayLog = [];  // 本日分の打刻データ（全スタッフ）
   let selectedId = null;
 
   const $ = (id) => document.getElementById(id);
+  $('monthPick').value = dateKey().slice(0, 7);
 
   // ── 時計 ──
   function tick() {
@@ -489,13 +256,20 @@ import Layout from '../layouts/Layout.astro';
   tick();
   setInterval(tick, 1000);
 
-  function save() {
-    localStorage.setItem(LS_STAFF, JSON.stringify(staff));
-    localStorage.setItem(LS_LOG, JSON.stringify(log));
+  function currentMonth() {
+    return $('monthPick').value || dateKey().slice(0, 7);
   }
-  function saveSettings() {
-    localStorage.setItem(LS_SETTINGS, JSON.stringify(settings));
+
+  /** 本日分（todayLog）と表示中の月（log）をSupabaseから再取得する */
+  async function refreshData() {
+    const [t, m] = await Promise.all([
+      fetchToday(dateKey()),
+      fetchMonth(currentMonth()),
+    ]);
+    todayLog = t;
+    log = m;
   }
+  const SAVE_FAIL_MSG = '通信エラーで保存できませんでした。電波状況を確認してもう一度お試しください。';
 
   function dateKey(d) {
     const dt = d ? new Date(d) : new Date();
@@ -635,12 +409,24 @@ import Layout from '../layouts/Layout.astro';
     return { ok: true, count: recs.length };
   }
 
+  // Excel自動保存の「送信済み」フラグはこの端末だけのローカルな状態（データ本体はSupabase共有のため、
+  // 打刻レコードにフラグを持たせると他端末にも波及してしまう）
+  const EXCEL_SYNCED_KEY = 'fuji-kintai-excel-synced-ids';
+  function getSyncedIds() {
+    try { return new Set(JSON.parse(localStorage.getItem(EXCEL_SYNCED_KEY) || '[]')); } catch { return new Set(); }
+  }
+  function markSynced(ids) {
+    const cur = getSyncedIds();
+    for (const id of ids) cur.add(id);
+    localStorage.setItem(EXCEL_SYNCED_KEY, JSON.stringify([...cur]));
+  }
+
   async function syncUnsyncedToExcel(showAlert) {
-    const unsynced = log.filter(r => r.out && !r.excelSynced);
+    const syncedIds = getSyncedIds();
+    const unsynced = log.filter(r => r.out && !syncedIds.has(r.id));
     const result = await appendRecordsToExcel(unsynced);
     if (result.ok) {
-      for (const r of unsynced) r.excelSynced = true;
-      if (result.count) save();
+      if (result.count) markSynced(unsynced.map(r => r.id));
       if (showAlert) alert(result.count ? `${result.count}件をExcelに書き込みました。` : '未反映のデータはありませんでした。');
     } else if (showAlert) {
       const messages = {
@@ -669,29 +455,16 @@ import Layout from '../layouts/Layout.astro';
   $('excelPickBtn').onclick = () => pickExcelFile();
   $('excelSyncNowBtn').onclick = () => syncUnsyncedToExcel(true);
 
-  // ── 管理者ロック ──
-  function isAdmin() {
-    return sessionStorage.getItem(SS_ADMIN) === '1';
-  }
-  function requireAdmin() {
+  // ── 管理者ロック（Supabase Authのadminアカウントへのサインインで解除） ──
+  async function requireAdmin() {
     if (isAdmin()) return true;
-    if (!settings.adminPassword) {
-      const p1 = prompt('初めて管理者機能を使います。管理者パスワードを設定してください。');
-      if (!p1) return false;
-      const p2 = prompt('確認のため、もう一度入力してください。');
-      if (p1 !== p2) { alert('パスワードが一致しませんでした。もう一度お試しください。'); return false; }
-      settings.adminPassword = p1;
-      saveSettings();
-      sessionStorage.setItem(SS_ADMIN, '1');
-      return true;
-    }
-    const input = prompt('管理者パスワードを入力してください。');
-    if (input === settings.adminPassword) {
-      sessionStorage.setItem(SS_ADMIN, '1');
-      return true;
-    }
-    if (input !== null) alert('パスワードが違います。');
-    return false;
+    const email = prompt('管理者アカウントのメールアドレスを入力してください。', 'admin@fujitaxi.local');
+    if (!email) return false;
+    const password = prompt('管理者パスワードを入力してください。');
+    if (!password) return false;
+    const result = await signInAdmin(email.trim(), password);
+    if (!result.ok) { alert(result.error || 'ログインに失敗しました。'); return false; }
+    return true;
   }
   function renderAdminBar() {
     const unlocked = isAdmin();
@@ -704,11 +477,11 @@ import Layout from '../layouts/Layout.astro';
     $('clearLogBtn').hidden = !unlocked;
     renderExcelSyncBox();
   }
-  $('adminToggleBtn').onclick = () => {
+  $('adminToggleBtn').onclick = async () => {
     if (isAdmin()) {
-      sessionStorage.removeItem(SS_ADMIN);
+      await signOutToKiosk();
     } else {
-      requireAdmin();
+      await requireAdmin();
     }
     renderAdminBar(); renderStaff(); renderPunch(); renderToday(); renderHist(); renderWage();
   };
@@ -742,30 +515,42 @@ import Layout from '../layouts/Layout.astro';
       wrap.appendChild(label);
     }
   }
-  $('saveSettingsBtn').onclick = () => {
-    settings.normalWage = parseInt($('setNormalWage').value, 10) || 0;
-    settings.lateWage = parseInt($('setLateWage').value, 10) || 0;
-    settings.lateBonus = parseInt($('setLateBonus').value, 10) || 0;
-    settings.phoneAllowance = parseInt($('setPhoneAllowance').value, 10) || 0;
-    settings.commissionRate = parseFloat($('setCommissionRate').value) || 0;
-    settings.minWage = parseInt($('setMinWage').value, 10) || 0;
+  $('saveSettingsBtn').onclick = async () => {
+    const newSettings = {
+      normalWage: parseInt($('setNormalWage').value, 10) || 0,
+      lateWage: parseInt($('setLateWage').value, 10) || 0,
+      lateBonus: parseInt($('setLateBonus').value, 10) || 0,
+      phoneAllowance: parseInt($('setPhoneAllowance').value, 10) || 0,
+      commissionRate: parseFloat($('setCommissionRate').value) || 0,
+      minWage: parseInt($('setMinWage').value, 10) || 0,
+      feeRates: { ...settings.feeRates },
+    };
     for (const input of $('feeRateFields').querySelectorAll('input[data-fee-id]')) {
       const v = parseFloat(input.value);
-      settings.feeRates[input.dataset.feeId] = (!isNaN(v) && v >= 0) ? v : 0;
+      newSettings.feeRates[input.dataset.feeId] = (!isNaN(v) && v >= 0) ? v : 0;
     }
-    saveSettings();
-    alert('設定を保存しました。');
-    renderPunch(); renderToday(); renderHist(); renderWage();
+    try {
+      await dbUpdateSettings(newSettings);
+      settings = await fetchSettings();
+      alert('設定を保存しました。');
+      renderPunch(); renderToday(); renderHist(); renderWage();
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
+    }
   };
 
-  $('clearLogBtn').onclick = () => {
+  $('clearLogBtn').onclick = async () => {
     if (!confirm('本当にすべての打刻データ（出勤・退勤・売上・給与の記録）を削除しますか？\nこの操作は取り消せません。')) return;
     if (!confirm('最終確認：削除すると元に戻せません。CSV出力やExcelへの反映は済んでいますか？\n本当に削除してよろしいですか？')) return;
-    log = [];
-    save();
-    selectedId = null;
-    renderStaff(); renderPunch(); renderToday(); renderHist(); renderWage();
-    alert('すべての打刻データを削除しました。');
+    try {
+      await deleteAllAttendance();
+      selectedId = null;
+      await refreshData();
+      renderStaff(); renderPunch(); renderToday(); renderHist(); renderWage();
+      alert('すべての打刻データを削除しました。');
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
+    }
   };
 
   // ── スタッフ ──
@@ -787,9 +572,9 @@ import Layout from '../layouts/Layout.astro';
       edit.textContent = '✎';
       edit.setAttribute('role', 'button');
       edit.setAttribute('aria-label', `${s.name}の区分を変更`);
-      edit.onclick = (e) => {
+      edit.onclick = async (e) => {
         e.stopPropagation();
-        editStaff(s);
+        await editStaff(s);
       };
       btn.appendChild(edit);
       const del = document.createElement('span');
@@ -797,12 +582,16 @@ import Layout from '../layouts/Layout.astro';
       del.textContent = '×';
       del.setAttribute('role', 'button');
       del.setAttribute('aria-label', `${s.name}を削除`);
-      del.onclick = (e) => {
+      del.onclick = async (e) => {
         e.stopPropagation();
-        if (confirm(`${s.name} を削除しますか？（打刻履歴は残ります）`)) {
-          staff = staff.filter(x => x.id !== s.id);
+        if (!confirm(`${s.name} を削除しますか？（打刻履歴は残ります）`)) return;
+        try {
+          await deactivateStaff(s.id);
+          staff = await fetchStaff();
           if (selectedId === s.id) selectedId = null;
-          save(); renderStaff(); renderPunch();
+          renderStaff(); renderPunch();
+        } catch (err) {
+          alert(SAVE_FAIL_MSG);
         }
       };
       btn.appendChild(del);
@@ -891,36 +680,59 @@ import Layout from '../layouts/Layout.astro';
     if (type === 'fulltime-base') return `（基本日給 ${yen(s.dailyWage)}円／交通費 ${yen(s.commuteAllowance)}円）`;
     return `（交通費 ${yen(s.commuteAllowance)}円）`;
   }
-  function editStaff(s) {
-    if (!requireAdmin()) return;
+  async function editStaff(s) {
+    if (!(await requireAdmin())) return;
     renderAdminBar();
     const type = promptEmpType(s);
     if (type === null) return;
     if (!promptWagesFor(type, s)) return;
-    s.type = type;
-    save(); renderStaff(); renderPunch();
-    alert(`${s.name} を ${EMP_LABEL[type]} に設定しました。${wageNoteFor(type, s)}`);
+    try {
+      await updateStaff(s.id, {
+        type,
+        hourlyWage: s.hourlyWage ?? null,
+        monthlyWage: s.monthlyWage ?? null,
+        dailyWage: s.dailyWage ?? null,
+        commuteAllowance: s.commuteAllowance ?? 0,
+      });
+      staff = await fetchStaff();
+      renderStaff(); renderPunch();
+      alert(`${s.name} を ${EMP_LABEL[type]} に設定しました。${wageNoteFor(type, s)}`);
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
+    }
   }
 
-  $('addStaffBtn').onclick = () => {
+  $('addStaffBtn').onclick = async () => {
     const name = prompt('スタッフの名前を入力してください');
     if (!name || !name.trim()) return;
-    const s = { id: 'st' + Date.now(), name: name.trim() };
+    const s = { name: name.trim() };
     const type = promptEmpType(s);
     if (type === null) return;
     if (isHourlyType(type) || isMonthlyType(type) || type === 'fulltime-base') {
-      if (!requireAdmin()) { alert('時給・月給・基本日給の設定には管理者パスワードが必要です。'); return; }
+      if (!(await requireAdmin())) { alert('時給・月給・基本日給の設定には管理者パスワードが必要です。'); return; }
       renderAdminBar();
       if (!promptWagesFor(type, s)) return;
     }
     s.type = type;
-    staff.push(s);
-    save(); renderStaff();
+    try {
+      await insertStaff({
+        name: s.name,
+        type: s.type,
+        hourlyWage: s.hourlyWage ?? null,
+        monthlyWage: s.monthlyWage ?? null,
+        dailyWage: s.dailyWage ?? null,
+        commuteAllowance: s.commuteAllowance ?? 0,
+      });
+      staff = await fetchStaff();
+      renderStaff();
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
+    }
   };
 
   // ── 状態判定 ──
   function todayRec(staffId) {
-    return log.find(r => r.staffId === staffId && r.date === dateKey());
+    return todayLog.find(r => r.staffId === staffId);
   }
   function statusOf(rec) {
     if (!rec || !rec.in) return 'before';        // 未出勤
@@ -1015,33 +827,42 @@ import Layout from '../layouts/Layout.astro';
     $('punchAwayEnd').disabled = st !== 'away';
   }
 
-  function punchIn(shiftType) {
+  async function punchIn(shiftType) {
     if (!selectedId) return;
-    const now = new Date().toISOString();
-    let rec = todayRec(selectedId);
-    if (!rec) {
-      rec = { staffId: selectedId, date: dateKey(), in: null, out: null, breaks: [], leaves: [] };
-      log.push(rec);
-    }
     const s = staff.find(x => x.id === selectedId);
-    rec.in = now;
-    rec.shiftType = shiftType;
-    rec.phoneDuty = (shiftType === 'part' || s.phoneDutyDisabled) ? false : $('phoneDutyCheck').checked;
-    // 給与計算条件を出勤時点でレコードに固定（後から区分や時給・交通費を変えても過去分に影響しない）
-    rec.empType = staffType(s);
-    rec.commute = s.commuteAllowance != null ? s.commuteAllowance : 0;
-    if (isHourlyType(rec.empType)) {
-      rec.hourlyWage = s.hourlyWage != null ? s.hourlyWage : settings.minWage;
+    if (!s) return;
+    const now = new Date().toISOString();
+    const existing = todayRec(selectedId);
+    const empType = staffType(s);
+    const patch = {
+      staffId: selectedId,
+      date: dateKey(),
+      in: now,
+      shiftType,
+      phoneDuty: (shiftType === 'part' || s.phoneDutyDisabled) ? false : $('phoneDutyCheck').checked,
+      // 給与計算条件を出勤時点でレコードに固定（後から区分や時給・交通費を変えても過去分に影響しない）
+      empType,
+      commute: s.commuteAllowance != null ? s.commuteAllowance : 0,
+    };
+    if (!existing) { patch.breaks = []; patch.leaves = []; }
+    if (isHourlyType(empType)) patch.hourlyWage = s.hourlyWage != null ? s.hourlyWage : settings.minWage;
+    if (isMonthlyType(empType)) patch.monthlyWage = s.monthlyWage != null ? s.monthlyWage : 0;
+    if (s.dailyWage != null) patch.dailyWage = s.dailyWage;
+
+    const shiftBtnIds = ['punchInNormal', 'punchInLate', 'punchInPart'];
+    shiftBtnIds.forEach(id => { $(id).disabled = true; });
+    try {
+      await upsertAttendance(patch);
+      await refreshData();
+      $('punchMsg').textContent = shiftType === 'part'
+        ? `✅ ${s.name} さんが出勤しました（${timeStr(now)}）`
+        : `✅ ${s.name} さんが${SHIFT_LABEL[shiftType]}で出勤しました（${timeStr(now)}）`;
+      $('phoneDutyCheck').checked = false;
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
+    } finally {
+      shiftBtnIds.forEach(id => { $(id).disabled = false; });
     }
-    if (isMonthlyType(rec.empType)) {
-      rec.monthlyWage = s.monthlyWage != null ? s.monthlyWage : 0;
-    }
-    if (s.dailyWage != null) rec.dailyWage = s.dailyWage;
-    save();
-    $('punchMsg').textContent = shiftType === 'part'
-      ? `✅ ${s.name} さんが出勤しました（${timeStr(now)}）`
-      : `✅ ${s.name} さんが${SHIFT_LABEL[shiftType]}で出勤しました（${timeStr(now)}）`;
-    $('phoneDutyCheck').checked = false;
     renderPunch(); renderToday(); renderHist(); renderWage();
   }
 
@@ -1138,15 +959,26 @@ import Layout from '../layouts/Layout.astro';
       if (!confirm(`決済内訳の合計（${yen(breakdownTotal)}円）が売上合計（${yen(gross)}円）を超えています。このまま保存しますか？`)) return;
     }
     const uncollectedRaw = parseFloat($('salesUncollectedInput').value);
-    rec.salesGross = gross;
-    rec.sales = taxExcluded(gross);
-    rec.uncollected = (!isNaN(uncollectedRaw) && uncollectedRaw >= 0) ? uncollectedRaw : 0;
-    rec.payments = amounts;
     const override = parseFloat($('salesFeeOverride').value);
-    rec.cardFee = (!isNaN(override) && override >= 0) ? override : autoFee(amounts);
-    save();
-    closeSalesModal();
-    renderHist(); renderWage();
+    const patch = {
+      staffId, date,
+      salesGross: gross,
+      sales: taxExcluded(gross),
+      uncollected: (!isNaN(uncollectedRaw) && uncollectedRaw >= 0) ? uncollectedRaw : 0,
+      payments: amounts,
+      cardFee: (!isNaN(override) && override >= 0) ? override : autoFee(amounts),
+    };
+    $('salesModalSubmit').disabled = true;
+    try {
+      await upsertAttendance(patch);
+      await refreshData();
+      closeSalesModal();
+      renderHist(); renderWage();
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
+    } finally {
+      $('salesModalSubmit').disabled = false;
+    }
   }
   $('salesModalSubmit').onclick = () => saveSalesModal();
   $('salesModalCancel').onclick = () => closeSalesModal();
@@ -1154,42 +986,54 @@ import Layout from '../layouts/Layout.astro';
 
   async function punch(type) {
     if (!selectedId) return;
-    const now = new Date().toISOString();
-    let rec = todayRec(selectedId);
+    const rec = todayRec(selectedId);
     if (!rec) return;
-    if (!rec.leaves) rec.leaves = [];
+    const s = staff.find(x => x.id === selectedId);
+    if (!s) return;
+    const now = new Date().toISOString();
+    const breaks = [...(rec.breaks || [])];
+    const leaves = [...(rec.leaves || [])];
+    const patch = { staffId: selectedId, date: dateKey() };
 
     if (type === 'out') {
-      rec.out = now;
-      save();
-      const s = staff.find(x => x.id === selectedId);
-      $('punchMsg').textContent = `✅ ${s.name} さんの退勤を ${timeStr(now)} に記録しました。売上は後ほど管理者が入力します。`;
-      renderPunch(); renderToday(); renderHist(); renderWage();
-      if (isAdmin()) {
-        const handle = await getExcelHandle();
-        if (handle) {
-          const result = await syncUnsyncedToExcel(false);
-          if (result.ok && result.count) {
-            $('punchMsg').textContent += `（Excelにも自動記録しました）`;
+      patch.out = now;
+    } else if (type === 'breakStart') {
+      breaks.push({ start: now, end: null });
+      patch.breaks = breaks;
+    } else if (type === 'breakEnd') {
+      const b = breaks[breaks.length - 1];
+      if (b && !b.end) b.end = now;
+      patch.breaks = breaks;
+    } else if (type === 'awayStart') {
+      leaves.push({ start: now, end: null });
+      patch.leaves = leaves;
+    } else if (type === 'awayEnd') {
+      const l = leaves[leaves.length - 1];
+      if (l && !l.end) l.end = now;
+      patch.leaves = leaves;
+    }
+
+    const btnIds = ['punchOut', 'punchBreakStart', 'punchBreakEnd', 'punchAwayStart', 'punchAwayEnd'];
+    btnIds.forEach(id => { $(id).disabled = true; });
+    try {
+      await upsertAttendance(patch);
+      await refreshData();
+      if (type === 'out') {
+        $('punchMsg').textContent = `✅ ${s.name} さんの退勤を ${timeStr(now)} に記録しました。売上は後ほど管理者が入力します。`;
+        if (isAdmin()) {
+          const handle = await getExcelHandle();
+          if (handle) {
+            const result = await syncUnsyncedToExcel(false);
+            if (result.ok && result.count) $('punchMsg').textContent += `（Excelにも自動記録しました）`;
           }
         }
+      } else {
+        const labels = { breakStart: '休憩開始', breakEnd: '休憩終了', awayStart: '時間内退勤', awayEnd: '時間内出勤' };
+        $('punchMsg').textContent = `✅ ${s.name} さんの${labels[type]}を ${timeStr(now)} に記録しました`;
       }
-      return;
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
     }
-    if (type === 'breakStart') rec.breaks.push({ start: now, end: null });
-    if (type === 'breakEnd') {
-      const b = rec.breaks[rec.breaks.length - 1];
-      if (b && !b.end) b.end = now;
-    }
-    if (type === 'awayStart') rec.leaves.push({ start: now, end: null });
-    if (type === 'awayEnd') {
-      const l = rec.leaves[rec.leaves.length - 1];
-      if (l && !l.end) l.end = now;
-    }
-    save();
-    const s = staff.find(x => x.id === selectedId);
-    const labels = { breakStart: '休憩開始', breakEnd: '休憩終了', awayStart: '時間内退勤', awayEnd: '時間内出勤' };
-    $('punchMsg').textContent = `✅ ${s.name} さんの${labels[type]}を ${timeStr(now)} に記録しました`;
     renderPunch(); renderToday(); renderHist(); renderWage();
   }
   $('punchInNormal').onclick = () => punchIn('normal');
@@ -1311,9 +1155,6 @@ import Layout from '../layouts/Layout.astro';
   }
 
   // ── 履歴 ──
-  function currentMonth() {
-    return $('monthPick').value || dateKey().slice(0, 7);
-  }
   function renderHist() {
     const month = currentMonth();
     const body = $('histBody');
@@ -1405,12 +1246,18 @@ import Layout from '../layouts/Layout.astro';
     }
   }
 
-  $('monthPick').value = dateKey().slice(0, 7);
-  $('monthPick').onchange = () => { renderHist(); renderWage(); };
+  $('monthPick').onchange = async () => {
+    try {
+      log = await fetchMonth(currentMonth());
+    } catch (e) {
+      alert('データの取得に失敗しました。通信状況を確認してください。');
+    }
+    renderHist(); renderWage();
+  };
 
   // ── CSV出力 ──
-  $('csvBtn').onclick = () => {
-    if (!requireAdmin()) return;
+  $('csvBtn').onclick = async () => {
+    if (!(await requireAdmin())) return;
     renderAdminBar();
     const month = currentMonth();
     const recs = log.filter(r => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date));
@@ -1670,8 +1517,8 @@ import Layout from '../layouts/Layout.astro';
     return ws;
   }
 
-  $('timecardBtn').onclick = () => {
-    if (!requireAdmin()) return;
+  $('timecardBtn').onclick = async () => {
+    if (!(await requireAdmin())) return;
     renderAdminBar();
     const month = currentMonth(); // "YYYY-MM"
     const [year, monthNum] = month.split('-').map(Number);
@@ -1797,12 +1644,29 @@ import Layout from '../layouts/Layout.astro';
     XLSX.writeFile(wb, `タイムカードR${reiwa}.${monthNum}月分_給与計算.xlsx`);
   };
 
-  renderAdminBar();
-  renderStaff();
-  renderPunch();
-  renderToday();
-  renderHist();
-  renderWage();
+  // ── 起動処理（Supabaseへのログイン→データ読み込み） ──
+  async function boot() {
+    const authResult = await initAuth();
+    if (!authResult.ok) {
+      alert(authResult.error || 'ログインできませんでした。ページを再読み込みしてもう一度お試しください。');
+      return;
+    }
+    try {
+      settings = await fetchSettings();
+      staff = await fetchStaff();
+      await refreshData();
+    } catch (e) {
+      alert('データの読み込みに失敗しました。通信状況を確認してページを再読み込みしてください。');
+      return;
+    }
+    renderAdminBar();
+    renderStaff();
+    renderPunch();
+    renderToday();
+    renderHist();
+    renderWage();
+  }
+  boot();
 </script>
 
 <style is:global>

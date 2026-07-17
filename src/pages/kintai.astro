@@ -273,7 +273,7 @@ import Layout from '../layouts/Layout.astro';
       for (const s of staff) {
         const nn = normalizeName(s.name);
         if (nn.startsWith('渋佐') && nn.endsWith('男') && nn.length === 4) {
-          s.name = '渋佐繁男';
+          s.name = '渋佐　繁男';
           // 他の名前一致マイグレーションが既に完了済みで再実行されない場合に備え、ここでも直接適用する
           s.phoneDutyDisabled = true;
           s.lateShiftDisabled = true;
@@ -282,6 +282,23 @@ import Layout from '../layouts/Layout.astro';
       }
       if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
       localStorage.setItem(MIGRATION_KEY8, '1');
+    }
+  }
+
+  // 「渋佐繁男」の表記に全角スペースを補う（2026-07-16・一度だけ適用）
+  // 上のマイグレーションが先にスペース無しで確定させてしまった端末を、他のスタッフ名と同じ表記へ再修正する
+  {
+    const MIGRATION_KEY9 = 'fuji-kintai-fix-shibusa-space-20260716';
+    if (!localStorage.getItem(MIGRATION_KEY9)) {
+      let changed = false;
+      for (const s of staff) {
+        if (s.name === '渋佐繁男') {
+          s.name = '渋佐　繁男';
+          changed = true;
+        }
+      }
+      if (changed) localStorage.setItem(LS_STAFF, JSON.stringify(staff));
+      localStorage.setItem(MIGRATION_KEY9, '1');
     }
   }
 

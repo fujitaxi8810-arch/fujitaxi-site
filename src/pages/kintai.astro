@@ -693,7 +693,7 @@ import Layout from '../layouts/Layout.astro';
     } else {
       requireAdmin();
     }
-    renderAdminBar(); renderPunch(); renderToday(); renderHist(); renderWage();
+    renderAdminBar(); renderStaff(); renderPunch(); renderToday(); renderHist(); renderWage();
   };
   $('settingsToggleBtn').onclick = () => {
     $('settingsPanel').hidden = !$('settingsPanel').hidden;
@@ -764,30 +764,32 @@ import Layout from '../layouts/Layout.astro';
       selectedId = (selectedId === s.id) ? null : s.id;
       renderStaff(); renderPunch();
     };
-    const edit = document.createElement('span');
-    edit.className = 'kt-staff__edit';
-    edit.textContent = '✎';
-    edit.setAttribute('role', 'button');
-    edit.setAttribute('aria-label', `${s.name}の区分を変更`);
-    edit.onclick = (e) => {
-      e.stopPropagation();
-      editStaff(s);
-    };
-    btn.appendChild(edit);
-    const del = document.createElement('span');
-    del.className = 'kt-staff__del';
-    del.textContent = '×';
-    del.setAttribute('role', 'button');
-    del.setAttribute('aria-label', `${s.name}を削除`);
-    del.onclick = (e) => {
-      e.stopPropagation();
-      if (confirm(`${s.name} を削除しますか？（打刻履歴は残ります）`)) {
-        staff = staff.filter(x => x.id !== s.id);
-        if (selectedId === s.id) selectedId = null;
-        save(); renderStaff(); renderPunch();
-      }
-    };
-    btn.appendChild(del);
+    if (isAdmin()) {
+      const edit = document.createElement('span');
+      edit.className = 'kt-staff__edit';
+      edit.textContent = '✎';
+      edit.setAttribute('role', 'button');
+      edit.setAttribute('aria-label', `${s.name}の区分を変更`);
+      edit.onclick = (e) => {
+        e.stopPropagation();
+        editStaff(s);
+      };
+      btn.appendChild(edit);
+      const del = document.createElement('span');
+      del.className = 'kt-staff__del';
+      del.textContent = '×';
+      del.setAttribute('role', 'button');
+      del.setAttribute('aria-label', `${s.name}を削除`);
+      del.onclick = (e) => {
+        e.stopPropagation();
+        if (confirm(`${s.name} を削除しますか？（打刻履歴は残ります）`)) {
+          staff = staff.filter(x => x.id !== s.id);
+          if (selectedId === s.id) selectedId = null;
+          save(); renderStaff(); renderPunch();
+        }
+      };
+      btn.appendChild(del);
+    }
     return btn;
   }
   function renderStaff() {

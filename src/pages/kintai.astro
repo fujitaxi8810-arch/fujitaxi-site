@@ -1422,7 +1422,7 @@ import Layout from '../layouts/Layout.astro';
     tcSetCell(ws, 'A3', '勤務日数');
     tcFormula(ws, 'B3', `COUNT(L${TC_TABLE_START}:L${endRow})`);
     tcSetCell(ws, 'A4', '実働合計（時間）');
-    tcFormula(ws, 'B4', `SUM(G${TC_TABLE_START}:G${endRow})`, '0.00');
+    tcFormula(ws, 'B4', `SUM(G${TC_TABLE_START}:G${endRow})*24`, '0.00');
     tcSetCell(ws, 'A5', '基本賃金合計（円）');
     tcFormula(ws, 'B5', `SUM(H${TC_TABLE_START}:H${endRow})`, '#,##0');
     tcSetCell(ws, 'A6', '割増・交通費合計（円）');
@@ -1436,7 +1436,7 @@ import Layout from '../layouts/Layout.astro';
     tcSetCell(ws, 'C4', '交通費（1日・円）');
     ws['D4'] = { t: 'n', v: commute, z: '#,##0' };
 
-    const headers = ['日', '曜日', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)', '基本賃金(円)', '残業割増(円)', '深夜割増(円)', '交通費(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
+    const headers = ['日', '曜日', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時:分)', '基本賃金(円)', '残業割増(円)', '深夜割増(円)', '交通費(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
     headers.forEach((h, i) => tcSetCell(ws, XLSX.utils.encode_cell({ r: TC_TABLE_START - 2, c: i }), h));
 
     const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -1452,13 +1452,14 @@ import Layout from '../layouts/Layout.astro';
         tcSetCell(ws, `E${row}`, breakMinutes(rec));
         tcSetCell(ws, `F${row}`, awayMinutes(rec));
       }
-      tcFormula(ws, `G${row}`, `IF(OR($C${row}="",$D${row}=""),"",ROUND(($D${row}-$C${row}+IF($D${row}<$C${row},1,0))*24-IF($E${row}="",0,$E${row})/60-IF($F${row}="",0,$F${row})/60,2))`, '0.00');
-      tcFormula(ws, `H${row}`, `IF($G${row}="","",ROUND($G${row}*$D$3,0))`, '#,##0');
-      tcFormula(ws, `I${row}`, `IF($G${row}="","",ROUND(MAX(0,$G${row}-8)*$D$3*設定!$B$8/100,0))`, '#,##0');
+      // G＝実働時間（日の割合、[h]:mm表示で分単位まで表示。H/I/Mでは*24して時間換算する）
+      tcFormula(ws, `G${row}`, `IF(OR($C${row}="",$D${row}=""),"",($D${row}-$C${row}+IF($D${row}<$C${row},1,0))-IF($E${row}="",0,$E${row})/1440-IF($F${row}="",0,$F${row})/1440)`, '[h]:mm');
+      tcFormula(ws, `H${row}`, `IF($G${row}="","",ROUND($G${row}*24*$D$3,0))`, '#,##0');
+      tcFormula(ws, `I${row}`, `IF($G${row}="","",ROUND(MAX(0,$G${row}*24-8)*$D$3*設定!$B$8/100,0))`, '#,##0');
       tcFormula(ws, `J${row}`, `IF($D${row}="","",ROUND(MAX(0,($D${row}-${NIGHT_START_HOUR}/24))*24*$D$3*設定!$B$8/100,0))`, '#,##0');
       tcFormula(ws, `K${row}`, `IF($G${row}="","",$D$4)`, '#,##0');
       tcFormula(ws, `L${row}`, `IF($H${row}="","",$H${row}+$I${row}+$J${row}+$K${row})`, '#,##0');
-      tcFormula(ws, `M${row}`, `IF(OR($G${row}="",$G${row}=0,$L${row}=""),"",ROUND($L${row}/$G${row},0))`, '#,##0');
+      tcFormula(ws, `M${row}`, `IF(OR($G${row}="",$G${row}=0,$L${row}=""),"",ROUND($L${row}/($G${row}*24),0))`, '#,##0');
       tcFormula(ws, `N${row}`, `IF($M${row}="","",IF($M${row}<設定!$B$7,"最低賃金未満","OK"))`);
     }
 

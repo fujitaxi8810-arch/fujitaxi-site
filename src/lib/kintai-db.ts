@@ -18,6 +18,9 @@ export type Staff = {
   commuteAllowance: number;
   phoneDutyDisabled: boolean;
   lateShiftDisabled: boolean;
+  shiftShuttle: boolean;
+  shiftSpecial: boolean;
+  shiftGroup: 'office' | 'jumbo' | null;
 };
 
 export type Payments = Record<string, number>;
@@ -142,6 +145,9 @@ function rowToStaff(row: any): Staff {
     commuteAllowance: row.commute_allowance,
     phoneDutyDisabled: row.phone_duty_disabled,
     lateShiftDisabled: row.late_shift_disabled,
+    shiftShuttle: row.shift_shuttle,
+    shiftSpecial: row.shift_special,
+    shiftGroup: row.shift_group,
   };
 }
 
@@ -327,5 +333,68 @@ export async function upsertAttendance(rec: Partial<Attendance> & { staffId: str
 
 export async function deleteAllAttendance(): Promise<void> {
   const { error } = await supabase.from('attendance').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  if (error) throw error;
+}
+
+// ── shift plan（月次シフト作成） ──
+export type ShiftCode = '公' | '①' | '③' | 'シャトル便' | 'S' | '貸切';
+
+export type Shift = {
+  staffId: string;
+  workDate: string; // 'YYYY-MM-DD'
+  code: ShiftCode;
+};
+
+function rowToShift(row: any): Shift {
+  return {
+    staffId: row.staff_id,
+    workDate: row.work_date,
+    code: row.code,
+  };
+}
+
+export async function fetchShiftMonth(month: string): Promise<Shift[]> {
+  const { data, error } = await supabase
+    .from('shifts')
+    .select('*')
+    .gte('work_date', `${month}-01`)
+    .lte('work_date', `${month}-31`);
+  if (error) throw error;
+  return (data || []).map(rowToShift);
+}
+
+export async function upsertShift(rec: Shift): Promise<void> {
+  const { error } = await supabase
+    .from('shifts')
+    .upsert(
+      { staff_id: rec.staffId, work_date: rec.workDate, code: rec.code },
+      { onConflict: 'staff_id,work_date' }
+    );
+  if (error) throw error;
+}
+
+export async function deleteShift(staffId: string, workDate: string): Promise<void> {
+  const { error } = await supabase
+    .from('shifts')
+    .delete()
+    .eq('staff_id', staffId)
+    .eq('work_date', workDate);
+  if (error) throw error;
+}
+
+export async function fetchShiftNote(month: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('shift_notes')
+    .select('note')
+    .eq('month', month)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.note || '';
+}
+
+export async function upsertShiftNote(month: string, note: string): Promise<void> {
+  const { error } = await supabase
+    .from('shift_notes')
+    .upsert({ month, note }, { onConflict: 'month' });
   if (error) throw error;
 }

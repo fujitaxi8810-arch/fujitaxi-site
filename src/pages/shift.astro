@@ -1,0 +1,552 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="シフト作成 – 富士タクシー（社内用）"
+  description="富士タクシー社内用の月次シフト作成アプリ。スタッフごとに普通番・遅番・公休などを割り当てて管理できます。"
+>
+
+  <section class="page-hero bg-black">
+    <div class="container">
+      <p class="eyebrow">Staff Only</p>
+      <h1>シフト<span class="text-yellow">作成</span></h1>
+      <p class="page-hero__lead">月次の乗務シフト表を作成・確認できます。このページは社内用です。</p>
+    </div>
+  </section>
+
+  <section class="section bg-black" style="padding-top: 1rem;">
+    <div class="container kintai-wrap sf-wrap">
+
+      <!-- 管理者ロック -->
+      <div class="kt-adminbar">
+        <span class="kt-adminbar__label" id="adminState">🔒 閲覧のみ（編集は管理者ロック解除後）</span>
+        <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
+      </div>
+
+      <!-- シフト表 -->
+      <div class="kt-panel">
+        <div class="kt-panel__head">
+          <h2 class="kt-title">シフト表</h2>
+          <div class="kt-panel__tools">
+            <button type="button" class="kt-btn kt-btn--ghost" id="prevMonthBtn">◀</button>
+            <input type="month" id="monthPick" class="kt-input" />
+            <button type="button" class="kt-btn kt-btn--ghost" id="nextMonthBtn">▶</button>
+          </div>
+        </div>
+
+        <p class="sf-legend">
+          公＝公休　①＝普通番(7:00-16:00)　③＝遅番(15:30-24:30)　シャトル便　S　貸切<br />
+          セルをクリックで順番に切り替わります。右クリックで一覧から直接選べます。
+        </p>
+
+        <div class="kt-panel__tools sf-admintools" id="adminTools" hidden>
+          <button type="button" class="kt-btn kt-btn--ghost" id="copyPrevBtn">前月の内容をコピー</button>
+          <button type="button" class="kt-btn" id="printBtn">印刷</button>
+        </div>
+
+        <div class="kt-table-wrap sf-grid-wrap">
+          <table class="kt-table sf-grid" id="shiftTable"></table>
+        </div>
+        <p class="kt-empty" id="staffEmpty" hidden>スタッフが登録されていません。</p>
+      </div>
+
+      <!-- 備考 -->
+      <div class="kt-panel" id="notePanel">
+        <div class="kt-panel__head">
+          <h2 class="kt-title">備考</h2>
+          <button type="button" class="kt-btn kt-btn--ghost" id="noteSaveBtn" hidden>保存</button>
+        </div>
+        <textarea class="kt-input sf-note" id="noteInput" rows="3" readonly placeholder="例：9月の希望休の提出期限は、8月15日までにお願いいたします。"></textarea>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- コード選択ポップアップ -->
+  <div class="kt-modal-overlay" id="codeModal" hidden>
+    <div class="kt-modal sf-code-modal" role="dialog" aria-modal="true" aria-labelledby="codeModalTitle">
+      <h2 class="kt-title" id="codeModalTitle"></h2>
+      <div class="sf-code-options" id="codeOptions"></div>
+      <div class="kt-modal__actions">
+        <button type="button" class="kt-btn kt-btn--danger" id="codeClearBtn">クリア</button>
+        <button type="button" class="kt-btn kt-btn--ghost" id="codeCancelBtn">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import {
+      initAuth, isAdmin, signInAdmin, signOutToKiosk,
+      fetchStaff,
+      fetchShiftMonth, upsertShift, deleteShift,
+      fetchShiftNote, upsertShiftNote,
+    } from '../lib/kintai-db';
+
+    const $ = (id) => document.getElementById(id);
+    const SAVE_FAIL_MSG = '通信エラーで保存できませんでした。電波状況を確認してもう一度お試しください。';
+    const WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
+    const CODE_LABELS = {
+      '公': '公休',
+      '①': '①普通番 7:00-16:00',
+      '③': '③遅番 15:30-24:30',
+      'シャトル便': 'シャトル便',
+      'S': 'S',
+      '貸切': '貸切',
+    };
+    const CODE_CLASS = {
+      '公': 'sf-code--off',
+      '①': 'sf-code--normal',
+      '③': 'sf-code--late',
+      'シャトル便': 'sf-code--shuttle',
+      'S': 'sf-code--special',
+      '貸切': 'sf-code--charter',
+    };
+    function classForCode(code) {
+      return 'sf-code' + (code ? ' sf-code--filled ' + (CODE_CLASS[code] || '') : '');
+    }
+
+    let staff = [];
+    let shiftMap = new Map(); // `${staffId}|${workDate}` -> code
+    let noteText = '';
+    let modalTarget = null; // { staffId, workDate }
+
+    function shiftKey(staffId, workDate) {
+      return `${staffId}|${workDate}`;
+    }
+    function dateKey(d) {
+      const dt = d ? new Date(d) : new Date();
+      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    }
+    function currentMonth() {
+      return $('monthPick').value || dateKey().slice(0, 7);
+    }
+    function prevMonthOf(month) {
+      const [y, m] = month.split('-').map(Number);
+      const d = new Date(y, m - 2, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+    function nextMonthOf(month) {
+      const [y, m] = month.split('-').map(Number);
+      const d = new Date(y, m, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+    function daysInMonth(month) {
+      const [y, m] = month.split('-').map(Number);
+      return new Date(y, m, 0).getDate();
+    }
+    function monthLabel(month) {
+      const [y, m] = month.split('-').map(Number);
+      return `${y}年${m}月`;
+    }
+
+    $('monthPick').value = dateKey().slice(0, 7);
+
+    async function refreshData() {
+      const month = currentMonth();
+      const [rows, note] = await Promise.all([
+        fetchShiftMonth(month),
+        fetchShiftNote(month),
+      ]);
+      shiftMap = new Map(rows.map((r) => [shiftKey(r.staffId, r.workDate), r.code]));
+      noteText = note;
+    }
+
+    function renderAdminBar() {
+      const unlocked = isAdmin();
+      $('adminState').textContent = unlocked ? '🔓 編集可能' : '🔒 閲覧のみ（編集は管理者ロック解除後）';
+      $('adminToggleBtn').textContent = unlocked ? 'ロックする' : '管理者ロック解除';
+      $('adminTools').hidden = !unlocked;
+      $('noteSaveBtn').hidden = !unlocked;
+      $('noteInput').readOnly = !unlocked;
+    }
+
+    async function requireAdmin() {
+      if (isAdmin()) return true;
+      const email = prompt('管理者アカウントのメールアドレスを入力してください。', 'admin@fujitaxi.local');
+      if (!email) return false;
+      const password = prompt('管理者パスワードを入力してください。');
+      if (!password) return false;
+      const result = await signInAdmin(email.trim(), password);
+      if (!result.ok) {
+        alert(result.error || 'ログインに失敗しました。');
+        return false;
+      }
+      return true;
+    }
+
+    $('adminToggleBtn').onclick = async () => {
+      if (isAdmin()) {
+        await signOutToKiosk();
+      } else {
+        await requireAdmin();
+      }
+      renderAdminBar();
+      renderGrid();
+    };
+
+    function renderGrid() {
+      const month = currentMonth();
+      const days = daysInMonth(month);
+      const [y, m] = month.split('-').map(Number);
+      const table = $('shiftTable');
+      table.innerHTML = '';
+      const unlocked = isAdmin();
+
+      const thead = document.createElement('thead');
+      const rowDate = document.createElement('tr');
+      const rowWeek = document.createElement('tr');
+      rowDate.appendChild(document.createElement('th')).textContent = '氏名＼日';
+      rowWeek.appendChild(document.createElement('th'));
+      for (let d = 1; d <= days; d++) {
+        const wd = new Date(y, m - 1, d).getDay();
+        const isWeekend = wd === 0 || wd === 6;
+        const thD = document.createElement('th');
+        thD.textContent = String(d);
+        if (isWeekend) thD.classList.add('sf-weekend');
+        rowDate.appendChild(thD);
+        const thW = document.createElement('th');
+        thW.textContent = WEEKDAY_JA[wd];
+        thW.classList.add('sf-weekday');
+        if (isWeekend) thW.classList.add('sf-weekend');
+        rowWeek.appendChild(thW);
+      }
+      thead.appendChild(rowDate);
+      thead.appendChild(rowWeek);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+
+      function addGroupHeader(label) {
+        const tr = document.createElement('tr');
+        const th = document.createElement('th');
+        th.textContent = label;
+        th.colSpan = days + 1;
+        th.className = 'sf-group-header';
+        tr.appendChild(th);
+        tbody.appendChild(tr);
+      }
+      function addStaffRow(s) {
+        const tr = document.createElement('tr');
+        const nameTh = document.createElement('th');
+        nameTh.textContent = s.name;
+        nameTh.classList.add('sf-name');
+        tr.appendChild(nameTh);
+        for (let d = 1; d <= days; d++) {
+          const workDate = `${month}-${String(d).padStart(2, '0')}`;
+          const code = shiftMap.get(shiftKey(s.id, workDate)) || '';
+          const wd = new Date(y, m - 1, d).getDay();
+          const td = document.createElement('td');
+          td.classList.add('sf-cell');
+          if (wd === 0 || wd === 6) td.classList.add('sf-weekend');
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = classForCode(code);
+          btn.textContent = code || '－';
+          if (unlocked) {
+            btn.onclick = () => cycleCell(s, workDate, btn);
+            btn.oncontextmenu = (e) => {
+              e.preventDefault();
+              openCodeModal(s, workDate, shiftMap.get(shiftKey(s.id, workDate)) || '');
+            };
+          } else {
+            btn.disabled = true;
+          }
+          td.appendChild(btn);
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+
+      const mainStaff = staff.filter((s) => s.shiftGroup !== 'office' && s.shiftGroup !== 'jumbo');
+      const officeStaff = staff.filter((s) => s.shiftGroup === 'office');
+      const jumboStaff = staff.filter((s) => s.shiftGroup === 'jumbo');
+
+      mainStaff.forEach(addStaffRow);
+      if (officeStaff.length) {
+        addGroupHeader('経理・配車業務担当');
+        officeStaff.forEach(addStaffRow);
+      }
+      if (jumboStaff.length) {
+        addGroupHeader('ジャンボタクシー受付担当');
+        jumboStaff.forEach(addStaffRow);
+      }
+      table.appendChild(tbody);
+
+      $('staffEmpty').hidden = staff.length > 0;
+    }
+
+    function renderNote() {
+      $('noteInput').value = noteText;
+    }
+
+    function codesFor(s) {
+      const codes = ['公', '①', '③'];
+      if (s.shiftShuttle) codes.push('シャトル便');
+      if (s.shiftSpecial) codes.push('S');
+      codes.push('貸切');
+      return codes;
+    }
+
+    async function cycleCell(s, workDate, btn) {
+      if (btn.disabled) return;
+      const cycle = ['', ...codesFor(s)];
+      const currentCode = shiftMap.get(shiftKey(s.id, workDate)) || '';
+      const nextCode = cycle[(cycle.indexOf(currentCode) + 1) % cycle.length];
+      btn.disabled = true;
+      try {
+        if (nextCode) {
+          await upsertShift({ staffId: s.id, workDate, code: nextCode });
+        } else {
+          await deleteShift(s.id, workDate);
+        }
+        shiftMap.set(shiftKey(s.id, workDate), nextCode);
+        btn.textContent = nextCode || '－';
+        btn.className = classForCode(nextCode);
+      } catch (e) {
+        alert(SAVE_FAIL_MSG);
+      }
+      btn.disabled = false;
+    }
+
+    function openCodeModal(s, workDate, currentCode) {
+      modalTarget = { staffId: s.id, workDate };
+      $('codeModalTitle').textContent = `${s.name}　${workDate}`;
+      const wrap = $('codeOptions');
+      wrap.innerHTML = '';
+      const codes = codesFor(s);
+      codes.forEach((code) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'kt-staff' + (code === currentCode ? ' is-active' : '');
+        b.textContent = CODE_LABELS[code] || code;
+        b.onclick = async () => {
+          const target = modalTarget;
+          if (!target) return;
+          try {
+            await upsertShift({ staffId: target.staffId, workDate: target.workDate, code });
+            shiftMap.set(shiftKey(target.staffId, target.workDate), code);
+            closeCodeModal();
+            renderGrid();
+          } catch (e) {
+            alert(SAVE_FAIL_MSG);
+          }
+        };
+        wrap.appendChild(b);
+      });
+      $('codeModal').hidden = false;
+    }
+    function closeCodeModal() {
+      $('codeModal').hidden = true;
+      modalTarget = null;
+    }
+    $('codeCancelBtn').onclick = closeCodeModal;
+    $('codeClearBtn').onclick = async () => {
+      const target = modalTarget;
+      if (!target) return;
+      try {
+        await deleteShift(target.staffId, target.workDate);
+        shiftMap.delete(shiftKey(target.staffId, target.workDate));
+        closeCodeModal();
+        renderGrid();
+      } catch (e) {
+        alert(SAVE_FAIL_MSG);
+      }
+    };
+
+    async function reloadMonth() {
+      try {
+        await refreshData();
+      } catch (e) {
+        alert('データの取得に失敗しました。通信状況を確認してください。');
+        return;
+      }
+      renderGrid();
+      renderNote();
+    }
+    $('prevMonthBtn').onclick = async () => {
+      $('monthPick').value = prevMonthOf(currentMonth());
+      await reloadMonth();
+    };
+    $('nextMonthBtn').onclick = async () => {
+      $('monthPick').value = nextMonthOf(currentMonth());
+      await reloadMonth();
+    };
+    $('monthPick').onchange = reloadMonth;
+
+    $('noteSaveBtn').onclick = async () => {
+      if (!isAdmin()) return;
+      const month = currentMonth();
+      const val = $('noteInput').value;
+      try {
+        await upsertShiftNote(month, val);
+        noteText = val;
+        alert('備考を保存しました。');
+      } catch (e) {
+        alert(SAVE_FAIL_MSG);
+      }
+    };
+
+    $('copyPrevBtn').onclick = async () => {
+      if (!isAdmin()) return;
+      const month = currentMonth();
+      const prev = prevMonthOf(month);
+      if (!confirm(`${monthLabel(prev)}の内容を${monthLabel(month)}にコピーします。既存の入力は上書きされます。よろしいですか？`)) return;
+      try {
+        const prevShifts = await fetchShiftMonth(prev);
+        const days = daysInMonth(month);
+        await Promise.all(
+          prevShifts
+            .filter((rec) => Number(rec.workDate.slice(8, 10)) <= days)
+            .map(async (rec) => {
+              const day = rec.workDate.slice(8, 10);
+              const workDate = `${month}-${day}`;
+              await upsertShift({ staffId: rec.staffId, workDate, code: rec.code });
+              shiftMap.set(shiftKey(rec.staffId, workDate), rec.code);
+            })
+        );
+        renderGrid();
+        alert('前月の内容をコピーしました。');
+      } catch (e) {
+        alert(SAVE_FAIL_MSG);
+      }
+    };
+
+    $('printBtn').onclick = () => window.print();
+
+    async function boot() {
+      const authResult = await initAuth();
+      if (!authResult.ok) {
+        alert(authResult.error || 'ログインできませんでした。ページを再読み込みしてもう一度お試しください。');
+        return;
+      }
+      try {
+        staff = await fetchStaff();
+        await refreshData();
+      } catch (e) {
+        alert('データの読み込みに失敗しました。ページを再読み込みしてもう一度お試しください。');
+        return;
+      }
+      renderAdminBar();
+      renderGrid();
+      renderNote();
+    }
+    boot();
+  </script>
+
+  <style is:global>
+    .sf-wrap { max-width: 100%; }
+    .sf-legend {
+      color: rgba(255,255,255,0.85);
+      font-size: 0.9rem;
+      margin: 0.25rem 0 0.75rem;
+    }
+    .sf-admintools { margin-bottom: 0.75rem; }
+    .sf-grid-wrap { overflow-x: auto; }
+    .sf-grid { border-collapse: collapse; }
+    .sf-grid th, .sf-grid td { text-align: center; padding: 0.3rem 0.4rem; }
+    .sf-grid th.sf-name, .sf-grid td.sf-cell { text-align: center; }
+    th.sf-name {
+      text-align: left !important;
+      color: #fff;
+      white-space: nowrap;
+      position: sticky;
+      left: 0;
+      background: var(--fuji-black-card, #1a1a1a);
+      z-index: 1;
+    }
+    .sf-grid thead th:first-child {
+      position: sticky;
+      left: 0;
+      background: var(--fuji-black-card, #1a1a1a);
+      z-index: 2;
+    }
+    .sf-weekday { font-size: 0.8rem; color: rgba(255,255,255,0.6); }
+    .sf-weekend { background: rgba(224,85,85,0.08); }
+    .sf-group-header {
+      text-align: left !important;
+      color: var(--fuji-black);
+      background: var(--fuji-yellow);
+      font-weight: 900;
+      font-size: 0.95rem;
+      padding: 0.4rem 0.6rem;
+    }
+    .sf-code {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: var(--radius-md);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      min-width: 44px;
+      min-height: 36px;
+      padding: 0.2rem 0.3rem;
+      cursor: pointer;
+    }
+    .sf-code:disabled { cursor: default; opacity: 0.85; }
+    .sf-code--filled {
+      background: rgba(245,200,0,0.18);
+      border-color: var(--fuji-yellow);
+      color: var(--fuji-yellow);
+    }
+    .sf-code--off {
+      background: rgba(224,85,85,0.2);
+      border-color: #e05555;
+      color: #ff9a9a;
+    }
+    .sf-code--normal {
+      background: rgba(76,175,125,0.2);
+      border-color: #4caf7d;
+      color: #6fd8a0;
+    }
+    .sf-code--late {
+      background: rgba(106,176,243,0.2);
+      border-color: #6ab0f3;
+      color: #8fc5f8;
+    }
+    .sf-code--shuttle {
+      background: rgba(180,143,248,0.2);
+      border-color: #b48ff8;
+      color: #c9aefb;
+    }
+    .sf-code--special {
+      background: rgba(79,209,197,0.2);
+      border-color: #4fd1c5;
+      color: #7fe0d6;
+    }
+    .sf-code--charter {
+      background: rgba(247,143,179,0.2);
+      border-color: #f78fb3;
+      color: #f9abc4;
+    }
+    .sf-note {
+      width: 100%;
+      resize: vertical;
+      font-family: inherit;
+    }
+    .sf-code-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    @media print {
+      .nav, .footer, .page-hero, .kt-adminbar, .sf-admintools, #noteSaveBtn { display: none !important; }
+      body, .section { background: #fff !important; }
+      .kt-panel { border-color: #000; background: #fff; }
+      .kt-title { color: #000; }
+      .sf-legend { color: #000; }
+      .sf-grid th, .sf-grid td { color: #000; }
+      th.sf-name, .sf-grid thead th:first-child { background: #fff; }
+      .sf-code { background: #fff; border-color: #000; color: #000; }
+      .sf-code--filled { background: #eee; border-color: #000; color: #000; }
+      .sf-code--off { background: #fbdcdc; }
+      .sf-code--normal { background: #dcf3e6; }
+      .sf-code--late { background: #dcebfb; }
+      .sf-code--shuttle { background: #ecdcfb; }
+      .sf-code--special { background: #dcf7f4; }
+      .sf-code--charter { background: #fbe1ea; }
+      .sf-note { color: #000; background: #fff; border-color: #000; }
+    }
+  </style>
+</Layout>

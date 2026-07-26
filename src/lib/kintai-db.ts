@@ -16,11 +16,13 @@ export type Staff = {
   monthlyWage: number | null;
   dailyWage: number | null;
   commuteAllowance: number;
+  commuteType: 'monthly' | 'daily';
   phoneDutyDisabled: boolean;
   lateShiftDisabled: boolean;
   shiftShuttle: boolean;
   shiftSpecial: boolean;
-  shiftGroup: 'office' | 'jumbo' | null;
+  shiftGroup: 'office' | 'maintenance' | 'jumbo' | null;
+  shiftDisplayOrder: number | null;
 };
 
 export type Payments = Record<string, number>;
@@ -40,6 +42,7 @@ export type Attendance = {
   monthlyWage: number | null;
   dailyWage: number | null;
   commute: number | null;
+  commuteType: 'monthly' | 'daily' | null;
   salesGross: number | null;
   sales: number | null;
   uncollected: number | null;
@@ -143,11 +146,13 @@ function rowToStaff(row: any): Staff {
     monthlyWage: row.monthly_wage,
     dailyWage: row.daily_wage,
     commuteAllowance: row.commute_allowance,
+    commuteType: row.commute_type || 'monthly',
     phoneDutyDisabled: row.phone_duty_disabled,
     lateShiftDisabled: row.late_shift_disabled,
     shiftShuttle: row.shift_shuttle,
     shiftSpecial: row.shift_special,
     shiftGroup: row.shift_group,
+    shiftDisplayOrder: row.shift_display_order,
   };
 }
 
@@ -168,6 +173,7 @@ export async function insertStaff(input: {
   monthlyWage?: number | null;
   dailyWage?: number | null;
   commuteAllowance?: number;
+  commuteType?: 'monthly' | 'daily';
 }): Promise<Staff> {
   const { data: maxRow } = await supabase
     .from('staff')
@@ -186,6 +192,7 @@ export async function insertStaff(input: {
       monthly_wage: input.monthlyWage ?? null,
       daily_wage: input.dailyWage ?? null,
       commute_allowance: input.commuteAllowance ?? 0,
+      commute_type: input.commuteType ?? 'monthly',
     })
     .select()
     .single();
@@ -199,6 +206,7 @@ export async function updateStaff(id: string, patch: Partial<{
   monthlyWage: number | null;
   dailyWage: number | null;
   commuteAllowance: number;
+  commuteType: 'monthly' | 'daily';
 }>): Promise<void> {
   const dbPatch: Record<string, unknown> = {};
   if (patch.type !== undefined) dbPatch.emp_type = patch.type;
@@ -206,6 +214,7 @@ export async function updateStaff(id: string, patch: Partial<{
   if (patch.monthlyWage !== undefined) dbPatch.monthly_wage = patch.monthlyWage;
   if (patch.dailyWage !== undefined) dbPatch.daily_wage = patch.dailyWage;
   if (patch.commuteAllowance !== undefined) dbPatch.commute_allowance = patch.commuteAllowance;
+  if (patch.commuteType !== undefined) dbPatch.commute_type = patch.commuteType;
   const { error } = await supabase.from('staff').update(dbPatch).eq('id', id);
   if (error) throw error;
 }
@@ -263,6 +272,7 @@ function rowToAttendance(row: any): Attendance {
     monthlyWage: row.monthly_wage,
     dailyWage: row.daily_wage,
     commute: row.commute,
+    commuteType: row.commute_type,
     salesGross: row.sales_gross,
     sales: row.sales,
     uncollected: row.uncollected,
@@ -316,6 +326,7 @@ export async function upsertAttendance(rec: Partial<Attendance> & { staffId: str
   if (rec.monthlyWage !== undefined) dbRow.monthly_wage = rec.monthlyWage;
   if (rec.dailyWage !== undefined) dbRow.daily_wage = rec.dailyWage;
   if (rec.commute !== undefined) dbRow.commute = rec.commute;
+  if (rec.commuteType !== undefined) dbRow.commute_type = rec.commuteType;
   if (rec.salesGross !== undefined) dbRow.sales_gross = rec.salesGross;
   if (rec.sales !== undefined) dbRow.sales = rec.sales;
   if (rec.uncollected !== undefined) dbRow.uncollected = rec.uncollected;
@@ -337,12 +348,13 @@ export async function deleteAllAttendance(): Promise<void> {
 }
 
 // ── shift plan（月次シフト作成） ──
-export type ShiftCode = '公' | '①' | '③' | 'シャトル便' | 'S' | '貸切';
+export type ShiftCode = '公' | '①' | '③' | 'SH' | 'S' | '貸切' | '有給';
 
 export type Shift = {
   staffId: string;
   workDate: string; // 'YYYY-MM-DD'
   code: ShiftCode;
+  phoneDuty: boolean;
 };
 
 function rowToShift(row: any): Shift {
@@ -350,6 +362,7 @@ function rowToShift(row: any): Shift {
     staffId: row.staff_id,
     workDate: row.work_date,
     code: row.code,
+    phoneDuty: row.phone_duty,
   };
 }
 
@@ -367,7 +380,7 @@ export async function upsertShift(rec: Shift): Promise<void> {
   const { error } = await supabase
     .from('shifts')
     .upsert(
-      { staff_id: rec.staffId, work_date: rec.workDate, code: rec.code },
+      { staff_id: rec.staffId, work_date: rec.workDate, code: rec.code, phone_duty: rec.phoneDuty },
       { onConflict: 'staff_id,work_date' }
     );
   if (error) throw error;
@@ -397,4 +410,43 @@ export async function upsertShiftNote(month: string, note: string): Promise<void
     .from('shift_notes')
     .upsert({ month, note }, { onConflict: 'month' });
   if (error) throw error;
+}
+
+// ── shift history（DBトリガーが自動記録。クライアントからは読み取りのみ） ──
+export type ShiftHistoryEntry = {
+  id: string;
+  staffId: string;
+  workDate: string;
+  oldCode: ShiftCode | null;
+  newCode: ShiftCode | null;
+  oldPhoneDuty: boolean | null;
+  newPhoneDuty: boolean | null;
+  changedBy: string | null;
+  changedAt: string;
+};
+
+function rowToShiftHistory(row: any): ShiftHistoryEntry {
+  return {
+    id: row.id,
+    staffId: row.staff_id,
+    workDate: row.work_date,
+    oldCode: row.old_code,
+    newCode: row.new_code,
+    oldPhoneDuty: row.old_phone_duty,
+    newPhoneDuty: row.new_phone_duty,
+    changedBy: row.changed_by,
+    changedAt: row.changed_at,
+  };
+}
+
+export async function fetchShiftHistory(month: string): Promise<ShiftHistoryEntry[]> {
+  const { data, error } = await supabase
+    .from('shift_history')
+    .select('*')
+    .gte('work_date', `${month}-01`)
+    .lte('work_date', `${month}-31`)
+    .order('changed_at', { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return (data || []).map(rowToShiftHistory);
 }

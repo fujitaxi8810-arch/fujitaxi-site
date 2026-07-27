@@ -36,8 +36,8 @@ import Layout from '../layouts/Layout.astro';
         </div>
 
         <p class="sf-legend">
-          公＝公休　①＝普通番(7:00-16:00)　③＝遅番(15:30-24:30)　シャトル便　S　貸切<br />
-          セルをクリックで順番に切り替わります。右クリックで一覧から直接選べます。
+          公＝公休　①＝普通番(7:00-16:00)　③＝遅番(15:30-24:30)　SH＝シャトル便　S　貸切　有給<br />
+          セルをクリックで順番に切り替わります。右クリックで一覧から直接選べます（電話番の設定もここから）。右上の赤丸は電話番担当を表します。
         </p>
 
         <div class="kt-panel__tools sf-admintools" id="adminTools" hidden>
@@ -49,6 +49,43 @@ import Layout from '../layouts/Layout.astro';
           <table class="kt-table sf-grid" id="shiftTable"></table>
         </div>
         <p class="kt-empty" id="staffEmpty" hidden>スタッフが登録されていません。</p>
+      </div>
+
+      <!-- 月次サマリー（管理者のみ） -->
+      <div class="kt-panel" id="summaryPanel" hidden>
+        <h2 class="kt-title">月次サマリー（管理者）</h2>
+        <p class="sf-legend">稼働日数＝①＋③＋SH＋S＋貸切の合計（公休・有給・未入力は含みません）</p>
+        <div class="kt-table-wrap sf-grid-wrap">
+          <table class="kt-table sf-grid" id="summaryTable"></table>
+        </div>
+      </div>
+
+      <!-- シフトと実績の差異（管理者のみ） -->
+      <div class="kt-panel" id="discrepancyPanel" hidden>
+        <h2 class="kt-title">シフトと実績の差異（管理者）</h2>
+        <p class="sf-legend">シフト予定（このページ）と勤怠打刻（/kintai）を突き合わせて、食い違いがある日を一覧表示します。</p>
+        <div class="kt-table-wrap sf-grid-wrap" id="discrepancyWrap"></div>
+      </div>
+
+      <!-- 拘束時間・休息期間チェック（管理者のみ） -->
+      <div class="kt-panel" id="bindingPanel" hidden>
+        <h2 class="kt-title">拘束時間・休息期間チェック（管理者）</h2>
+        <p class="sf-legend">
+          タクシー運転者の改善基準告示（2024年4月施行）に基づく目安です。実際の打刻（出勤〜退勤）から自動計算しています。<br />
+          日次拘束時間：注意13時間超／違反16時間超　休息期間：注意11時間未満／違反9時間未満　月間拘束時間：違反288時間超<br />
+          ※運転時間・連続運転時間はkintaiで記録していないためチェック対象外です。あくまで目安であり、最終判断は別途行ってください。
+        </p>
+        <div class="kt-table-wrap sf-grid-wrap" id="bindingWrap"></div>
+      </div>
+
+      <!-- 変更履歴（管理者のみ） -->
+      <div class="kt-panel" id="historyPanel" hidden>
+        <div class="kt-panel__head">
+          <h2 class="kt-title">変更履歴（管理者）</h2>
+          <button type="button" class="kt-btn kt-btn--ghost" id="historyRefreshBtn">更新</button>
+        </div>
+        <p class="sf-legend">この月の変更を新しい順に最大200件表示します。「元に戻す」で変更前の状態に戻せます。</p>
+        <div class="kt-table-wrap sf-grid-wrap" id="historyWrap"></div>
       </div>
 
       <!-- 備考 -->
@@ -68,6 +105,7 @@ import Layout from '../layouts/Layout.astro';
     <div class="kt-modal sf-code-modal" role="dialog" aria-modal="true" aria-labelledby="codeModalTitle">
       <h2 class="kt-title" id="codeModalTitle"></h2>
       <div class="sf-code-options" id="codeOptions"></div>
+      <div id="phoneToggleWrap"></div>
       <div class="kt-modal__actions">
         <button type="button" class="kt-btn kt-btn--danger" id="codeClearBtn">クリア</button>
         <button type="button" class="kt-btn kt-btn--ghost" id="codeCancelBtn">キャンセル</button>
@@ -78,38 +116,68 @@ import Layout from '../layouts/Layout.astro';
   <script>
     import {
       initAuth, isAdmin, signInAdmin, signOutToKiosk,
-      fetchStaff,
+      fetchStaff, fetchMonth,
       fetchShiftMonth, upsertShift, deleteShift,
       fetchShiftNote, upsertShiftNote,
+      fetchShiftHistory,
     } from '../lib/kintai-db';
+    // シフト選択なしの単一出勤ボタンを使う区分（kintai.astroのusesSimplePunchと同じ判定）
+    function usesSimplePunch(t) { return t === 'part' || t === 'fulltime-hourly' || t === 'monthly'; }
+    const WORK_CODES = ['①', '③', 'SH', 'S', '貸切'];
 
     const $ = (id) => document.getElementById(id);
     const SAVE_FAIL_MSG = '通信エラーで保存できませんでした。電波状況を確認してもう一度お試しください。';
     const WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
+    // 内閣府発表の国民の祝日（2025〜2027年）。年をまたぐ場合は追記が必要
+    const HOLIDAYS = {
+      '2025-01-01': '元日', '2025-01-13': '成人の日', '2025-02-11': '建国記念の日',
+      '2025-02-23': '天皇誕生日', '2025-02-24': '振替休日', '2025-03-20': '春分の日',
+      '2025-04-29': '昭和の日', '2025-05-03': '憲法記念日', '2025-05-04': 'みどりの日',
+      '2025-05-05': 'こどもの日', '2025-05-06': '振替休日', '2025-07-21': '海の日',
+      '2025-08-11': '山の日', '2025-09-15': '敬老の日', '2025-09-23': '秋分の日',
+      '2025-10-13': 'スポーツの日', '2025-11-03': '文化の日', '2025-11-23': '勤労感謝の日',
+      '2025-11-24': '振替休日',
+      '2026-01-01': '元日', '2026-01-12': '成人の日', '2026-02-11': '建国記念の日',
+      '2026-02-23': '天皇誕生日', '2026-03-20': '春分の日', '2026-04-29': '昭和の日',
+      '2026-05-03': '憲法記念日', '2026-05-04': 'みどりの日', '2026-05-05': 'こどもの日',
+      '2026-05-06': '振替休日', '2026-07-20': '海の日', '2026-08-11': '山の日',
+      '2026-09-21': '敬老の日', '2026-09-22': '国民の休日', '2026-09-23': '秋分の日',
+      '2026-10-12': 'スポーツの日', '2026-11-03': '文化の日', '2026-11-23': '勤労感謝の日',
+      '2027-01-01': '元日', '2027-01-11': '成人の日', '2027-02-11': '建国記念の日',
+      '2027-02-23': '天皇誕生日', '2027-03-21': '春分の日', '2027-03-22': '振替休日',
+      '2027-04-29': '昭和の日', '2027-05-03': '憲法記念日', '2027-05-04': 'みどりの日',
+      '2027-05-05': 'こどもの日', '2027-07-19': '海の日', '2027-08-11': '山の日',
+      '2027-09-20': '敬老の日', '2027-09-23': '秋分の日', '2027-10-11': 'スポーツの日',
+      '2027-11-03': '文化の日', '2027-11-23': '勤労感謝の日',
+    };
     const CODE_LABELS = {
       '公': '公休',
       '①': '①普通番 7:00-16:00',
       '③': '③遅番 15:30-24:30',
-      'シャトル便': 'シャトル便',
+      'SH': 'SH（シャトル便）',
       'S': 'S',
       '貸切': '貸切',
+      '有給': '有給',
     };
     const CODE_CLASS = {
       '公': 'sf-code--off',
       '①': 'sf-code--normal',
       '③': 'sf-code--late',
-      'シャトル便': 'sf-code--shuttle',
+      'SH': 'sf-code--shuttle',
       'S': 'sf-code--special',
       '貸切': 'sf-code--charter',
+      '有給': 'sf-code--paid',
     };
     function classForCode(code) {
       return 'sf-code' + (code ? ' sf-code--filled ' + (CODE_CLASS[code] || '') : '');
     }
 
     let staff = [];
-    let shiftMap = new Map(); // `${staffId}|${workDate}` -> code
+    let shiftMap = new Map(); // `${staffId}|${workDate}` -> { code, phoneDuty }
+    let attendanceMap = new Map(); // `${staffId}|${workDate}` -> Attendance
     let noteText = '';
     let modalTarget = null; // { staffId, workDate }
+    let historyList = [];
 
     function shiftKey(staffId, workDate) {
       return `${staffId}|${workDate}`;
@@ -144,11 +212,13 @@ import Layout from '../layouts/Layout.astro';
 
     async function refreshData() {
       const month = currentMonth();
-      const [rows, note] = await Promise.all([
+      const [rows, note, attRows] = await Promise.all([
         fetchShiftMonth(month),
         fetchShiftNote(month),
+        fetchMonth(month),
       ]);
-      shiftMap = new Map(rows.map((r) => [shiftKey(r.staffId, r.workDate), r.code]));
+      shiftMap = new Map(rows.map((r) => [shiftKey(r.staffId, r.workDate), { code: r.code, phoneDuty: r.phoneDuty }]));
+      attendanceMap = new Map(attRows.map((r) => [shiftKey(r.staffId, r.date), r]));
       noteText = note;
     }
 
@@ -159,6 +229,10 @@ import Layout from '../layouts/Layout.astro';
       $('adminTools').hidden = !unlocked;
       $('noteSaveBtn').hidden = !unlocked;
       $('noteInput').readOnly = !unlocked;
+      $('summaryPanel').hidden = !unlocked;
+      $('discrepancyPanel').hidden = !unlocked;
+      $('bindingPanel').hidden = !unlocked;
+      $('historyPanel').hidden = !unlocked;
     }
 
     async function requireAdmin() {
@@ -183,12 +257,14 @@ import Layout from '../layouts/Layout.astro';
       }
       renderAdminBar();
       renderGrid();
+      loadHistory();
     };
 
     function renderGrid() {
       const month = currentMonth();
       const days = daysInMonth(month);
       const [y, m] = month.split('-').map(Number);
+      const todayStr = dateKey();
       const table = $('shiftTable');
       table.innerHTML = '';
       const unlocked = isAdmin();
@@ -199,16 +275,27 @@ import Layout from '../layouts/Layout.astro';
       rowDate.appendChild(document.createElement('th')).textContent = '氏名＼日';
       rowWeek.appendChild(document.createElement('th'));
       for (let d = 1; d <= days; d++) {
+        const dateStr = `${month}-${String(d).padStart(2, '0')}`;
         const wd = new Date(y, m - 1, d).getDay();
-        const isWeekend = wd === 0 || wd === 6;
+        const holidayName = HOLIDAYS[dateStr];
+        const isSaturday = wd === 6;
+        const isSunOrHoliday = wd === 0 || !!holidayName;
+        const isToday = dateStr === todayStr;
         const thD = document.createElement('th');
         thD.textContent = String(d);
-        if (isWeekend) thD.classList.add('sf-weekend');
+        thD.classList.add('sf-daynum');
+        if (isSaturday) thD.classList.add('sf-saturday');
+        if (isSunOrHoliday) thD.classList.add('sf-weekend');
+        if (isToday) thD.classList.add('sf-today');
+        if (holidayName) thD.title = holidayName;
         rowDate.appendChild(thD);
         const thW = document.createElement('th');
-        thW.textContent = WEEKDAY_JA[wd];
+        thW.textContent = (holidayName ? `${WEEKDAY_JA[wd]}・祝` : WEEKDAY_JA[wd]) + (isToday ? '・本日' : '');
         thW.classList.add('sf-weekday');
-        if (isWeekend) thW.classList.add('sf-weekend');
+        if (isSaturday) thW.classList.add('sf-saturday');
+        if (isSunOrHoliday) thW.classList.add('sf-weekend');
+        if (isToday) thW.classList.add('sf-today');
+        if (holidayName) thW.title = holidayName;
         rowWeek.appendChild(thW);
       }
       thead.appendChild(rowDate);
@@ -234,38 +321,56 @@ import Layout from '../layouts/Layout.astro';
         tr.appendChild(nameTh);
         for (let d = 1; d <= days; d++) {
           const workDate = `${month}-${String(d).padStart(2, '0')}`;
-          const code = shiftMap.get(shiftKey(s.id, workDate)) || '';
+          const cell = shiftMap.get(shiftKey(s.id, workDate)) || { code: '', phoneDuty: false };
           const wd = new Date(y, m - 1, d).getDay();
           const td = document.createElement('td');
           td.classList.add('sf-cell');
-          if (wd === 0 || wd === 6) td.classList.add('sf-weekend');
+          if (wd === 6) td.classList.add('sf-saturday');
+          if (wd === 0 || HOLIDAYS[workDate]) td.classList.add('sf-weekend');
+          if (workDate === todayStr) td.classList.add('sf-today');
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = classForCode(code);
-          btn.textContent = code || '－';
+          btn.className = classForCode(cell.code);
+          btn.textContent = cell.code || '－';
           if (unlocked) {
             btn.onclick = () => cycleCell(s, workDate, btn);
             btn.oncontextmenu = (e) => {
               e.preventDefault();
-              openCodeModal(s, workDate, shiftMap.get(shiftKey(s.id, workDate)) || '');
+              const c = shiftMap.get(shiftKey(s.id, workDate)) || { code: '', phoneDuty: false };
+              openCodeModal(s, workDate, c.code, c.phoneDuty);
             };
           } else {
             btn.disabled = true;
           }
           td.appendChild(btn);
+          if (!s.phoneDutyDisabled && cell.phoneDuty) {
+            const badge = document.createElement('span');
+            badge.className = 'sf-phone-badge';
+            badge.textContent = '電';
+            badge.title = '電話番';
+            td.appendChild(badge);
+          }
           tr.appendChild(td);
         }
         tbody.appendChild(tr);
       }
 
-      const mainStaff = staff.filter((s) => s.shiftGroup !== 'office' && s.shiftGroup !== 'jumbo');
+      const GROUPED = ['office', 'maintenance', 'jumbo'];
+      const mainStaff = staff
+        .filter((s) => !GROUPED.includes(s.shiftGroup))
+        .sort((a, b) => (a.shiftDisplayOrder ?? 9999) - (b.shiftDisplayOrder ?? 9999));
       const officeStaff = staff.filter((s) => s.shiftGroup === 'office');
+      const maintenanceStaff = staff.filter((s) => s.shiftGroup === 'maintenance');
       const jumboStaff = staff.filter((s) => s.shiftGroup === 'jumbo');
 
       mainStaff.forEach(addStaffRow);
       if (officeStaff.length) {
         addGroupHeader('経理・配車業務担当');
         officeStaff.forEach(addStaffRow);
+      }
+      if (maintenanceStaff.length) {
+        addGroupHeader('整備部門');
+        maintenanceStaff.forEach(addStaffRow);
       }
       if (jumboStaff.length) {
         addGroupHeader('ジャンボタクシー受付担当');
@@ -274,6 +379,296 @@ import Layout from '../layouts/Layout.astro';
       table.appendChild(tbody);
 
       $('staffEmpty').hidden = staff.length > 0;
+
+      if (isAdmin()) {
+        renderSummary(month, days, [
+          [null, mainStaff],
+          ['経理・配車業務担当', officeStaff],
+          ['整備部門', maintenanceStaff],
+          ['ジャンボタクシー受付担当', jumboStaff],
+        ]);
+        renderDiscrepancies(month, days, staff);
+        renderBindingChecks(month, days, staff);
+      }
+    }
+
+    function shiftTypeLabel(t) {
+      return t === 'normal' ? '①普通番' : t === 'late' ? '③遅番' : t === 'part' ? '出勤（単一打刻）' : '不明';
+    }
+
+    function computeDiscrepancies(staffList, month, days) {
+      const list = [];
+      staffList.forEach((s) => {
+        for (let d = 1; d <= days; d++) {
+          const workDate = `${month}-${String(d).padStart(2, '0')}`;
+          const planned = (shiftMap.get(shiftKey(s.id, workDate)) || {}).code || '';
+          const att = attendanceMap.get(shiftKey(s.id, workDate));
+          const hasPunch = !!(att && att.in);
+          const expectWork = WORK_CODES.includes(planned);
+          const expectOff = planned === '公' || planned === '有給';
+
+          if (expectWork && !hasPunch) {
+            list.push({ date: workDate, name: s.name, planned, actual: '未出勤', note: '予定があるのに打刻がありません' });
+          } else if (expectOff && hasPunch) {
+            list.push({ date: workDate, name: s.name, planned, actual: '出勤あり', note: '公休／有給の予定日に打刻があります' });
+          } else if (expectWork && hasPunch && !usesSimplePunch(s.type) && (planned === '①' || planned === '③')) {
+            const expectedType = planned === '①' ? 'normal' : 'late';
+            if (att.shiftType && att.shiftType !== expectedType) {
+              list.push({ date: workDate, name: s.name, planned, actual: shiftTypeLabel(att.shiftType), note: '普通番／遅番が予定と異なります' });
+            }
+          }
+        }
+      });
+      list.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.name.localeCompare(b.name, 'ja')));
+      return list;
+    }
+
+    function renderDiscrepancies(month, days, staffList) {
+      const wrap = $('discrepancyWrap');
+      const list = computeDiscrepancies(staffList, month, days);
+      if (!list.length) {
+        wrap.innerHTML = '<p class="kt-empty">この月はシフト予定と実績の差異は見つかりませんでした。</p>';
+        return;
+      }
+      const table = document.createElement('table');
+      table.className = 'kt-table sf-grid';
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      ['日付', '氏名', '予定', '実績', '内容'].forEach((label) => {
+        const th = document.createElement('th');
+        th.textContent = label;
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      list.forEach((item) => {
+        const tr = document.createElement('tr');
+        tr.classList.add('sf-row-warn');
+        [item.date.slice(5), item.name, item.planned || '－', item.actual, item.note].forEach((v) => {
+          const td = document.createElement('td');
+          td.textContent = v;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.innerHTML = '';
+      wrap.appendChild(table);
+    }
+
+    const DAILY_BINDING_WARN_H = 13;
+    const DAILY_BINDING_VIOLATION_H = 16;
+    const REST_WARN_H = 11;
+    const REST_VIOLATION_H = 9;
+    const MONTHLY_BINDING_VIOLATION_H = 288;
+
+    function computeBindingChecks(staffList, month, days) {
+      const list = [];
+      staffList.forEach((s) => {
+        let monthlyHours = 0;
+        let prevOut = null; // 前回の退勤時刻（Date）。休息期間チェック用
+        for (let d = 1; d <= days; d++) {
+          const workDate = `${month}-${String(d).padStart(2, '0')}`;
+          const att = attendanceMap.get(shiftKey(s.id, workDate));
+          if (att && att.in && att.out) {
+            const inTime = new Date(att.in);
+            const outTime = new Date(att.out);
+            const hours = (outTime - inTime) / 3600000;
+            monthlyHours += hours;
+            if (hours > DAILY_BINDING_VIOLATION_H) {
+              list.push({ name: s.name, date: workDate, type: '日次拘束時間', actual: `${hours.toFixed(1)}時間`, threshold: `${DAILY_BINDING_VIOLATION_H}時間超`, severity: '違反' });
+            } else if (hours > DAILY_BINDING_WARN_H) {
+              list.push({ name: s.name, date: workDate, type: '日次拘束時間', actual: `${hours.toFixed(1)}時間`, threshold: `${DAILY_BINDING_WARN_H}時間超`, severity: '注意' });
+            }
+            if (prevOut) {
+              const restHours = (inTime - prevOut) / 3600000;
+              if (restHours < REST_VIOLATION_H) {
+                list.push({ name: s.name, date: workDate, type: '休息期間', actual: `${restHours.toFixed(1)}時間`, threshold: `${REST_VIOLATION_H}時間未満`, severity: '違反' });
+              } else if (restHours < REST_WARN_H) {
+                list.push({ name: s.name, date: workDate, type: '休息期間', actual: `${restHours.toFixed(1)}時間`, threshold: `${REST_WARN_H}時間未満`, severity: '注意' });
+              }
+            }
+            prevOut = outTime;
+          } else {
+            prevOut = null; // 出勤しなかった日を挟んだら休息期間チェックは打ち切り（十分な休息とみなす）
+          }
+        }
+        if (monthlyHours > MONTHLY_BINDING_VIOLATION_H) {
+          list.push({ name: s.name, date: `${month}-合計`, type: '月間拘束時間', actual: `${monthlyHours.toFixed(1)}時間`, threshold: `${MONTHLY_BINDING_VIOLATION_H}時間超`, severity: '違反' });
+        }
+      });
+      list.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.name.localeCompare(b.name, 'ja')));
+      return list;
+    }
+
+    function renderBindingChecks(month, days, staffList) {
+      const wrap = $('bindingWrap');
+      const list = computeBindingChecks(staffList, month, days);
+      if (!list.length) {
+        wrap.innerHTML = '<p class="kt-empty">この月は拘束時間・休息期間の目安を超える項目は見つかりませんでした。</p>';
+        return;
+      }
+      const table = document.createElement('table');
+      table.className = 'kt-table sf-grid';
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      ['判定', '氏名', '日付', '項目', '実績', '基準'].forEach((label) => {
+        const th = document.createElement('th');
+        th.textContent = label;
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      list.forEach((item) => {
+        const tr = document.createElement('tr');
+        if (item.severity === '違反') tr.classList.add('sf-row-warn');
+        [item.severity, item.name, item.date.slice(-5), item.type, item.actual, item.threshold].forEach((v) => {
+          const td = document.createElement('td');
+          td.textContent = v;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.innerHTML = '';
+      wrap.appendChild(table);
+    }
+
+    function fmtDateTime(iso) {
+      return new Date(iso).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function loadHistory() {
+      if (!isAdmin()) return;
+      try {
+        historyList = await fetchShiftHistory(currentMonth());
+      } catch (e) {
+        historyList = [];
+      }
+      renderHistory();
+    }
+    $('historyRefreshBtn').onclick = loadHistory;
+
+    function renderHistory() {
+      const wrap = $('historyWrap');
+      if (!historyList.length) {
+        wrap.innerHTML = '<p class="kt-empty">この月の変更履歴はまだありません。</p>';
+        return;
+      }
+      const table = document.createElement('table');
+      table.className = 'kt-table sf-grid';
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      ['日時', '氏名', '日付', '変更前', '変更後', '操作者', ''].forEach((label) => {
+        const th = document.createElement('th');
+        th.textContent = label;
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      historyList.forEach((entry) => {
+        const s = staff.find((x) => x.id === entry.staffId);
+        const tr = document.createElement('tr');
+        const beforeText = (entry.oldCode || '（未設定）') + (entry.oldPhoneDuty ? '・電話番' : '');
+        const afterText = (entry.newCode || '（削除）') + (entry.newPhoneDuty ? '・電話番' : '');
+        [fmtDateTime(entry.changedAt), s ? s.name : '（削除済み）', entry.workDate.slice(5), beforeText, afterText, entry.changedBy || '不明'].forEach((v) => {
+          const td = document.createElement('td');
+          td.textContent = v;
+          tr.appendChild(td);
+        });
+        const actionTd = document.createElement('td');
+        if (s) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'kt-btn kt-btn--ghost';
+          btn.textContent = '元に戻す';
+          btn.onclick = () => revertHistoryEntry(entry, s);
+          actionTd.appendChild(btn);
+        }
+        tr.appendChild(actionTd);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.innerHTML = '';
+      wrap.appendChild(table);
+    }
+
+    async function revertHistoryEntry(entry, s) {
+      const beforeText = (entry.oldCode || '未設定') + (entry.oldPhoneDuty ? '・電話番あり' : '');
+      if (!confirm(`${s.name}　${entry.workDate}\nこの内容に戻します：${beforeText}\nよろしいですか？`)) return;
+      try {
+        if (entry.oldCode) {
+          await upsertShift({ staffId: entry.staffId, workDate: entry.workDate, code: entry.oldCode, phoneDuty: !!entry.oldPhoneDuty });
+          shiftMap.set(shiftKey(entry.staffId, entry.workDate), { code: entry.oldCode, phoneDuty: !!entry.oldPhoneDuty });
+        } else {
+          await deleteShift(entry.staffId, entry.workDate);
+          shiftMap.delete(shiftKey(entry.staffId, entry.workDate));
+        }
+        renderGrid();
+        await loadHistory();
+        alert('元に戻しました。');
+      } catch (e) {
+        alert(SAVE_FAIL_MSG);
+      }
+    }
+
+    function summaryFor(s, month, days) {
+      const counts = { 公: 0, '①': 0, '③': 0, SH: 0, S: 0, 貸切: 0, 有給: 0 };
+      let phoneDutyCount = 0;
+      for (let d = 1; d <= days; d++) {
+        const workDate = `${month}-${String(d).padStart(2, '0')}`;
+        const cell = shiftMap.get(shiftKey(s.id, workDate));
+        if (cell && cell.code in counts) counts[cell.code]++;
+        if (cell && cell.phoneDuty) phoneDutyCount++;
+      }
+      const workCount = counts['①'] + counts['③'] + counts.SH + counts.S + counts.貸切;
+      return { ...counts, workCount, phoneDutyCount };
+    }
+
+    function renderSummary(month, days, groups) {
+      const table = $('summaryTable');
+      table.innerHTML = '';
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      ['氏名', '稼働日数', '①普通番', '③遅番', 'SH', 'S', '貸切', '有給', '公休', '電話番'].forEach((label) => {
+        const th = document.createElement('th');
+        th.textContent = label;
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      groups.forEach(([label, list]) => {
+        if (!list.length) return;
+        if (label) {
+          const tr = document.createElement('tr');
+          const th = document.createElement('th');
+          th.textContent = label;
+          th.colSpan = 10;
+          th.className = 'sf-group-header';
+          tr.appendChild(th);
+          tbody.appendChild(tr);
+        }
+        list.forEach((s) => {
+          const sum = summaryFor(s, month, days);
+          const tr = document.createElement('tr');
+          const nameTd = document.createElement('td');
+          nameTd.textContent = s.name;
+          nameTd.style.textAlign = 'left';
+          tr.appendChild(nameTd);
+          [sum.workCount, sum['①'], sum['③'], sum.SH, sum.S, sum.貸切, sum.有給, sum.公, sum.phoneDutyCount].forEach((v) => {
+            const td = document.createElement('td');
+            td.textContent = String(v);
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+      });
+      table.appendChild(tbody);
     }
 
     function renderNote() {
@@ -282,34 +677,38 @@ import Layout from '../layouts/Layout.astro';
 
     function codesFor(s) {
       const codes = ['公', '①', '③'];
-      if (s.shiftShuttle) codes.push('シャトル便');
+      if (s.shiftShuttle) codes.push('SH');
       if (s.shiftSpecial) codes.push('S');
       codes.push('貸切');
+      codes.push('有給');
       return codes;
     }
 
     async function cycleCell(s, workDate, btn) {
       if (btn.disabled) return;
       const cycle = ['', ...codesFor(s)];
-      const currentCode = shiftMap.get(shiftKey(s.id, workDate)) || '';
-      const nextCode = cycle[(cycle.indexOf(currentCode) + 1) % cycle.length];
+      const cell = shiftMap.get(shiftKey(s.id, workDate)) || { code: '', phoneDuty: false };
+      const nextCode = cycle[(cycle.indexOf(cell.code) + 1) % cycle.length];
+      const nextPhoneDuty = nextCode ? cell.phoneDuty : false;
       btn.disabled = true;
       try {
         if (nextCode) {
-          await upsertShift({ staffId: s.id, workDate, code: nextCode });
+          await upsertShift({ staffId: s.id, workDate, code: nextCode, phoneDuty: nextPhoneDuty });
         } else {
           await deleteShift(s.id, workDate);
         }
-        shiftMap.set(shiftKey(s.id, workDate), nextCode);
+        shiftMap.set(shiftKey(s.id, workDate), { code: nextCode, phoneDuty: nextPhoneDuty });
         btn.textContent = nextCode || '－';
         btn.className = classForCode(nextCode);
+        const badge = btn.parentElement.querySelector('.sf-phone-badge');
+        if (badge && !nextPhoneDuty) badge.remove();
       } catch (e) {
         alert(SAVE_FAIL_MSG);
       }
       btn.disabled = false;
     }
 
-    function openCodeModal(s, workDate, currentCode) {
+    function openCodeModal(s, workDate, currentCode, currentPhoneDuty) {
       modalTarget = { staffId: s.id, workDate };
       $('codeModalTitle').textContent = `${s.name}　${workDate}`;
       const wrap = $('codeOptions');
@@ -324,8 +723,8 @@ import Layout from '../layouts/Layout.astro';
           const target = modalTarget;
           if (!target) return;
           try {
-            await upsertShift({ staffId: target.staffId, workDate: target.workDate, code });
-            shiftMap.set(shiftKey(target.staffId, target.workDate), code);
+            await upsertShift({ staffId: target.staffId, workDate: target.workDate, code, phoneDuty: currentPhoneDuty });
+            shiftMap.set(shiftKey(target.staffId, target.workDate), { code, phoneDuty: currentPhoneDuty });
             closeCodeModal();
             renderGrid();
           } catch (e) {
@@ -334,6 +733,39 @@ import Layout from '../layouts/Layout.astro';
         };
         wrap.appendChild(b);
       });
+
+      const toggleWrap = $('phoneToggleWrap');
+      toggleWrap.innerHTML = '';
+      if (!s.phoneDutyDisabled) {
+        const label = document.createElement('label');
+        label.className = 'sf-phone-check';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = !!currentPhoneDuty;
+        checkbox.onchange = async () => {
+          const target = modalTarget;
+          if (!target) return;
+          const cell = shiftMap.get(shiftKey(target.staffId, target.workDate)) || { code: '', phoneDuty: false };
+          if (!cell.code) {
+            alert('先にシフトのコードを選んでください。');
+            checkbox.checked = false;
+            return;
+          }
+          try {
+            await upsertShift({ staffId: target.staffId, workDate: target.workDate, code: cell.code, phoneDuty: checkbox.checked });
+            shiftMap.set(shiftKey(target.staffId, target.workDate), { code: cell.code, phoneDuty: checkbox.checked });
+            closeCodeModal();
+            renderGrid();
+          } catch (e) {
+            alert(SAVE_FAIL_MSG);
+            checkbox.checked = !checkbox.checked;
+          }
+        };
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode('電話番を担当'));
+        toggleWrap.appendChild(label);
+      }
+
       $('codeModal').hidden = false;
     }
     function closeCodeModal() {
@@ -363,6 +795,7 @@ import Layout from '../layouts/Layout.astro';
       }
       renderGrid();
       renderNote();
+      loadHistory();
     }
     $('prevMonthBtn').onclick = async () => {
       $('monthPick').value = prevMonthOf(currentMonth());
@@ -401,8 +834,8 @@ import Layout from '../layouts/Layout.astro';
             .map(async (rec) => {
               const day = rec.workDate.slice(8, 10);
               const workDate = `${month}-${day}`;
-              await upsertShift({ staffId: rec.staffId, workDate, code: rec.code });
-              shiftMap.set(shiftKey(rec.staffId, workDate), rec.code);
+              await upsertShift({ staffId: rec.staffId, workDate, code: rec.code, phoneDuty: rec.phoneDuty });
+              shiftMap.set(shiftKey(rec.staffId, workDate), { code: rec.code, phoneDuty: rec.phoneDuty });
             })
         );
         renderGrid();
@@ -430,11 +863,136 @@ import Layout from '../layouts/Layout.astro';
       renderAdminBar();
       renderGrid();
       renderNote();
+      loadHistory();
     }
     boot();
   </script>
 
   <style is:global>
+    /* ── kintai.astroと共通のコンポーネントスタイル（ページ間でCSSは共有されないため複製） ── */
+    .kintai-wrap [hidden],
+    .kt-modal-overlay[hidden] { display: none !important; }
+    .kintai-wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .kt-adminbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: var(--radius-lg);
+      padding: 0.85rem 1.25rem;
+    }
+    .kt-adminbar__label { font-size: 0.95rem; font-weight: 700; color: rgba(255,255,255,0.9); }
+    .kt-panel {
+      background: var(--fuji-black-card, #1a1a1a);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--radius-xl);
+      padding: 0.9rem 1.1rem;
+    }
+    .kt-panel__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.6rem;
+      flex-wrap: wrap;
+    }
+    .kt-panel__tools { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+    .kt-title { font-size: 1.25rem; font-weight: 900; color: var(--fuji-yellow); }
+    .kt-btn {
+      background: rgba(245,200,0,0.12);
+      border: 1px solid rgba(245,200,0,0.4);
+      border-radius: var(--radius-md);
+      color: var(--fuji-yellow);
+      font-size: var(--text-sm);
+      font-weight: 700;
+      padding: 0.55rem 1rem;
+      cursor: pointer;
+      min-height: 44px;
+    }
+    .kt-btn:hover { background: rgba(245,200,0,0.22); }
+    .kt-btn--ghost { background: transparent; }
+    .kt-btn--danger {
+      background: rgba(224,85,85,0.12);
+      border-color: rgba(224,85,85,0.5);
+      color: #ff8a8a;
+    }
+    .kt-btn--danger:hover { background: rgba(224,85,85,0.24); }
+    .kt-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1rem;
+      overflow-y: auto;
+      z-index: 1000;
+    }
+    .kt-modal {
+      background: #141414;
+      border: 2px solid var(--fuji-yellow);
+      border-radius: var(--radius-xl);
+      padding: 1.75rem;
+      width: 100%;
+      max-width: 560px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .kt-modal__actions { display: flex; flex-direction: column; gap: 0.6rem; }
+    .kt-input {
+      background: #0f0f0f;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: var(--radius-md);
+      color: var(--fuji-white);
+      padding: 0.5rem 0.75rem;
+      font-size: var(--text-sm);
+      min-height: 44px;
+    }
+    .kt-staff {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255,255,255,0.15);
+      border: 2px solid rgba(255,255,255,0.6);
+      border-radius: var(--radius-full);
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 900;
+      padding: 0.45rem 0.9rem;
+      cursor: pointer;
+      min-height: 40px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+    .kt-staff:hover { border-color: var(--fuji-yellow); }
+    .kt-staff.is-active {
+      background: var(--fuji-yellow);
+      border-color: var(--fuji-yellow);
+      color: var(--fuji-black);
+      text-shadow: none;
+    }
+    .kt-table-wrap { overflow-x: auto; }
+    .kt-table { width: 100%; border-collapse: collapse; color: #fff; font-size: 1rem; }
+    .kt-table th {
+      color: var(--fuji-yellow);
+      text-align: left;
+      font-size: 0.95rem;
+      padding: 0.7rem 0.75rem;
+      border-bottom: 2px solid var(--fuji-yellow);
+      white-space: nowrap;
+    }
+    .kt-table td { padding: 0.7rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.15); white-space: nowrap; }
+    .kt-empty { color: rgba(255,255,255,0.75); font-size: 1rem; padding: 0.5rem 0; }
+
     .sf-wrap { max-width: 100%; }
     .sf-legend {
       color: rgba(255,255,255,0.85);
@@ -442,82 +1000,97 @@ import Layout from '../layouts/Layout.astro';
       margin: 0.25rem 0 0.75rem;
     }
     .sf-admintools { margin-bottom: 0.75rem; }
-    .sf-grid-wrap { overflow-x: auto; }
+    .sf-grid-wrap {
+      overflow-x: auto;
+      background: #fff;
+      border-radius: var(--radius-md);
+      padding: 0.5rem;
+    }
     .sf-grid { border-collapse: collapse; }
-    .sf-grid th, .sf-grid td { text-align: center; padding: 0.3rem 0.4rem; }
+    .sf-grid th, .sf-grid td { text-align: center; padding: 0.4rem 0.5rem; color: #111; font-size: 1.05rem; }
     .sf-grid th.sf-name, .sf-grid td.sf-cell { text-align: center; }
     th.sf-name {
       text-align: left !important;
-      color: #fff;
+      color: #111;
       white-space: nowrap;
+      font-size: 1.1rem;
+      font-weight: 900;
       position: sticky;
       left: 0;
-      background: var(--fuji-black-card, #1a1a1a);
+      background: #fff;
       z-index: 1;
     }
     .sf-grid thead th:first-child {
       position: sticky;
       left: 0;
-      background: var(--fuji-black-card, #1a1a1a);
+      background: #fff;
       z-index: 2;
     }
-    .sf-weekday { font-size: 0.8rem; color: rgba(255,255,255,0.6); }
-    .sf-weekend { background: rgba(224,85,85,0.08); }
+    .sf-weekday { font-size: 0.95rem; color: #888; }
+    .sf-daynum { font-size: 1.35rem; font-weight: 900; }
+    .sf-weekend { background: #fbeaea; }
+    .sf-saturday { background: #e8f1fc; }
+    .sf-today { box-shadow: inset 0 0 0 2px var(--fuji-yellow); position: relative; z-index: 1; }
     .sf-group-header {
       text-align: left !important;
       color: var(--fuji-black);
       background: var(--fuji-yellow);
       font-weight: 900;
-      font-size: 0.95rem;
+      font-size: 1.05rem;
       padding: 0.4rem 0.6rem;
     }
     .sf-code {
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.25);
+      background: #fff;
+      border: 1px solid #ccc;
       border-radius: var(--radius-md);
-      color: #fff;
+      color: #111;
       font-weight: 700;
-      font-size: 0.9rem;
-      min-width: 44px;
-      min-height: 36px;
+      font-size: 1.2rem;
+      min-width: 52px;
+      min-height: 44px;
       padding: 0.2rem 0.3rem;
       cursor: pointer;
     }
     .sf-code:disabled { cursor: default; opacity: 0.85; }
     .sf-code--filled {
-      background: rgba(245,200,0,0.18);
-      border-color: var(--fuji-yellow);
-      color: var(--fuji-yellow);
+      background: #fef9e7;
+      border-color: #d4a900;
+      color: #8a6d00;
     }
     .sf-code--off {
-      background: rgba(224,85,85,0.2);
-      border-color: #e05555;
-      color: #ff9a9a;
+      background: #fef2f2;
+      border-color: #b91c1c;
+      color: #b91c1c;
     }
     .sf-code--normal {
-      background: rgba(76,175,125,0.2);
-      border-color: #4caf7d;
-      color: #6fd8a0;
+      background: #eff6ff;
+      border-color: #1d4ed8;
+      color: #1d4ed8;
     }
     .sf-code--late {
-      background: rgba(106,176,243,0.2);
-      border-color: #6ab0f3;
-      color: #8fc5f8;
+      background: #fffbeb;
+      border-color: #92400e;
+      color: #92400e;
     }
     .sf-code--shuttle {
-      background: rgba(180,143,248,0.2);
-      border-color: #b48ff8;
-      color: #c9aefb;
+      background: #f5f3ff;
+      border-color: #6d28d9;
+      color: #6d28d9;
     }
     .sf-code--special {
-      background: rgba(79,209,197,0.2);
-      border-color: #4fd1c5;
-      color: #7fe0d6;
+      background: #f0fdfa;
+      border-color: #115e59;
+      color: #115e59;
     }
     .sf-code--charter {
-      background: rgba(247,143,179,0.2);
-      border-color: #f78fb3;
-      color: #f9abc4;
+      background: #fdf2f8;
+      border-color: #be185d;
+      color: #be185d;
+    }
+    .sf-code--paid {
+      background: #eef2ff;
+      border-color: #4338ca;
+      color: #4338ca;
     }
     .sf-note {
       width: 100%;
@@ -528,6 +1101,33 @@ import Layout from '../layouts/Layout.astro';
       display: flex;
       flex-wrap: wrap;
       gap: 0.6rem;
+    }
+    .sf-row-warn td { background: #fef2f2; color: #b91c1c; font-weight: 700; }
+    .sf-grid td.sf-cell { position: relative; }
+    .sf-phone-badge {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: #dc2626;
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 900;
+      line-height: 1;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .sf-phone-check {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 700;
     }
 
     @media print {

@@ -28,6 +28,7 @@ import Layout from '../layouts/Layout.astro';
         </div>
         <div class="kt-staff-list" id="staffList"></div>
         <p class="kt-empty" id="staffEmpty">「＋ 追加」からスタッフを登録してください。</p>
+        <p class="kt-msg" id="staffMsg" aria-live="polite"></p>
       </div>
 
       <!-- 打刻パネル -->
@@ -713,6 +714,7 @@ import Layout from '../layouts/Layout.astro';
       // もう一度タップで選択解除
       const wasSelected = selectedId === s.id;
       selectedId = wasSelected ? null : s.id;
+      $('staffMsg').textContent = '';
       renderStaff(); renderPunch();
       if (!wasSelected) {
         $('punchPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1027,20 +1029,27 @@ import Layout from '../layouts/Layout.astro';
 
     const shiftBtnIds = ['punchInNormal', 'punchInLate', 'punchInPart'];
     shiftBtnIds.forEach(id => { $(id).disabled = true; });
+    let punchedIn = false;
     try {
       await upsertAttendance(patch);
       await refreshData();
       armUndo(selectedId, dateKey(), existing ? { ...existing } : null);
-      $('punchMsg').textContent = shiftType === 'part'
+      const msg = shiftType === 'part'
         ? `✅ ${s.name} さんが出勤しました（${timeStr(now)}）`
         : `✅ ${s.name} さんが${SHIFT_LABEL[shiftType]}で出勤しました（${timeStr(now)}）`;
+      $('punchMsg').textContent = msg;
+      $('staffMsg').textContent = msg;
       $('phoneDutyCheck').checked = false;
+      punchedIn = true;
     } catch (e) {
       alert(SAVE_FAIL_MSG);
     } finally {
       shiftBtnIds.forEach(id => { $(id).disabled = false; });
     }
-    renderPunch(); renderToday(); renderHist(); renderWage();
+    // 出勤後は名前の選択を解除し、次の人がすぐ選べるようスタッフ一覧まで戻す
+    if (punchedIn) selectedId = null;
+    renderStaff(); renderPunch(); renderToday(); renderHist(); renderWage();
+    if (punchedIn) $('staffList').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // ── 退勤・売上入力モーダル ──
@@ -1192,19 +1201,23 @@ import Layout from '../layouts/Layout.astro';
 
     const btnIds = ['punchOut', 'punchBreakStart', 'punchBreakEnd', 'punchAwayStart', 'punchAwayEnd'];
     btnIds.forEach(id => { $(id).disabled = true; });
+    let punchedOut = false;
     try {
       await upsertAttendance(patch);
       await refreshData();
       armUndo(selectedId, dateKey(), { ...rec });
       if (type === 'out') {
-        $('punchMsg').textContent = `✅ ${s.name} さんの退勤を ${timeStr(now)} に記録しました。売上は後ほど管理者が入力します。`;
+        let msg = `✅ ${s.name} さんの退勤を ${timeStr(now)} に記録しました。売上は後ほど管理者が入力します。`;
         if (isAdmin()) {
           const handle = await getExcelHandle();
           if (handle) {
             const result = await syncUnsyncedToExcel(false);
-            if (result.ok && result.count) $('punchMsg').textContent += `（Excelにも自動記録しました）`;
+            if (result.ok && result.count) msg += `（Excelにも自動記録しました）`;
           }
         }
+        $('punchMsg').textContent = msg;
+        $('staffMsg').textContent = msg;
+        punchedOut = true;
       } else {
         const labels = { breakStart: '休憩開始', breakEnd: '休憩終了', awayStart: '時間内退勤', awayEnd: '時間内出勤' };
         $('punchMsg').textContent = `✅ ${s.name} さんの${labels[type]}を ${timeStr(now)} に記録しました`;
@@ -1212,7 +1225,10 @@ import Layout from '../layouts/Layout.astro';
     } catch (e) {
       alert(SAVE_FAIL_MSG);
     }
-    renderPunch(); renderToday(); renderHist(); renderWage();
+    // 退勤後は名前の選択を解除し、次の人がすぐ選べるようスタッフ一覧まで戻す
+    if (punchedOut) selectedId = null;
+    renderStaff(); renderPunch(); renderToday(); renderHist(); renderWage();
+    if (punchedOut) $('staffList').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   $('punchInNormal').onclick = () => punchIn('normal');
   $('punchInLate').onclick = () => punchIn('late');

@@ -143,11 +143,12 @@ import Layout from '../layouts/Layout.astro';
         <div class="kt-excelsync" id="excelSyncBox" hidden>
           <span class="kt-excelsync__label" id="excelSyncState">Excel自動保存：未設定</span>
           <div class="kt-excelsync__btns">
+            <button type="button" class="kt-btn kt-btn--ghost" id="excelTemplateBtn">テンプレートをダウンロード</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="excelPickBtn">Excelファイルを選択</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="excelSyncNowBtn">未反映分を書き込む</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="excelDisconnectBtn">接続を解除</button>
           </div>
-          <p class="kt-note">※ この接続はこの端末・このブラウザだけの設定です（他のパソコンや管理者には表示されません）。別の端末で自動保存を使う場合は、その端末でも「Excelファイルを選択」からやり直してください。</p>
+          <p class="kt-note">※ 初めて自動保存を設定する場合は、まず「テンプレートをダウンロード」→ 保存した場所を「Excelファイルを選択」で選んでください。この接続はこの端末・このブラウザだけの設定です（他のパソコンや管理者には表示されません）。別の端末で自動保存を使う場合は、その端末でも同じ手順をやり直してください。</p>
         </div>
         <div class="kt-table-wrap">
           <table class="kt-table" id="histTable">
@@ -548,6 +549,47 @@ import Layout from '../layouts/Layout.astro';
     await refreshExportLog();
     renderExportStatus();
   }
+  $('excelTemplateBtn').onclick = async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(EXCEL_SHEET_NAME);
+    const headers = ['日付', '名前', '区分', '電話番', '出勤', '退勤', '休憩(分)', '時間内外出(分)', '実働(分)', '実働(時:分)', '売上税込(円)', '売上税抜(円)', '未収(円)', 'カード手数料等(円)', '基本給(円)', '歩合・手当(円)', '合計支給額(円)', '時給換算(円)', '最低賃金判定', ...PAY_METHODS.map(m => `${m.label}(円)`)];
+    headers.forEach((h, i) => {
+      const cell = ws.getCell(1, i + 1);
+      cell.value = h;
+      cell.font = { name: '游ゴシック', size: 10, bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+    });
+    headers.forEach((_, i) => { ws.getColumn(i + 1).width = 12; });
+
+    const wsUsage = wb.addWorksheet('使い方');
+    const usage = [
+      '【このファイルについて】',
+      'このファイルは、勤怠アプリ（/kintai）の「Excel自動保存」機能専用のテンプレートです。',
+      `「${EXCEL_SHEET_NAME}」という名前のシートに、退勤のたびに1行ずつ自動で追記されます（1行目は見出しのため変更・削除しないでください）。`,
+      '',
+      '【使い方】',
+      '1. このファイルをわかりやすい場所（デスクトップや共有フォルダなど）に保存してください。',
+      '2. 勤怠アプリの「勤務履歴（管理者）」→「Excelファイルを選択」から、保存したこのファイルを選んでください。',
+      '3. 以後、退勤のたびに自動で行が追加されます。「未反映分を書き込む」でまとめて反映することもできます。',
+      '',
+      '【注意】',
+      'この接続設定（どのファイルに繋がっているか）は、設定したパソコン・ブラウザだけのものです。別のパソコンで使う場合は、そのパソコンでもこのテンプレートを配布して同じ手順で接続してください。',
+    ];
+    usage.forEach((line, r) => {
+      const cell = wsUsage.getCell(r + 1, 1);
+      cell.value = line;
+      cell.font = { name: '游ゴシック', size: 10 };
+    });
+    wsUsage.getColumn(1).width = 90;
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '勤怠自動保存_テンプレート.xlsx';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
   $('excelPickBtn').onclick = () => pickExcelFile();
   $('excelSyncNowBtn').onclick = () => syncUnsyncedToExcel(true);
   $('excelDisconnectBtn').onclick = async () => {

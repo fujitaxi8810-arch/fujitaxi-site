@@ -140,6 +140,7 @@ import Layout from '../layouts/Layout.astro';
           <div class="kt-excelsync__btns">
             <button type="button" class="kt-btn kt-btn--ghost" id="excelPickBtn">Excelファイルを選択</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="excelSyncNowBtn">未反映分を書き込む</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="excelDisconnectBtn">接続を解除</button>
           </div>
         </div>
         <div class="kt-table-wrap">
@@ -368,6 +369,15 @@ import Layout from '../layouts/Layout.astro';
       req.onerror = () => reject(req.error);
     });
   }
+  async function idbDelete(key) {
+    const db = await idbOpen();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
 
   async function pickExcelFile() {
     if (!EXCEL_SUPPORTED) {
@@ -507,6 +517,14 @@ import Layout from '../layouts/Layout.astro';
   }
   $('excelPickBtn').onclick = () => pickExcelFile();
   $('excelSyncNowBtn').onclick = () => syncUnsyncedToExcel(true);
+  $('excelDisconnectBtn').onclick = async () => {
+    const handle = await getExcelHandle();
+    if (!handle) return;
+    if (!confirm(`「${handle.name}」への接続を解除しますか？\nファイル自体は削除されません。`)) return;
+    await idbDelete(IDB_KEY);
+    localStorage.removeItem(EXCEL_SYNCED_KEY);
+    renderExcelSyncBox();
+  };
 
   // ── 管理者ロック（Supabase Authのadminアカウントへのサインインで解除） ──
   async function requireAdmin() {

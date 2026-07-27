@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, isAuthRetryableFetchError } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
@@ -91,8 +91,13 @@ export async function ensureKioskSession(): Promise<{ ok: boolean; error?: strin
 
   const { error } = await supabase.auth.signInWithPassword(cred);
   if (error) {
-    localStorage.removeItem(KIOSK_CRED_KEY);
-    return { ok: false, error: `ログインに失敗しました：${error.message}` };
+    // 通信エラーなど一時的な失敗では保存済みのログイン情報を消さない（次回そのまま再利用できるように）。
+    // メールアドレス／パスワードが実際に無効な場合のみ消して、次回また入力してもらう。
+    if (!isAuthRetryableFetchError(error)) {
+      localStorage.removeItem(KIOSK_CRED_KEY);
+      return { ok: false, error: `ログインに失敗しました：${error.message}` };
+    }
+    return { ok: false, error: '通信エラーのため接続できませんでした。電波状況を確認してもう一度お試しください。' };
   }
   localStorage.setItem(KIOSK_CRED_KEY, JSON.stringify(cred));
   return { ok: true };

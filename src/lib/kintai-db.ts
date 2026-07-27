@@ -358,6 +358,23 @@ export async function deleteAttendance(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── 月次出力状況（CSV・給与計算Excelの出力し忘れ防止。全管理者・全端末で共有） ──
+export type ExportKind = 'csv' | 'excel';
+export type ExportLogEntry = { kind: ExportKind; exportedAt: string };
+
+export async function fetchExportLog(month: string): Promise<ExportLogEntry[]> {
+  const { data, error } = await supabase.from('export_log').select('kind, exported_at').eq('month', month);
+  if (error) throw error;
+  return (data || []).map((r: any) => ({ kind: r.kind, exportedAt: r.exported_at }));
+}
+
+export async function recordExport(month: string, kind: ExportKind): Promise<void> {
+  const { error } = await supabase
+    .from('export_log')
+    .upsert({ month, kind, exported_at: new Date().toISOString() }, { onConflict: 'month,kind' });
+  if (error) throw error;
+}
+
 // ── shift plan（月次シフト作成） ──
 export type ShiftCode = '公' | '①' | '③' | 'SH' | 'S' | '貸切' | '有給';
 

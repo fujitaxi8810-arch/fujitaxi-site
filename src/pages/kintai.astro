@@ -135,6 +135,11 @@ import Layout from '../layouts/Layout.astro';
             <button type="button" class="kt-btn" id="timecardBtn">給与計算Excel出力</button>
           </div>
         </div>
+        <div class="kt-exportstatus" id="exportStatus">
+          <span class="kt-exportstatus__item" id="exportStatusCsv"></span>
+          <span class="kt-exportstatus__item" id="exportStatusExcel"></span>
+        </div>
+        <p class="kt-note">※ CSV・給与計算Excelはブラウザの「ダウンロード」フォルダに保存されます（保存先を選ぶダイアログが出た場合はそちらで指定した場所）。出力状況は管理者・端末を問わず共通で表示されます。</p>
         <div class="kt-excelsync" id="excelSyncBox" hidden>
           <span class="kt-excelsync__label" id="excelSyncState">Excel自動保存：未設定</span>
           <div class="kt-excelsync__btns">
@@ -142,6 +147,7 @@ import Layout from '../layouts/Layout.astro';
             <button type="button" class="kt-btn kt-btn--ghost" id="excelSyncNowBtn">未反映分を書き込む</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="excelDisconnectBtn">接続を解除</button>
           </div>
+          <p class="kt-note">※ この接続はこの端末・このブラウザだけの設定です（他のパソコンや管理者には表示されません）。別の端末で自動保存を使う場合は、その端末でも「Excelファイルを選択」からやり直してください。</p>
         </div>
         <div class="kt-table-wrap">
           <table class="kt-table" id="histTable">
@@ -222,6 +228,7 @@ import Layout from '../layouts/Layout.astro';
     fetchStaff, insertStaff, updateStaff, deactivateStaff,
     fetchSettings, updateSettings as dbUpdateSettings,
     fetchMonth, fetchToday, upsertAttendance, deleteAllAttendance, deleteAttendance,
+    fetchExportLog, recordExport,
   } from '../lib/kintai-db';
 
   // 決済方法マスタ。rateはSBペイメントサービス収納明細書（2026/06/16-06/30分）の実績値。
@@ -245,6 +252,7 @@ import Layout from '../layouts/Layout.astro';
   let settings = null;
   let log = [];       // 表示中の月（monthPick）の打刻データ
   let todayLog = [];  // 本日分の打刻データ（全スタッフ）
+  let exportLog = []; // 表示中の月のCSV/給与計算Excel出力状況（全管理者・全端末で共有）
   let selectedId = null;
 
   // 直後の打刻取り消し（管理者パスワード不要・本人がその場で押し間違いに気づいた時用）。
@@ -515,6 +523,31 @@ import Layout from '../layouts/Layout.astro';
     const handle = await getExcelHandle();
     $('excelSyncState').textContent = handle ? `📄 ${handle.name} に接続済み` : 'Excel自動保存：未設定';
   }
+
+  // ── 月次出力状況（CSV・給与計算Excelの出力し忘れ防止。全管理者・全端末で共有） ──
+  function exportedAtLabel(iso) {
+    const d = new Date(iso);
+    return `${d.getMonth() + 1}/${d.getDate()} ${timeStr(iso)}`;
+  }
+  async function refreshExportLog() {
+    if (!isAdmin()) { exportLog = []; return; }
+    try { exportLog = await fetchExportLog(currentMonth()); } catch { exportLog = []; }
+  }
+  function renderExportStatus() {
+    if (!isAdmin()) return;
+    const csv = exportLog.find(e => e.kind === 'csv');
+    const excel = exportLog.find(e => e.kind === 'excel');
+    const csvEl = $('exportStatusCsv');
+    csvEl.textContent = csv ? `✅ CSV出力済み（${exportedAtLabel(csv.exportedAt)}）` : '⚠️ 今月はCSV未出力';
+    csvEl.className = 'kt-exportstatus__item ' + (csv ? 'kt-exportstatus__item--done' : 'kt-exportstatus__item--pending');
+    const excelEl = $('exportStatusExcel');
+    excelEl.textContent = excel ? `✅ 給与計算Excel出力済み（${exportedAtLabel(excel.exportedAt)}）` : '⚠️ 今月は給与計算Excel未出力';
+    excelEl.className = 'kt-exportstatus__item ' + (excel ? 'kt-exportstatus__item--done' : 'kt-exportstatus__item--pending');
+  }
+  async function refreshAndRenderExportStatus() {
+    await refreshExportLog();
+    renderExportStatus();
+  }
   $('excelPickBtn').onclick = () => pickExcelFile();
   $('excelSyncNowBtn').onclick = () => syncUnsyncedToExcel(true);
   $('excelDisconnectBtn').onclick = async () => {
@@ -554,6 +587,7 @@ import Layout from '../layouts/Layout.astro';
     } else {
       await requireAdmin();
     }
+    await refreshAndRenderExportStatus();
     renderAdminBar(); renderStaff(); renderPunch(); renderToday(); renderHist(); renderWage();
   };
   $('settingsToggleBtn').onclick = () => {
@@ -1365,6 +1399,7 @@ import Layout from '../layouts/Layout.astro';
     } catch (e) {
       alert('データの取得に失敗しました。通信状況を確認してください。');
     }
+    await refreshAndRenderExportStatus();
     renderHist(); renderWage();
   };
 
@@ -1428,6 +1463,8 @@ import Layout from '../layouts/Layout.astro';
     a.download = `勤怠給与_${month}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
+
+    try { await recordExport(month, 'csv'); await refreshAndRenderExportStatus(); } catch { /* 出力自体は完了しているので記録失敗は無視 */ }
   };
 
   // ── 給与計算Excel出力（タイムカード形式：スタッフ別シート＋数式で自動計算） ──
@@ -1830,6 +1867,8 @@ import Layout from '../layouts/Layout.astro';
     a.download = `タイムカードR${reiwa}.${monthNum}月分_給与計算.xlsx`;
     a.click();
     URL.revokeObjectURL(a.href);
+
+    try { await recordExport(month, 'excel'); await refreshAndRenderExportStatus(); } catch { /* 出力自体は完了しているので記録失敗は無視 */ }
   };
 
   // ── 起動処理（Supabaseへのログイン→データ読み込み） ──
@@ -1847,6 +1886,7 @@ import Layout from '../layouts/Layout.astro';
       alert('データの読み込みに失敗しました。通信状況を確認してページを再読み込みしてください。');
       return;
     }
+    await refreshAndRenderExportStatus();
     renderAdminBar();
     renderStaff();
     renderPunch();
@@ -1937,6 +1977,17 @@ import Layout from '../layouts/Layout.astro';
   }
   .kt-excelsync__label { font-size: 0.9rem; color: rgba(255,255,255,0.85); font-weight: 700; }
   .kt-excelsync__btns { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .kt-exportstatus { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 0.5rem 0; }
+  .kt-exportstatus__item {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0.35rem 0.8rem;
+    border-radius: var(--radius-full);
+  }
+  .kt-exportstatus__item--done { background: rgba(160,209,117,0.18); color: #a0d175; }
+  .kt-exportstatus__item--pending { background: rgba(245,200,0,0.18); color: var(--fuji-yellow); }
   .kt-title {
     font-size: 1.25rem;
     font-weight: 900;

@@ -71,6 +71,7 @@ import Layout from '../layouts/Layout.astro';
         </div>
 
         <p class="kt-msg" id="punchMsg" aria-live="polite"></p>
+        <button type="button" class="kt-btn kt-btn--ghost" id="undoBtn" hidden>操作を取り消す（押し間違えた場合）</button>
       </div>
 
       <!-- 売上入力モーダル（管理者専用・履歴から開く） -->
@@ -219,7 +220,7 @@ import Layout from '../layouts/Layout.astro';
     initAuth, isAdmin, signInAdmin, signOutToKiosk,
     fetchStaff, insertStaff, updateStaff, deactivateStaff,
     fetchSettings, updateSettings as dbUpdateSettings,
-    fetchMonth, fetchToday, upsertAttendance, deleteAllAttendance,
+    fetchMonth, fetchToday, upsertAttendance, deleteAllAttendance, deleteAttendance,
   } from '../lib/kintai-db';
 
   // 決済方法マスタ。rateはSBペイメントサービス収納明細書（2026/06/16-06/30分）の実績値。
@@ -244,6 +245,57 @@ import Layout from '../layouts/Layout.astro';
   let log = [];       // 表示中の月（monthPick）の打刻データ
   let todayLog = [];  // 本日分の打刻データ（全スタッフ）
   let selectedId = null;
+
+  // 直後の打刻取り消し（管理者パスワード不要・本人がその場で押し間違いに気づいた時用）。
+  // 直前の1操作分だけを、操作前のスナップショットに戻す（時刻を自由に書き換えられるものではない）。
+  // 共有端末で他のスタッフが間に打刻しても消えないよう、スタッフIDごとに直前操作を保持する
+  const UNDO_WINDOW_MS = 30000;
+  const lastActions = new Map(); // staffId -> { date, before, expiresAt, timer }
+  function armUndo(staffId, date, before) {
+    const existing = lastActions.get(staffId);
+    if (existing && existing.timer) clearTimeout(existing.timer);
+    const timer = setTimeout(() => {
+      lastActions.delete(staffId);
+      if (selectedId === staffId) renderPunch();
+    }, UNDO_WINDOW_MS);
+    lastActions.set(staffId, { date, before, expiresAt: Date.now() + UNDO_WINDOW_MS, timer });
+  }
+  function clearUndo(staffId) {
+    const existing = lastActions.get(staffId);
+    if (existing && existing.timer) clearTimeout(existing.timer);
+    lastActions.delete(staffId);
+  }
+  async function undoLastAction() {
+    const action = lastActions.get(selectedId);
+    if (!action) return;
+    const staffId = selectedId;
+    const { date, before } = action;
+    $('undoBtn').disabled = true;
+    try {
+      if (before === null) {
+        const rec = todayRec(staffId);
+        if (rec) await deleteAttendance(rec.id);
+      } else {
+        await upsertAttendance({
+          staffId, date,
+          in: before.in, out: before.out, shiftType: before.shiftType, phoneDuty: before.phoneDuty,
+          breaks: before.breaks, leaves: before.leaves, empType: before.empType,
+          hourlyWage: before.hourlyWage, monthlyWage: before.monthlyWage, dailyWage: before.dailyWage,
+          commute: before.commute, commuteType: before.commuteType,
+          salesGross: before.salesGross, sales: before.sales, uncollected: before.uncollected,
+          cardFee: before.cardFee, payments: before.payments,
+        });
+      }
+      clearUndo(staffId);
+      await refreshData();
+      $('punchMsg').textContent = '↩️ 直前の操作を取り消しました。';
+      renderPunch(); renderToday(); renderHist(); renderWage();
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
+    } finally {
+      $('undoBtn').disabled = false;
+    }
+  }
 
   const $ = (id) => document.getElementById(id);
   $('monthPick').value = dateKey().slice(0, 7);
@@ -852,6 +904,8 @@ import Layout from '../layouts/Layout.astro';
     $('punchBreakEnd').disabled = st !== 'break';
     $('punchAwayStart').disabled = st !== 'working';
     $('punchAwayEnd').disabled = st !== 'away';
+
+    $('undoBtn').hidden = !lastActions.has(selectedId);
   }
 
   async function punchIn(shiftType) {
@@ -882,6 +936,7 @@ import Layout from '../layouts/Layout.astro';
     try {
       await upsertAttendance(patch);
       await refreshData();
+      armUndo(selectedId, dateKey(), existing ? { ...existing } : null);
       $('punchMsg').textContent = shiftType === 'part'
         ? `✅ ${s.name} さんが出勤しました（${timeStr(now)}）`
         : `✅ ${s.name} さんが${SHIFT_LABEL[shiftType]}で出勤しました（${timeStr(now)}）`;
@@ -1046,6 +1101,7 @@ import Layout from '../layouts/Layout.astro';
     try {
       await upsertAttendance(patch);
       await refreshData();
+      armUndo(selectedId, dateKey(), { ...rec });
       if (type === 'out') {
         $('punchMsg').textContent = `✅ ${s.name} さんの退勤を ${timeStr(now)} に記録しました。売上は後ほど管理者が入力します。`;
         if (isAdmin()) {
@@ -1072,6 +1128,7 @@ import Layout from '../layouts/Layout.astro';
   $('punchBreakEnd').onclick = () => punch('breakEnd');
   $('punchAwayStart').onclick = () => punch('awayStart');
   $('punchAwayEnd').onclick = () => punch('awayEnd');
+  $('undoBtn').onclick = () => undoLastAction();
 
   // ── 実働計算 ──
   function workMinutes(rec) {
@@ -1881,6 +1938,7 @@ import Layout from '../layouts/Layout.astro';
   }
   .kt-btn:hover { background: rgba(245,200,0,0.22); }
   .kt-btn--ghost { background: transparent; }
+  #undoBtn { margin-top: 0.5rem; }
   .kt-btn--danger {
     background: rgba(224,85,85,0.12);
     border-color: rgba(224,85,85,0.5);

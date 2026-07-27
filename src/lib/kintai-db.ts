@@ -347,6 +347,12 @@ export async function deleteAllAttendance(): Promise<void> {
   if (error) throw error;
 }
 
+/** 直後の打刻取り消し用：新規作成したレコード1件だけを削除する */
+export async function deleteAttendance(id: string): Promise<void> {
+  const { error } = await supabase.from('attendance').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // ── shift plan（月次シフト作成） ──
 export type ShiftCode = '公' | '①' | '③' | 'SH' | 'S' | '貸切' | '有給';
 

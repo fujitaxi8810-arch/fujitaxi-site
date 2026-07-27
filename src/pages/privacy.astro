@@ -1,0 +1,137 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const pageTitle = 'プライバシーポリシー';
+const pageDesc = '富士タクシー（南相馬市小高区）のプライバシーポリシー。お問い合わせフォーム等でお預かりする個人情報の取り扱いについてご案内します。';
+---
+
+<Layout title={pageTitle} description={pageDesc}>
+
+  <section class="page-hero bg-black">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="パンくずリスト">
+        <ol>
+          <li><a href="/">ホーム</a></li>
+          <li aria-hidden="true">›</li>
+          <li aria-current="page">プライバシーポリシー</li>
+        </ol>
+      </nav>
+      <p class="eyebrow">Privacy Policy</p>
+      <h1>プライバシー<span class="text-yellow">ポリシー</span></h1>
+    </div>
+  </section>
+
+  <section class="section bg-soft">
+    <div class="container">
+      <div class="privacy-body">
+        <p>
+          有限会社富士タクシー（以下「当社」といいます）は、お客様の個人情報の重要性を認識し、
+          個人情報の保護に関する法律その他の関連法令を遵守し、以下の方針に基づき適切に取り扱います。
+        </p>
+
+        <h2>1. 取得する個人情報</h2>
+        <p>
+          当社は、お問い合わせフォームおよびLINE公式アカウントを通じて、
+          お名前、電話番号、メールアドレス、ご希望日時、乗車場所・目的地等の情報をお預かりする場合があります。
+        </p>
+
+        <h2>2. 利用目的</h2>
+        <p>お預かりした個人情報は、以下の目的の範囲内で利用します。</p>
+        <ul>
+          <li>タクシーの配車・予約に関するご連絡・確認</li>
+          <li>お問い合わせへの回答・ご案内</li>
+          <li>採用に関するお問い合わせへの対応</li>
+        </ul>
+
+        <h2>3. 第三者提供</h2>
+        <p>
+          当社は、法令に基づく場合を除き、お客様の同意なく個人情報を第三者に提供することはありません。
+        </p>
+
+        <h2>4. 外部サービスの利用について</h2>
+        <p>
+          当社のお問い合わせフォームは、フォーム送信サービス「Formspree」を利用して送信内容を当社のメールアドレスに転送しています。
+          また、当ウェブサイトではGoogleマップの地図情報を埋め込み表示しています。
+          これらの外部サービスの利用に伴い、各サービス提供者のプライバシーポリシーが適用される場合があります。
+        </p>
+
+        <h2>5. 個人情報の管理</h2>
+        <p>
+          当社は、お預かりした個人情報の漏えい、滅失またはき損の防止その他の安全管理のために、
+          必要かつ適切な措置を講じます。
+        </p>
+
+        <h2>6. 開示・訂正・削除等のご請求</h2>
+        <p>
+          お客様ご本人からの個人情報の開示・訂正・削除等のご請求については、下記お問い合わせ先まで
+          ご連絡ください。ご本人確認の上、法令に従い対応いたします。
+        </p>
+
+        <h2>7. お問い合わせ先</h2>
+        <address>
+          有限会社富士タクシー<br />
+          〒979-2124 福島県南相馬市小高区本町一丁目57番地<br />
+          電話：0244-44-2543
+        </address>
+
+        <p class="privacy-updated">制定日：2026年7月</p>
+      </div>
+    </div>
+  </section>
+
+</Layout>
+
+<style>
+  .page-hero { padding-block: 4rem 3rem; }
+  .page-hero h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 900;
+    color: var(--fuji-white);
+    margin-block: 1rem;
+  }
+  .breadcrumb ol {
+    display: flex;
+    gap: 0.5rem;
+    list-style: none;
+    font-size: var(--text-sm);
+    color: var(--fuji-gray-muted);
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a { color: var(--fuji-gray-muted); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--fuji-yellow); }
+
+  .privacy-body {
+    max-width: 760px;
+    margin: 0 auto;
+    color: #333;
+    line-height: 1.9;
+  }
+  .privacy-body h2 {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--fuji-black);
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--fuji-yellow);
+  }
+  .privacy-body p { margin-bottom: 1rem; }
+  .privacy-body ul {
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .privacy-body li { margin-bottom: 0.4rem; }
+  .privacy-body address {
+    font-style: normal;
+    background: var(--fuji-white);
+    border: 1px solid var(--fuji-gray-light);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+    margin-top: 0.5rem;
+  }
+  .privacy-updated {
+    margin-top: 2rem;
+    font-size: var(--text-sm);
+    color: #777;
+  }
+</style>

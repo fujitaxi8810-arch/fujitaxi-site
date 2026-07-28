@@ -22,6 +22,7 @@ export type Staff = {
   breakMode: BreakMode;
   breakFixedMinutes: number | null;
   managerAllowance: number;
+  housingAllowance: number;
   phoneDutyDisabled: boolean;
   lateShiftDisabled: boolean;
   shiftShuttle: boolean;
@@ -52,6 +53,7 @@ export type Attendance = {
   breakFixedMinutes: number | null;
   manualBreakMinutes: number | null;
   managerAllowance: number | null;
+  housingAllowance: number | null;
   salesGross: number | null;
   sales: number | null;
   uncollected: number | null;
@@ -164,6 +166,7 @@ function rowToStaff(row: any): Staff {
     breakMode: row.break_mode || 'punch',
     breakFixedMinutes: row.break_fixed_minutes,
     managerAllowance: row.manager_allowance ?? 0,
+    housingAllowance: row.housing_allowance ?? 0,
     phoneDutyDisabled: row.phone_duty_disabled,
     lateShiftDisabled: row.late_shift_disabled,
     shiftShuttle: row.shift_shuttle,
@@ -194,6 +197,7 @@ export async function insertStaff(input: {
   breakMode?: BreakMode;
   breakFixedMinutes?: number | null;
   managerAllowance?: number;
+  housingAllowance?: number;
 }): Promise<Staff> {
   const { data: maxRow } = await supabase
     .from('staff')
@@ -216,6 +220,7 @@ export async function insertStaff(input: {
       break_mode: input.breakMode ?? 'punch',
       break_fixed_minutes: input.breakFixedMinutes ?? null,
       manager_allowance: input.managerAllowance ?? 0,
+      housing_allowance: input.housingAllowance ?? 0,
     })
     .select()
     .single();
@@ -233,6 +238,7 @@ export async function updateStaff(id: string, patch: Partial<{
   breakMode: BreakMode;
   breakFixedMinutes: number | null;
   managerAllowance: number;
+  housingAllowance: number;
 }>): Promise<void> {
   const dbPatch: Record<string, unknown> = {};
   if (patch.type !== undefined) dbPatch.emp_type = patch.type;
@@ -244,6 +250,7 @@ export async function updateStaff(id: string, patch: Partial<{
   if (patch.breakMode !== undefined) dbPatch.break_mode = patch.breakMode;
   if (patch.breakFixedMinutes !== undefined) dbPatch.break_fixed_minutes = patch.breakFixedMinutes;
   if (patch.managerAllowance !== undefined) dbPatch.manager_allowance = patch.managerAllowance;
+  if (patch.housingAllowance !== undefined) dbPatch.housing_allowance = patch.housingAllowance;
   const { error } = await supabase.from('staff').update(dbPatch).eq('id', id);
   if (error) throw error;
 }
@@ -306,6 +313,7 @@ function rowToAttendance(row: any): Attendance {
     breakFixedMinutes: row.break_fixed_minutes,
     manualBreakMinutes: row.manual_break_minutes,
     managerAllowance: row.manager_allowance,
+    housingAllowance: row.housing_allowance,
     salesGross: row.sales_gross,
     sales: row.sales,
     uncollected: row.uncollected,
@@ -377,6 +385,7 @@ export async function upsertAttendance(rec: Partial<Attendance> & { staffId: str
   if (rec.breakFixedMinutes !== undefined) dbRow.break_fixed_minutes = rec.breakFixedMinutes;
   if (rec.manualBreakMinutes !== undefined) dbRow.manual_break_minutes = rec.manualBreakMinutes;
   if (rec.managerAllowance !== undefined) dbRow.manager_allowance = rec.managerAllowance;
+  if (rec.housingAllowance !== undefined) dbRow.housing_allowance = rec.housingAllowance;
   if (rec.salesGross !== undefined) dbRow.sales_gross = rec.salesGross;
   if (rec.sales !== undefined) dbRow.sales = rec.sales;
   if (rec.uncollected !== undefined) dbRow.uncollected = rec.uncollected;

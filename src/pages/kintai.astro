@@ -168,7 +168,7 @@ import Layout from '../layouts/Layout.astro';
         <div class="kt-table-wrap">
           <table class="kt-table" id="wageTable">
             <thead>
-              <tr><th>名前</th><th>区分</th><th>出勤日数</th><th>実働合計</th><th>基本給合計</th><th>売上合計</th><th>歩合・手当合計</th><th>交通費(月額)</th><th>管理者手当</th><th>総支給額</th></tr>
+              <tr><th>名前</th><th>区分</th><th>出勤日数</th><th>実働合計</th><th>基本給合計</th><th>売上合計</th><th>歩合・手当合計</th><th>交通費(月額)</th><th>管理者手当</th><th>住宅手当</th><th>総支給額</th></tr>
             </thead>
             <tbody id="wageBody"></tbody>
           </table>
@@ -879,6 +879,14 @@ import Layout from '../layouts/Layout.astro';
     s.managerAllowance = maNum;
     return true;
   }
+  function promptHousingAllowance(s) {
+    const ha = prompt(`${s.name} の住宅手当（月額・円、無ければ0）を入力してください`, s.housingAllowance != null ? String(s.housingAllowance) : '0');
+    if (ha === null) return false;
+    const haNum = parseInt(ha, 10);
+    if (isNaN(haNum) || haNum < 0) { alert('住宅手当は0以上の数字で入力してください。'); return false; }
+    s.housingAllowance = haNum;
+    return true;
+  }
   function wageNoteFor(type, s) {
     if (isHourlyType(type)) return `（時間給 ${yen(s.hourlyWage)}円／交通費 ${yen(s.commuteAllowance)}円・${commuteTypeLabel(s)}）`;
     if (isMonthlyType(type)) return `（月給 ${yen(s.monthlyWage)}円／交通費 ${yen(s.commuteAllowance)}円・${commuteTypeLabel(s)}）`;
@@ -893,6 +901,7 @@ import Layout from '../layouts/Layout.astro';
     if (!promptWagesFor(type, s)) return;
     if (!promptBreakMode(s)) return;
     if (!promptManagerAllowance(s)) return;
+    if (!promptHousingAllowance(s)) return;
     try {
       await updateStaff(s.id, {
         type,
@@ -904,10 +913,11 @@ import Layout from '../layouts/Layout.astro';
         breakMode: s.breakMode || 'punch',
         breakFixedMinutes: s.breakFixedMinutes ?? null,
         managerAllowance: s.managerAllowance ?? 0,
+        housingAllowance: s.housingAllowance ?? 0,
       });
       staff = await fetchStaff();
       renderStaff(); renderPunch();
-      alert(`${s.name} を ${EMP_LABEL[type]} に設定しました。${wageNoteFor(type, s)}（休憩：${breakModeLabel(s)}／管理者手当：${yen(s.managerAllowance || 0)}円）`);
+      alert(`${s.name} を ${EMP_LABEL[type]} に設定しました。${wageNoteFor(type, s)}（休憩：${breakModeLabel(s)}／管理者手当：${yen(s.managerAllowance || 0)}円／住宅手当：${yen(s.housingAllowance || 0)}円）`);
     } catch (e) {
       alert(SAVE_FAIL_MSG);
     }
@@ -925,6 +935,7 @@ import Layout from '../layouts/Layout.astro';
       if (!promptWagesFor(type, s)) return;
       if (!promptBreakMode(s)) return;
       if (!promptManagerAllowance(s)) return;
+      if (!promptHousingAllowance(s)) return;
     }
     s.type = type;
     try {
@@ -939,6 +950,7 @@ import Layout from '../layouts/Layout.astro';
         breakMode: s.breakMode || 'punch',
         breakFixedMinutes: s.breakFixedMinutes ?? null,
         managerAllowance: s.managerAllowance ?? 0,
+        housingAllowance: s.housingAllowance ?? 0,
       });
       staff = await fetchStaff();
       renderStaff();
@@ -1088,6 +1100,7 @@ import Layout from '../layouts/Layout.astro';
       breakMode: s.breakMode || 'punch',
       breakFixedMinutes: s.breakFixedMinutes != null ? s.breakFixedMinutes : 60,
       managerAllowance: s.managerAllowance != null ? s.managerAllowance : 0,
+      housingAllowance: s.housingAllowance != null ? s.housingAllowance : 0,
     };
     if (!existing) { patch.breaks = []; patch.leaves = []; }
     if (isHourlyType(empType)) patch.hourlyWage = s.hourlyWage != null ? s.hourlyWage : settings.minWage;
@@ -1396,6 +1409,17 @@ import Layout from '../layouts/Layout.astro';
     if (!rec) return 0;
     return recManagerAllowance(rec);
   }
+  // 住宅手当（月額）。管理者手当とは別枠で、同様に出勤日数に関わらずその月に打刻があれば一度だけ加算
+  function recHousingAllowance(rec) {
+    if (rec.housingAllowance != null) return rec.housingAllowance;
+    const s = staff.find(x => x.id === rec.staffId);
+    return (s && s.housingAllowance != null) ? s.housingAllowance : 0;
+  }
+  function monthlyHousingAllowance(recsInMonth) {
+    const rec = recsInMonth.find(r => r.housingAllowance != null) || recsInMonth[0];
+    if (!rec) return 0;
+    return recHousingAllowance(rec);
+  }
   function totalPay(rec) {
     const p = payParts(rec);
     return p.base + p.extra;
@@ -1541,8 +1565,9 @@ import Layout from '../layouts/Layout.astro';
       const monthRecsForStaff = log.filter(r => r.date.startsWith(month) && r.staffId === id);
       const commute = monthlyCommute(monthRecsForStaff);
       const managerAllowance = monthlyManagerAllowance(monthRecsForStaff);
+      const housingAllowance = monthlyHousingAllowance(monthRecsForStaff);
       const baseDisplay = isMonthlyType(t.empType) ? t.monthlyWage : t.wage;
-      const total = baseDisplay + t.commission + commute + managerAllowance;
+      const total = baseDisplay + t.commission + commute + managerAllowance + housingAllowance;
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${s ? s.name : '（削除済み）'}</td>
@@ -1554,6 +1579,7 @@ import Layout from '../layouts/Layout.astro';
         <td>${mask(yen(t.commission) + '円')}</td>
         <td>${mask(yen(commute) + '円')}</td>
         <td>${managerAllowance ? mask(yen(managerAllowance) + '円') : '—'}</td>
+        <td>${housingAllowance ? mask(yen(housingAllowance) + '円') : '—'}</td>
         <td class="kt-table__total">${mask(yen(total) + '円')}</td>
       `;
       body.appendChild(tr);
@@ -1591,7 +1617,7 @@ import Layout from '../layouts/Layout.astro';
     csv += `正社員（基本給のみ）：総支給額＝シフト日給＋電話番手当＋交通費(月額または日額・スタッフごとに設定)（歩合給なし）\n`;
     csv += `※このCSVの日ごとの基本給・歩合手当には交通費を含みません（交通費は月次サマリーでのみ加算）\n`;
     csv += `手数料率：${rateNote}\n`;
-    csv += '\n月次サマリー\n名前,区分,出勤日数,実働合計(分),実働合計(時:分),基本給合計(円),売上合計(円),歩合・手当合計(円),交通費(円),管理者手当(円),総支給額(円)\n';
+    csv += '\n月次サマリー\n名前,区分,出勤日数,実働合計(分),実働合計(時:分),基本給合計(円),売上合計(円),歩合・手当合計(円),交通費(円),管理者手当(円),住宅手当(円),総支給額(円)\n';
     const totals = {};
     for (const rec of recs) {
       if (!rec.out) continue;
@@ -1610,6 +1636,7 @@ import Layout from '../layouts/Layout.astro';
       const t = totals[id];
       const commute = monthlyCommute(recs.filter(r => r.staffId === id));
       const managerAllowance = monthlyManagerAllowance(recs.filter(r => r.staffId === id));
+      const housingAllowance = monthlyHousingAllowance(recs.filter(r => r.staffId === id));
       const baseDisplay = isMonthlyType(t.empType) ? t.monthlyWage : t.wage;
       csv += [
         s ? s.name : '削除済み',
@@ -1622,7 +1649,8 @@ import Layout from '../layouts/Layout.astro';
         Math.round(t.commission),
         Math.round(commute),
         Math.round(managerAllowance),
-        Math.round(baseDisplay + t.commission + commute + managerAllowance),
+        Math.round(housingAllowance),
+        Math.round(baseDisplay + t.commission + commute + managerAllowance + housingAllowance),
       ].join(',') + '\n';
     }
 
@@ -1715,7 +1743,7 @@ import Layout from '../layouts/Layout.astro';
     return (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400;
   }
 
-  function buildStaffSheet(wb, sheetName, name, recsByDay, year, monthNum, daysInMonth, dailyWageOverride, commute, commuteType, managerAllowance) {
+  function buildStaffSheet(wb, sheetName, name, recsByDay, year, monthNum, daysInMonth, dailyWageOverride, commute, commuteType, managerAllowance, housingAllowance) {
     const ws = wb.addWorksheet(sheetName);
     const endRow = TC_TABLE_START + daysInMonth - 1;
     const headers = ['日', '曜日', 'シフト', '電話番', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)', '売上税抜(円)', 'カード手数料(円)', 'シフト日給(円)', '歩合給(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
@@ -1741,9 +1769,11 @@ import Layout from '../layouts/Layout.astro';
     tcVal(ws, 'A7', '売上合計（税抜・円）');
     tcFormula(ws, 'B7', `SUM(J${TC_TABLE_START}:J${endRow})`, '#,##0');
     tcVal(ws, 'A8', '総支給額（円）');
-    tcFormula(ws, 'B8', (isDailyCommute ? `SUM(N${TC_TABLE_START}:N${endRow})+$B$2*$B$3` : `SUM(N${TC_TABLE_START}:N${endRow})+$B$2`) + '+$B$9', '#,##0');
+    tcFormula(ws, 'B8', (isDailyCommute ? `SUM(N${TC_TABLE_START}:N${endRow})+$B$2*$B$3` : `SUM(N${TC_TABLE_START}:N${endRow})+$B$2`) + '+$B$9+$D$8', '#,##0');
     tcVal(ws, 'A9', '管理者手当（月額・円）');
     tcVal(ws, 'B9', managerAllowance || 0, '#,##0');
+    tcVal(ws, 'C8', '住宅手当（月額・円）');
+    tcVal(ws, 'D8', housingAllowance || 0, '#,##0');
 
     tcHeaderRow(ws, TC_TABLE_START - 1, headers, 1);
 
@@ -1781,7 +1811,7 @@ import Layout from '../layouts/Layout.astro';
   }
 
   // パート（時給制）用シート。サマリーは正社員シートと同じ番地（B3〜B8）に置き、全体集計から共通参照する
-  function buildPartSheet(wb, sheetName, name, recsByDay, year, monthNum, daysInMonth, hourlyWage, commute, commuteType, managerAllowance) {
+  function buildPartSheet(wb, sheetName, name, recsByDay, year, monthNum, daysInMonth, hourlyWage, commute, commuteType, managerAllowance, housingAllowance) {
     const ws = wb.addWorksheet(sheetName);
     const endRow = TC_TABLE_START + daysInMonth - 1;
     const headers = ['日', '曜日', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時:分)', '基本賃金(円)', '残業割増(円)', '深夜割増(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
@@ -1801,9 +1831,11 @@ import Layout from '../layouts/Layout.astro';
     tcVal(ws, 'A7', '売上合計（時給制は対象外）');
     tcVal(ws, 'B7', 0);
     tcVal(ws, 'A8', '総支給額（円）');
-    tcFormula(ws, 'B8', (isDailyCommute ? `SUM(K${TC_TABLE_START}:K${endRow})+$D$4*$B$3` : `SUM(K${TC_TABLE_START}:K${endRow})+$D$4`) + '+$B$9', '#,##0');
+    tcFormula(ws, 'B8', (isDailyCommute ? `SUM(K${TC_TABLE_START}:K${endRow})+$D$4*$B$3` : `SUM(K${TC_TABLE_START}:K${endRow})+$D$4`) + '+$B$9+$D$8', '#,##0');
     tcVal(ws, 'A9', '管理者手当（月額・円）');
     tcVal(ws, 'B9', managerAllowance || 0, '#,##0');
+    tcVal(ws, 'C8', '住宅手当（月額・円）');
+    tcVal(ws, 'D8', housingAllowance || 0, '#,##0');
     tcVal(ws, 'C3', '時間給（円）');
     tcVal(ws, 'D3', hourlyWage, '#,##0');
     tcVal(ws, 'C4', isDailyCommute ? '交通費（日額・円）' : '交通費（月額・円）');
@@ -1847,7 +1879,7 @@ import Layout from '../layouts/Layout.astro';
 
   // 月給制（正社員(月給)）用シート。給与は固定額のため日別には計算せず、勤怠記録＋交通費のみ日別に集計する。
   // サマリーは他シートと同じ番地（B3〜B8）に置き、全体集計から共通参照する
-  function buildMonthlySheet(wb, sheetName, name, recsByDay, year, monthNum, daysInMonth, monthlyWage, commute, commuteType, managerAllowance) {
+  function buildMonthlySheet(wb, sheetName, name, recsByDay, year, monthNum, daysInMonth, monthlyWage, commute, commuteType, managerAllowance, housingAllowance) {
     const ws = wb.addWorksheet(sheetName);
     const endRow = TC_TABLE_START + daysInMonth - 1;
     const headers = ['日', '曜日', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)'];
@@ -1867,9 +1899,11 @@ import Layout from '../layouts/Layout.astro';
     tcVal(ws, 'A7', '売上合計（月給制は対象外）');
     tcVal(ws, 'B7', 0);
     tcVal(ws, 'A8', '総支給額（円）');
-    tcFormula(ws, 'B8', '$B$5+$B$6+$B$9', '#,##0');
+    tcFormula(ws, 'B8', '$B$5+$B$6+$B$9+$D$8', '#,##0');
     tcVal(ws, 'A9', '管理者手当（月額・円）');
     tcVal(ws, 'B9', managerAllowance || 0, '#,##0');
+    tcVal(ws, 'C8', '住宅手当（月額・円）');
+    tcVal(ws, 'D8', housingAllowance || 0, '#,##0');
     tcVal(ws, 'C3', '月給（円）');
     tcVal(ws, 'D3', monthlyWage, '#,##0');
     tcVal(ws, 'C4', isDailyCommute ? '交通費（日額・円）' : '交通費（月額・円）');
@@ -1948,6 +1982,7 @@ import Layout from '../layouts/Layout.astro';
       const dailyWageSrc = recs.find(r => r.dailyWage != null);
       const commuteSrc = recs.find(r => r.commute != null) || {};
       const managerAllowanceSrc = recs.find(r => r.managerAllowance != null) || {};
+      const housingAllowanceSrc = recs.find(r => r.housingAllowance != null) || {};
       return {
         name, days,
         isPart, isMonthly,
@@ -1957,6 +1992,7 @@ import Layout from '../layouts/Layout.astro';
         commute: commuteSrc.commute ?? (staffObj && staffObj.commuteAllowance) ?? 0,
         commuteType: commuteSrc.commuteType ?? (staffObj && staffObj.commuteType) ?? 'monthly',
         managerAllowance: managerAllowanceSrc.managerAllowance ?? (staffObj && staffObj.managerAllowance) ?? 0,
+        housingAllowance: housingAllowanceSrc.housingAllowance ?? (staffObj && staffObj.housingAllowance) ?? 0,
       };
     }
     const targets = staff.filter(s => byStaff[s.id]).map(s => targetOf(s.name, byStaff[s.id], s));
@@ -1994,9 +2030,9 @@ import Layout from '../layouts/Layout.astro';
     // スタッフ別シート（設定・全体集計の後に追加）
     for (const s of staffSheets) {
       const t = s.target;
-      if (t.isMonthly) buildMonthlySheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.monthlyWage, t.commute, t.commuteType, t.managerAllowance);
-      else if (t.isPart) buildPartSheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.hourlyWage, t.commute, t.commuteType, t.managerAllowance);
-      else buildStaffSheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.dailyWage, t.commute, t.commuteType, t.managerAllowance);
+      if (t.isMonthly) buildMonthlySheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.monthlyWage, t.commute, t.commuteType, t.managerAllowance, t.housingAllowance);
+      else if (t.isPart) buildPartSheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.hourlyWage, t.commute, t.commuteType, t.managerAllowance, t.housingAllowance);
+      else buildStaffSheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.dailyWage, t.commute, t.commuteType, t.managerAllowance, t.housingAllowance);
     }
 
     // 使い方シート

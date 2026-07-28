@@ -841,6 +841,30 @@ import Layout from '../layouts/Layout.astro';
   function commuteTypeLabel(s) {
     return s.commuteType === 'daily' ? '日額' : '月額';
   }
+  function promptBreakMode(s) {
+    const curAns = s.breakMode === 'fixed' ? '2' : (s.breakMode === 'manual' ? '3' : '1');
+    const input = prompt(`${s.name} の休憩の記録方法を選んでください\n1 = 通常（休憩開始／終了ボタンで打刻）\n2 = 固定（毎日決まった分数を自動で差し引く・ボタンは使わない）\n3 = 手入力（管理者が日ごとに休憩時間を入力・ボタンは使わない）`, curAns);
+    if (input === null) return false;
+    const v = input.trim();
+    if (v === '1') { s.breakMode = 'punch'; s.breakFixedMinutes = null; return true; }
+    if (v === '2') {
+      const fm = prompt(`${s.name} の1日あたりの休憩時間（分）を入力してください`, s.breakFixedMinutes != null ? String(s.breakFixedMinutes) : '60');
+      if (fm === null) return false;
+      const fmNum = parseInt(fm, 10);
+      if (isNaN(fmNum) || fmNum < 0) { alert('休憩時間は0以上の数字で入力してください。'); return false; }
+      s.breakMode = 'fixed';
+      s.breakFixedMinutes = fmNum;
+      return true;
+    }
+    if (v === '3') { s.breakMode = 'manual'; s.breakFixedMinutes = null; return true; }
+    alert('1〜3 の番号を入力してください。');
+    return false;
+  }
+  function breakModeLabel(s) {
+    if (s.breakMode === 'fixed') return `固定${s.breakFixedMinutes ?? 60}分`;
+    if (s.breakMode === 'manual') return '手入力';
+    return '通常';
+  }
   function wageNoteFor(type, s) {
     if (isHourlyType(type)) return `（時間給 ${yen(s.hourlyWage)}円／交通費 ${yen(s.commuteAllowance)}円・${commuteTypeLabel(s)}）`;
     if (isMonthlyType(type)) return `（月給 ${yen(s.monthlyWage)}円／交通費 ${yen(s.commuteAllowance)}円・${commuteTypeLabel(s)}）`;
@@ -853,6 +877,7 @@ import Layout from '../layouts/Layout.astro';
     const type = promptEmpType(s);
     if (type === null) return;
     if (!promptWagesFor(type, s)) return;
+    if (!promptBreakMode(s)) return;
     try {
       await updateStaff(s.id, {
         type,
@@ -861,10 +886,12 @@ import Layout from '../layouts/Layout.astro';
         dailyWage: s.dailyWage ?? null,
         commuteAllowance: s.commuteAllowance ?? 0,
         commuteType: s.commuteType || 'monthly',
+        breakMode: s.breakMode || 'punch',
+        breakFixedMinutes: s.breakFixedMinutes ?? null,
       });
       staff = await fetchStaff();
       renderStaff(); renderPunch();
-      alert(`${s.name} を ${EMP_LABEL[type]} に設定しました。${wageNoteFor(type, s)}`);
+      alert(`${s.name} を ${EMP_LABEL[type]} に設定しました。${wageNoteFor(type, s)}（休憩：${breakModeLabel(s)}）`);
     } catch (e) {
       alert(SAVE_FAIL_MSG);
     }
@@ -880,6 +907,7 @@ import Layout from '../layouts/Layout.astro';
       if (!(await requireAdmin())) { alert('時給・月給・基本日給の設定には管理者パスワードが必要です。'); return; }
       renderAdminBar();
       if (!promptWagesFor(type, s)) return;
+      if (!promptBreakMode(s)) return;
     }
     s.type = type;
     try {
@@ -891,6 +919,8 @@ import Layout from '../layouts/Layout.astro';
         dailyWage: s.dailyWage ?? null,
         commuteAllowance: s.commuteAllowance ?? 0,
         commuteType: s.commuteType || 'monthly',
+        breakMode: s.breakMode || 'punch',
+        breakFixedMinutes: s.breakFixedMinutes ?? null,
       });
       staff = await fetchStaff();
       renderStaff();
@@ -958,6 +988,17 @@ import Layout from '../layouts/Layout.astro';
     const s = staff.find(x => x.id === rec.staffId);
     return (s && s.commuteType) ? s.commuteType : 'monthly';
   }
+  // 休憩の記録方式。'punch'＝休憩開始/終了ボタンで打刻（既定）／'fixed'＝毎日固定分数を自動控除／'manual'＝管理者が日ごとに手入力
+  function recBreakMode(rec) {
+    if (rec.breakMode) return rec.breakMode;
+    const s = staff.find(x => x.id === rec.staffId);
+    return (s && s.breakMode) ? s.breakMode : 'punch';
+  }
+  function recBreakFixedMinutes(rec) {
+    if (rec.breakFixedMinutes != null) return rec.breakFixedMinutes;
+    const s = staff.find(x => x.id === rec.staffId);
+    return (s && s.breakFixedMinutes != null) ? s.breakFixedMinutes : 60;
+  }
   // 22時以降の勤務分（分）。退勤時刻ベースの近似（22時以降の休憩は考慮しない）
   function nightMinutes(rec) {
     if (!rec.out) return 0;
@@ -996,6 +1037,9 @@ import Layout from '../layouts/Layout.astro';
     $('punchGrid').hidden = canPunchIn;
 
     $('punchOut').disabled = st !== 'working';
+    const usesBreakButtons = (s.breakMode || 'punch') === 'punch';
+    $('punchBreakStart').hidden = !usesBreakButtons;
+    $('punchBreakEnd').hidden = !usesBreakButtons;
     $('punchBreakStart').disabled = st !== 'working';
     $('punchBreakEnd').disabled = st !== 'break';
     $('punchAwayStart').disabled = st !== 'working';
@@ -1021,6 +1065,8 @@ import Layout from '../layouts/Layout.astro';
       empType,
       commute: s.commuteAllowance != null ? s.commuteAllowance : 0,
       commuteType: s.commuteType || 'monthly',
+      breakMode: s.breakMode || 'punch',
+      breakFixedMinutes: s.breakFixedMinutes != null ? s.breakFixedMinutes : 60,
     };
     if (!existing) { patch.breaks = []; patch.leaves = []; }
     if (isHourlyType(empType)) patch.hourlyWage = s.hourlyWage != null ? s.hourlyWage : settings.minWage;
@@ -1245,10 +1291,7 @@ import Layout from '../layouts/Layout.astro';
     if (!rec.in) return null;
     const end = rec.out ? new Date(rec.out) : new Date();
     let ms = end - new Date(rec.in);
-    for (const b of rec.breaks) {
-      const bEnd = b.end ? new Date(b.end) : new Date();
-      ms -= (bEnd - new Date(b.start));
-    }
+    ms -= breakMinutes(rec) * 60000;
     for (const l of (rec.leaves || [])) {
       const lEnd = l.end ? new Date(l.end) : new Date();
       ms -= (lEnd - new Date(l.start));
@@ -1256,6 +1299,9 @@ import Layout from '../layouts/Layout.astro';
     return Math.max(0, Math.round(ms / 60000));
   }
   function breakMinutes(rec) {
+    const mode = recBreakMode(rec);
+    if (mode === 'fixed') return recBreakFixedMinutes(rec);
+    if (mode === 'manual') return rec.manualBreakMinutes != null ? rec.manualBreakMinutes : 0;
     let ms = 0;
     for (const b of rec.breaks) {
       const bEnd = b.end ? new Date(b.end) : new Date();
@@ -1357,6 +1403,20 @@ import Layout from '../layouts/Layout.astro';
   }
 
   // ── 履歴 ──
+  async function editManualBreak(staffId, date, currentMinutes) {
+    const s = staff.find(x => x.id === staffId);
+    const input = prompt(`${s ? s.name : ''}さん・${date.slice(5).replace('-', '/')} の休憩時間（分）を入力してください`, currentMinutes != null ? String(currentMinutes) : '0');
+    if (input === null) return;
+    const minutes = parseInt(input, 10);
+    if (isNaN(minutes) || minutes < 0) { alert('休憩時間は0以上の数字で入力してください。'); return; }
+    try {
+      await upsertAttendance({ staffId, date, manualBreakMinutes: minutes });
+      await refreshData();
+      renderHist(); renderWage();
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
+    }
+  }
   function renderHist() {
     const month = currentMonth();
     const body = $('histBody');
@@ -1401,6 +1461,14 @@ import Layout from '../layouts/Layout.astro';
         btn.className = 'kt-btn kt-btn--ghost';
         btn.textContent = rec.sales != null ? '売上を修正' : '売上を入力';
         btn.onclick = () => openSalesModal(rec.staffId, rec.date);
+        tr.lastElementChild.appendChild(btn);
+      }
+      if (recBreakMode(rec) === 'manual') {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'kt-btn kt-btn--ghost';
+        btn.textContent = rec.manualBreakMinutes != null ? '休憩を修正' : '休憩を入力';
+        btn.onclick = () => editManualBreak(rec.staffId, rec.date, rec.manualBreakMinutes);
         tr.lastElementChild.appendChild(btn);
       }
       body.appendChild(tr);

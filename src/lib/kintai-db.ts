@@ -7,6 +7,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export type EmpType = 'fulltime' | 'fulltime-base' | 'fulltime-hourly' | 'part' | 'monthly';
 
+export type BreakMode = 'punch' | 'fixed' | 'manual';
+
 export type Staff = {
   id: string;
   name: string;
@@ -17,6 +19,8 @@ export type Staff = {
   dailyWage: number | null;
   commuteAllowance: number;
   commuteType: 'monthly' | 'daily';
+  breakMode: BreakMode;
+  breakFixedMinutes: number | null;
   phoneDutyDisabled: boolean;
   lateShiftDisabled: boolean;
   shiftShuttle: boolean;
@@ -43,6 +47,9 @@ export type Attendance = {
   dailyWage: number | null;
   commute: number | null;
   commuteType: 'monthly' | 'daily' | null;
+  breakMode: BreakMode | null;
+  breakFixedMinutes: number | null;
+  manualBreakMinutes: number | null;
   salesGross: number | null;
   sales: number | null;
   uncollected: number | null;
@@ -152,6 +159,8 @@ function rowToStaff(row: any): Staff {
     dailyWage: row.daily_wage,
     commuteAllowance: row.commute_allowance,
     commuteType: row.commute_type || 'monthly',
+    breakMode: row.break_mode || 'punch',
+    breakFixedMinutes: row.break_fixed_minutes,
     phoneDutyDisabled: row.phone_duty_disabled,
     lateShiftDisabled: row.late_shift_disabled,
     shiftShuttle: row.shift_shuttle,
@@ -179,6 +188,8 @@ export async function insertStaff(input: {
   dailyWage?: number | null;
   commuteAllowance?: number;
   commuteType?: 'monthly' | 'daily';
+  breakMode?: BreakMode;
+  breakFixedMinutes?: number | null;
 }): Promise<Staff> {
   const { data: maxRow } = await supabase
     .from('staff')
@@ -198,6 +209,8 @@ export async function insertStaff(input: {
       daily_wage: input.dailyWage ?? null,
       commute_allowance: input.commuteAllowance ?? 0,
       commute_type: input.commuteType ?? 'monthly',
+      break_mode: input.breakMode ?? 'punch',
+      break_fixed_minutes: input.breakFixedMinutes ?? null,
     })
     .select()
     .single();
@@ -212,6 +225,8 @@ export async function updateStaff(id: string, patch: Partial<{
   dailyWage: number | null;
   commuteAllowance: number;
   commuteType: 'monthly' | 'daily';
+  breakMode: BreakMode;
+  breakFixedMinutes: number | null;
 }>): Promise<void> {
   const dbPatch: Record<string, unknown> = {};
   if (patch.type !== undefined) dbPatch.emp_type = patch.type;
@@ -220,6 +235,8 @@ export async function updateStaff(id: string, patch: Partial<{
   if (patch.dailyWage !== undefined) dbPatch.daily_wage = patch.dailyWage;
   if (patch.commuteAllowance !== undefined) dbPatch.commute_allowance = patch.commuteAllowance;
   if (patch.commuteType !== undefined) dbPatch.commute_type = patch.commuteType;
+  if (patch.breakMode !== undefined) dbPatch.break_mode = patch.breakMode;
+  if (patch.breakFixedMinutes !== undefined) dbPatch.break_fixed_minutes = patch.breakFixedMinutes;
   const { error } = await supabase.from('staff').update(dbPatch).eq('id', id);
   if (error) throw error;
 }
@@ -278,6 +295,9 @@ function rowToAttendance(row: any): Attendance {
     dailyWage: row.daily_wage,
     commute: row.commute,
     commuteType: row.commute_type,
+    breakMode: row.break_mode,
+    breakFixedMinutes: row.break_fixed_minutes,
+    manualBreakMinutes: row.manual_break_minutes,
     salesGross: row.sales_gross,
     sales: row.sales,
     uncollected: row.uncollected,
@@ -332,6 +352,9 @@ export async function upsertAttendance(rec: Partial<Attendance> & { staffId: str
   if (rec.dailyWage !== undefined) dbRow.daily_wage = rec.dailyWage;
   if (rec.commute !== undefined) dbRow.commute = rec.commute;
   if (rec.commuteType !== undefined) dbRow.commute_type = rec.commuteType;
+  if (rec.breakMode !== undefined) dbRow.break_mode = rec.breakMode;
+  if (rec.breakFixedMinutes !== undefined) dbRow.break_fixed_minutes = rec.breakFixedMinutes;
+  if (rec.manualBreakMinutes !== undefined) dbRow.manual_break_minutes = rec.manualBreakMinutes;
   if (rec.salesGross !== undefined) dbRow.sales_gross = rec.salesGross;
   if (rec.sales !== undefined) dbRow.sales = rec.sales;
   if (rec.uncollected !== undefined) dbRow.uncollected = rec.uncollected;

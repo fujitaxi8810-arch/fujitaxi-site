@@ -229,7 +229,7 @@ import Layout from '../layouts/Layout.astro';
     initAuth, isAdmin, signInAdmin, signOutToKiosk,
     fetchStaff, insertStaff, updateStaff, deactivateStaff,
     fetchSettings, updateSettings as dbUpdateSettings,
-    fetchMonth, fetchToday, upsertAttendance, deleteAllAttendance, deleteAttendance,
+    fetchMonth, fetchTodayOrOpen, upsertAttendance, deleteAllAttendance, deleteAttendance,
     fetchExportLog, recordExport,
   } from '../lib/kintai-db';
 
@@ -324,10 +324,11 @@ import Layout from '../layouts/Layout.astro';
     return $('monthPick').value || dateKey().slice(0, 7);
   }
 
-  /** 本日分（todayLog）と表示中の月（log）をSupabaseから再取得する */
+  /** 本日分（todayLog）と表示中の月（log）をSupabaseから再取得する。
+   * todayLogには、日をまたぐ遅番など前日付けのまま退勤していないレコードも含む */
   async function refreshData() {
     const [t, m] = await Promise.all([
-      fetchToday(dateKey()),
+      fetchTodayOrOpen(dateKey(), yesterdayKey()),
       fetchMonth(currentMonth()),
     ]);
     todayLog = t;
@@ -338,6 +339,11 @@ import Layout from '../layouts/Layout.astro';
   function dateKey(d) {
     const dt = d ? new Date(d) : new Date();
     return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  }
+  function yesterdayKey() {
+    const dt = new Date();
+    dt.setDate(dt.getDate() - 1);
+    return dateKey(dt);
   }
   function timeStr(iso) {
     return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
@@ -942,8 +948,10 @@ import Layout from '../layouts/Layout.astro';
   };
 
   // ── 状態判定 ──
+  // 日をまたぐ遅番などで前日付けのまま退勤していないレコードがあれば、それを優先して「現在の状態」とする
   function todayRec(staffId) {
-    return todayLog.find(r => r.staffId === staffId);
+    const recs = todayLog.filter(r => r.staffId === staffId);
+    return recs.find(r => !r.out) || recs.find(r => r.date === dateKey()) || recs[0];
   }
   function statusOf(rec) {
     if (!rec || !rec.in) return 'before';        // 未出勤
@@ -1238,7 +1246,8 @@ import Layout from '../layouts/Layout.astro';
     const now = new Date().toISOString();
     const breaks = [...(rec.breaks || [])];
     const leaves = [...(rec.leaves || [])];
-    const patch = { staffId: selectedId, date: dateKey() };
+    // 日をまたぐ遅番など、レコードが前日付けのままの場合もあるため、そのレコード自身の日付を使う（今日の日付ではない）
+    const patch = { staffId: selectedId, date: rec.date };
 
     if (type === 'out') {
       patch.out = now;
@@ -1264,7 +1273,7 @@ import Layout from '../layouts/Layout.astro';
     try {
       await upsertAttendance(patch);
       await refreshData();
-      armUndo(selectedId, dateKey(), { ...rec });
+      armUndo(selectedId, rec.date, { ...rec });
       if (type === 'out') {
         let msg = `✅ ${s.name} さんの退勤を ${timeStr(now)} に記録しました。売上は後ほど管理者が入力します。`;
         if (isAdmin()) {
@@ -1410,7 +1419,13 @@ import Layout from '../layouts/Layout.astro';
   function renderToday() {
     const board = $('todayBoard');
     board.innerHTML = '';
-    const recs = log.filter(r => r.date === dateKey());
+    // スタッフごとに1件にまとめる。前日付けのまま退勤していない記録（日をまたぐ遅番等）があればそちらを優先する
+    const byStaff = {};
+    for (const r of todayLog) {
+      const cur = byStaff[r.staffId];
+      if (!cur || (!r.out && cur.out)) byStaff[r.staffId] = r;
+    }
+    const recs = Object.values(byStaff);
     $('todayEmpty').hidden = recs.length > 0;
     for (const rec of recs) {
       const s = staff.find(x => x.id === rec.staffId);

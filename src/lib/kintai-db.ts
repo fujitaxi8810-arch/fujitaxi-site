@@ -331,6 +331,19 @@ export async function fetchToday(dateKey: string): Promise<Attendance[]> {
   return (data || []).map(rowToAttendance);
 }
 
+/**
+ * 「本日の状況」用。今日の日付のレコードに加えて、前日付けのまま退勤していない
+ * レコード（日をまたぐ遅番など）も一緒に取得する。
+ */
+export async function fetchTodayOrOpen(dateKey: string, prevDateKey: string): Promise<Attendance[]> {
+  const { data, error } = await supabase
+    .from('attendance')
+    .select('*')
+    .or(`work_date.eq.${dateKey},and(work_date.eq.${prevDateKey},clock_out.is.null)`);
+  if (error) throw error;
+  return (data || []).map(rowToAttendance);
+}
+
 export async function fetchOne(staffId: string, dateKey: string): Promise<Attendance | null> {
   const { data, error } = await supabase
     .from('attendance')

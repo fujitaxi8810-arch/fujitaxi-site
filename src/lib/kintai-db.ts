@@ -376,6 +376,13 @@ export async function fetchOpenAttendance(): Promise<Attendance[]> {
   return (data || []).map(rowToAttendance);
 }
 
+/** バックアップ用。期間を問わず全打刻データを取得する。 */
+export async function fetchAllAttendance(): Promise<Attendance[]> {
+  const { data, error } = await supabase.from('attendance').select('*').order('work_date', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(rowToAttendance);
+}
+
 export async function fetchOne(staffId: string, dateKey: string): Promise<Attendance | null> {
   const { data, error } = await supabase
     .from('attendance')
@@ -482,6 +489,13 @@ export async function fetchShiftMonth(month: string): Promise<Shift[]> {
   return (data || []).map(rowToShift);
 }
 
+/** バックアップ用。期間を問わず全シフトデータを取得する。 */
+export async function fetchAllShifts(): Promise<Shift[]> {
+  const { data, error } = await supabase.from('shifts').select('*').order('work_date', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(rowToShift);
+}
+
 export async function upsertShift(rec: Shift): Promise<void> {
   const { error } = await supabase
     .from('shifts')
@@ -509,6 +523,13 @@ export async function fetchShiftNote(month: string): Promise<string> {
     .maybeSingle();
   if (error) throw error;
   return data?.note || '';
+}
+
+/** バックアップ用。全月分のシフト備考を取得する。 */
+export async function fetchAllShiftNotes(): Promise<{ month: string; note: string }[]> {
+  const { data, error } = await supabase.from('shift_notes').select('month, note').order('month', { ascending: true });
+  if (error) throw error;
+  return (data || []).map((r: any) => ({ month: r.month, note: r.note }));
 }
 
 export async function upsertShiftNote(month: string, note: string): Promise<void> {

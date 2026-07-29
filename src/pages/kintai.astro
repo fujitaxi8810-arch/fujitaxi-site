@@ -218,6 +218,8 @@ import Layout from '../layouts/Layout.astro';
         <p class="kt-note">※ ここで設定した金額・歩合率・手数料率が、すべてのスタッフの給与計算に使われます。手数料率はSBペイメントサービス収納明細書（2026年6月分）の実績値を初期値にしています。料率改定があった場合はここで更新してください。</p>
       </div>
       <button type="button" class="kt-btn kt-btn--ghost" id="settingsToggleBtn" hidden>⚙ 給与設定を開く</button>
+      <button type="button" class="kt-btn kt-btn--ghost" id="backupAllBtn" hidden>💾 全データバックアップを出力</button>
+      <p class="kt-note" id="backupAllNote" hidden>※ スタッフ設定・給与設定・全期間の打刻・シフトデータをまとめてJSONファイルで保存します。誤操作や障害が起きた際の最後の砦として、月1回程度の実行をおすすめします。</p>
       <button type="button" class="kt-btn kt-btn--danger" id="clearLogBtn" hidden>🗑 全打刻データを削除</button>
 
       <p class="kt-note">※ データは全端末で共有されます。月末に「給与計算Excel出力」またはCSV出力で保管してください。</p>
@@ -235,8 +237,9 @@ import Layout from '../layouts/Layout.astro';
     initAuth, isAdmin, isSuperAdmin, signInAdmin, signOutToKiosk,
     fetchStaff, insertStaff, updateStaff, deactivateStaff,
     fetchSettings, updateSettings as dbUpdateSettings,
-    fetchMonth, fetchTodayOrOpen, fetchOpenAttendance, upsertAttendance, deleteAllAttendance, deleteAttendance,
+    fetchMonth, fetchTodayOrOpen, fetchOpenAttendance, fetchAllAttendance, upsertAttendance, deleteAllAttendance, deleteAttendance,
     fetchExportLog, recordExport,
+    fetchAllShifts, fetchAllShiftNotes,
   } from '../lib/kintai-db';
 
   // 決済方法マスタ。rateはSBペイメントサービス収納明細書（2026/06/16-06/30分）の実績値。
@@ -664,6 +667,8 @@ import Layout from '../layouts/Layout.astro';
     if (!unlocked) $('settingsPanel').hidden = true;
     $('histPanel').hidden = !unlocked;
     $('wagePanel').hidden = !unlocked;
+    $('backupAllBtn').hidden = !unlocked;
+    $('backupAllNote').hidden = !unlocked;
     $('clearLogBtn').hidden = !isSuperAdmin();
     renderExcelSyncBox();
   }
@@ -728,6 +733,40 @@ import Layout from '../layouts/Layout.astro';
       renderPunch(); renderToday(); renderHist(); renderWage();
     } catch (e) {
       alert(SAVE_FAIL_MSG);
+    }
+  };
+
+  $('backupAllBtn').onclick = async () => {
+    if (!isAdmin()) return;
+    $('backupAllBtn').disabled = true;
+    try {
+      const [allStaff, allSettings, allAttendance, allShifts, allShiftNotes] = await Promise.all([
+        fetchStaff(),
+        fetchSettings(),
+        fetchAllAttendance(),
+        fetchAllShifts(),
+        fetchAllShiftNotes(),
+      ]);
+      const backup = {
+        schema: 'fuji-kintai-backup-v1',
+        exportedAt: new Date().toISOString(),
+        staff: allStaff,
+        settings: allSettings,
+        attendance: allAttendance,
+        shifts: allShifts,
+        shiftNotes: allShiftNotes,
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `富士タクシー_全データバックアップ_${dateKey()}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      alert('全データバックアップを出力しました。ダウンロードフォルダに保存されています。');
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
+    } finally {
+      $('backupAllBtn').disabled = false;
     }
   };
 

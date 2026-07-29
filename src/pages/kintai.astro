@@ -2187,6 +2187,33 @@ import Layout from '../layouts/Layout.astro';
     renderWage();
   }
   boot();
+
+  // ── 自動更新チェック（キオスク端末が開きっぱなしでも、アプリ更新時に安全なタイミングで自動リロードする） ──
+  // 日をまたぐ打刻の不具合修正など、開きっぱなしの端末が古いコードのまま動き続けて
+  // 同様の不具合を再発させることがあったため、新しいビルドを検知したら再読み込みする。
+  const BUILD_CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10分ごと
+  let knownBuildId = null;
+  async function fetchBuildId() {
+    try {
+      const res = await fetch(`/kintai-build.json?t=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.buildId || null;
+    } catch {
+      return null;
+    }
+  }
+  async function checkForUpdate() {
+    const latest = await fetchBuildId();
+    if (!latest) return;
+    if (knownBuildId === null) { knownBuildId = latest; return; }
+    if (latest === knownBuildId) return;
+    // 打刻の選択操作中は割り込まない。次回のチェックで再度試みる。
+    if (selectedId !== null) return;
+    location.reload();
+  }
+  setInterval(checkForUpdate, BUILD_CHECK_INTERVAL_MS);
+  fetchBuildId().then(id => { if (id) knownBuildId = id; });
 </script>
 
 <style is:global>

@@ -226,7 +226,7 @@ import Layout from '../layouts/Layout.astro';
 
 <script>
   import {
-    initAuth, isAdmin, signInAdmin, signOutToKiosk,
+    initAuth, isAdmin, isSuperAdmin, signInAdmin, signOutToKiosk,
     fetchStaff, insertStaff, updateStaff, deactivateStaff,
     fetchSettings, updateSettings as dbUpdateSettings,
     fetchMonth, fetchTodayOrOpen, upsertAttendance, deleteAllAttendance, deleteAttendance,
@@ -627,7 +627,7 @@ import Layout from '../layouts/Layout.astro';
     if (!unlocked) $('settingsPanel').hidden = true;
     $('histPanel').hidden = !unlocked;
     $('wagePanel').hidden = !unlocked;
-    $('clearLogBtn').hidden = !unlocked;
+    $('clearLogBtn').hidden = !isSuperAdmin();
     renderExcelSyncBox();
   }
   $('adminToggleBtn').onclick = async () => {
@@ -694,6 +694,7 @@ import Layout from '../layouts/Layout.astro';
   };
 
   $('clearLogBtn').onclick = async () => {
+    if (!isSuperAdmin()) return;
     if (!confirm('本当にすべての打刻データ（出勤・退勤・売上・給与の記録）を削除しますか？\nこの操作は取り消せません。')) return;
     if (!confirm('最終確認：削除すると元に戻せません。CSV出力やExcelへの反映は済んでいますか？\n本当に削除してよろしいですか？')) return;
     try {

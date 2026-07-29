@@ -115,15 +115,24 @@ export async function ensureKioskSession(): Promise<{ ok: boolean; error?: strin
 }
 
 let cachedIsAdmin = false;
+let cachedAdminEmail: string | null = null;
+
+// 「全打刻データを削除」など特に破壊的な操作は、管理者の中でもこのメールアドレスのみに限定する
+const SUPER_ADMIN_EMAILS = ['admin@fujitaxi.local'];
 
 export function isAdmin(): boolean {
   return cachedIsAdmin;
+}
+
+export function isSuperAdmin(): boolean {
+  return cachedIsAdmin && !!cachedAdminEmail && SUPER_ADMIN_EMAILS.includes(cachedAdminEmail);
 }
 
 async function refreshAdminFlag(): Promise<void> {
   const { data } = await supabase.auth.getSession();
   const role = data.session?.user?.app_metadata?.role;
   cachedIsAdmin = role === 'admin';
+  cachedAdminEmail = cachedIsAdmin ? (data.session?.user?.email ?? null) : null;
 }
 
 export async function initAuth(): Promise<{ ok: boolean; error?: string }> {
@@ -141,12 +150,14 @@ export async function signInAdmin(email: string, password: string): Promise<{ ok
     return { ok: false, error: 'このアカウントには管理者権限がありません。' };
   }
   cachedIsAdmin = true;
+  cachedAdminEmail = data.session.user.email ?? null;
   return { ok: true };
 }
 
 export async function signOutToKiosk(): Promise<void> {
   await supabase.auth.signOut();
   cachedIsAdmin = false;
+  cachedAdminEmail = null;
   await ensureKioskSession();
   await refreshAdminFlag();
 }

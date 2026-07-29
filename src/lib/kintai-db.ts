@@ -363,6 +363,19 @@ export async function fetchTodayOrOpen(dateKey: string, prevDateKey: string): Pr
   return (data || []).map(rowToAttendance);
 }
 
+/**
+ * 打刻忘れ検知用。退勤していない（clock_outがnull）レコードを日付を問わず全件取得する。
+ */
+export async function fetchOpenAttendance(): Promise<Attendance[]> {
+  const { data, error } = await supabase
+    .from('attendance')
+    .select('*')
+    .is('clock_out', null)
+    .order('work_date', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(rowToAttendance);
+}
+
 export async function fetchOne(staffId: string, dateKey: string): Promise<Attendance | null> {
   const { data, error } = await supabase
     .from('attendance')

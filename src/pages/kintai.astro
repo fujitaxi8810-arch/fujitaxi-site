@@ -126,6 +126,12 @@ import Layout from '../layouts/Layout.astro';
         <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
       </div>
 
+      <!-- 打刻漏れ警告（管理者のみ） -->
+      <div class="kt-openwarn" id="openWarnBox" hidden>
+        <p class="kt-openwarn__title">⚠️ 退勤の打刻漏れの可能性があります</p>
+        <div class="kt-openwarn__list" id="openWarnList"></div>
+      </div>
+
       <!-- 履歴（管理者のみ） -->
       <div class="kt-panel" id="histPanel" hidden>
         <div class="kt-panel__head">
@@ -229,7 +235,7 @@ import Layout from '../layouts/Layout.astro';
     initAuth, isAdmin, isSuperAdmin, signInAdmin, signOutToKiosk,
     fetchStaff, insertStaff, updateStaff, deactivateStaff,
     fetchSettings, updateSettings as dbUpdateSettings,
-    fetchMonth, fetchTodayOrOpen, upsertAttendance, deleteAllAttendance, deleteAttendance,
+    fetchMonth, fetchTodayOrOpen, fetchOpenAttendance, upsertAttendance, deleteAllAttendance, deleteAttendance,
     fetchExportLog, recordExport,
   } from '../lib/kintai-db';
 
@@ -556,6 +562,37 @@ import Layout from '../layouts/Layout.astro';
     await refreshExportLog();
     renderExportStatus();
   }
+
+  // ── 打刻漏れ検知（退勤し忘れて「勤務中」のまま長時間経過している人を警告） ──
+  const OPEN_WARN_HOURS = 15; // 最も長い遅番シフトより十分長い時間を経過したら「打刻漏れ」とみなす
+  let openWarnRecs = [];
+  async function refreshOpenWarnings() {
+    if (!isAdmin()) { openWarnRecs = []; return; }
+    try {
+      const recs = await fetchOpenAttendance();
+      const now = Date.now();
+      openWarnRecs = recs.filter(r => r.in && (now - new Date(r.in).getTime()) >= OPEN_WARN_HOURS * 3600000);
+    } catch { openWarnRecs = []; }
+  }
+  function renderOpenWarnings() {
+    if (!isAdmin()) { $('openWarnBox').hidden = true; return; }
+    $('openWarnBox').hidden = openWarnRecs.length === 0;
+    const list = $('openWarnList');
+    list.innerHTML = '';
+    for (const r of openWarnRecs) {
+      const s = staff.find(x => x.id === r.staffId);
+      const elapsedHours = Math.floor((Date.now() - new Date(r.in).getTime()) / 3600000);
+      const span = document.createElement('span');
+      span.className = 'kt-openwarn__item';
+      const inDate = new Date(r.in);
+      span.textContent = `${s ? s.name : '（不明）'}：${inDate.getMonth() + 1}/${inDate.getDate()} ${timeStr(r.in)}出勤・経過${elapsedHours}時間`;
+      list.appendChild(span);
+    }
+  }
+  async function refreshAndRenderOpenWarnings() {
+    await refreshOpenWarnings();
+    renderOpenWarnings();
+  }
   $('excelTemplateBtn').onclick = async () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet(EXCEL_SHEET_NAME);
@@ -637,6 +674,7 @@ import Layout from '../layouts/Layout.astro';
       await requireAdmin();
     }
     await refreshAndRenderExportStatus();
+    await refreshAndRenderOpenWarnings();
     renderAdminBar(); renderStaff(); renderPunch(); renderToday(); renderHist(); renderWage();
   };
   $('settingsToggleBtn').onclick = () => {
@@ -2101,6 +2139,7 @@ import Layout from '../layouts/Layout.astro';
       return;
     }
     await refreshAndRenderExportStatus();
+    await refreshAndRenderOpenWarnings();
     renderAdminBar();
     renderStaff();
     renderPunch();
@@ -2202,6 +2241,25 @@ import Layout from '../layouts/Layout.astro';
   }
   .kt-exportstatus__item--done { background: rgba(160,209,117,0.18); color: #a0d175; }
   .kt-exportstatus__item--pending { background: rgba(245,200,0,0.18); color: var(--fuji-yellow); }
+  .kt-openwarn {
+    margin: 0.75rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-lg);
+    background: rgba(230,90,90,0.12);
+    border: 1px solid rgba(230,90,90,0.35);
+  }
+  .kt-openwarn__title { font-size: 0.95rem; font-weight: 800; color: #e66a6a; margin: 0 0 0.4rem; }
+  .kt-openwarn__list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .kt-openwarn__item {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0.35rem 0.8rem;
+    border-radius: var(--radius-full);
+    background: rgba(230,90,90,0.18);
+    color: #e66a6a;
+  }
   .kt-title {
     font-size: 1.25rem;
     font-weight: 900;

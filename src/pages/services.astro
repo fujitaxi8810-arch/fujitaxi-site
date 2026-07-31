@@ -693,6 +693,15 @@ const structuredData = {
   }
   .pricing-cta__text { flex: 1; min-width: 0; }
 
+  @media (max-width: 600px) {
+    .pricing-cta {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .pricing-cta__text { width: 100%; flex: none; }
+    .pricing-cta .btn { width: 100%; text-align: center; }
+  }
+
   /* ページヒーロー */
   .page-hero {
     padding-block: 5rem 4rem;

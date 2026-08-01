@@ -52,11 +52,8 @@ const faqSchema = {
   ],
 };
 
-/* ── Review 構造化データ ── */
-const reviewSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'LocalBusiness',
-  name: '有限会社 富士タクシー',
+/* ── Review 構造化データ（共通LocalBusinessに統合） ── */
+const reviewData = {
   aggregateRating: {
     '@type': 'AggregateRating',
     ratingValue: '5',
@@ -118,7 +115,8 @@ const tourism = [
 <Layout
   title={pageTitle}
   description={pageDesc}
-  structuredData={[faqSchema, reviewSchema]}
+  structuredData={faqSchema}
+  localBusinessExtra={reviewData}
 >
 
 <!-- ════════════════════════════════════════

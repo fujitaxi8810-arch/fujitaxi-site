@@ -157,6 +157,26 @@ import Layout from '../layouts/Layout.astro';
           </div>
           <p class="kt-note">※ 初めて自動保存を設定する場合は、まず「テンプレートをダウンロード」→ 保存した場所を「Excelファイルを選択」で選んでください。この接続はこの端末・このブラウザだけの設定です（他のパソコンや管理者には表示されません）。別の端末で自動保存を使う場合は、その端末でも同じ手順をやり直してください。</p>
         </div>
+
+        <div class="kt-importsales">
+          <p class="kt-title" style="font-size:1rem;">📥 元帳から売上を取り込む</p>
+          <div class="kt-panel__tools">
+            <input type="text" id="importSheetUrl" class="kt-input" placeholder="スプレッドシートのURLを貼り付け" style="min-width:280px;flex:1;" />
+            <input type="month" id="importMonth" class="kt-input" />
+            <button type="button" class="kt-btn kt-btn--ghost" id="importFetchBtn">取り込み内容を確認</button>
+          </div>
+          <p class="kt-note">※ 元帳タブ（例：2026.7月分）を開いた状態のURLを貼り付けてください。内容を確認してから反映するので、自動で上書きされることはありません。出勤の打刻が無い日は反映対象になりません。</p>
+          <div class="kt-table-wrap" id="importPreviewWrap" hidden>
+            <table class="kt-table" id="importPreviewTable">
+              <thead>
+                <tr><th>反映</th><th>日付</th><th>名前</th><th>状態</th><th>売上合計(円)</th><th>未収入金(円)</th></tr>
+              </thead>
+              <tbody id="importPreviewBody"></tbody>
+            </table>
+          </div>
+          <button type="button" class="kt-btn" id="importApplyBtn" hidden>選択した内容を反映</button>
+        </div>
+
         <div class="kt-table-wrap">
           <table class="kt-table" id="histTable">
             <thead>
@@ -319,6 +339,7 @@ import Layout from '../layouts/Layout.astro';
 
   const $ = (id) => document.getElementById(id);
   $('monthPick').value = dateKey().slice(0, 7);
+  $('importMonth').value = dateKey().slice(0, 7);
 
   // ── 時計 ──
   function tick() {
@@ -1672,6 +1693,187 @@ import Layout from '../layouts/Layout.astro';
     }
     await refreshAndRenderExportStatus();
     renderHist(); renderWage();
+  };
+
+  // ── 元帳（スプレッドシート）から売上を取り込む ──
+  // 元帳タブの列構成（0始まり）: [0]日付 [5]ドライバー名 [10]未収入金 [12]売上合計
+  function normalizeName(s) {
+    return (s || '').replace(/[ 　]/g, '');
+  }
+  function parseYen(s) {
+    if (!s) return 0;
+    const n = parseFloat(String(s).replace(/,/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+  function parseSheetUrl(url) {
+    const idMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    const gidMatch = url.match(/[?&#]gid=(\d+)/);
+    if (!idMatch) return null;
+    return { id: idMatch[1], gid: gidMatch ? gidMatch[1] : '0' };
+  }
+  // ダブルクォート内の改行・カンマに対応した簡易CSVパーサ
+  function parseImportCsv(text) {
+    const rows = [];
+    let row = [];
+    let field = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else inQuotes = false;
+        } else field += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\r') { /* skip */ }
+        else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+        else field += c;
+      }
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+  const IMPORT_STATUS_LABEL = {
+    new: '✅ そのまま取り込みOK',
+    diff: '⚠️ すでに入力済み・金額が違います',
+    same: '✅ 反映済み（同じ金額）',
+    notfound: '❌ スタッフが見つかりません',
+    norecord: '❌ 出勤の打刻がありません',
+  };
+  function importStatusBadgeClass(status) {
+    if (status === 'new' || status === 'same') return 'kt-exportstatus__item kt-exportstatus__item--done';
+    if (status === 'diff') return 'kt-exportstatus__item kt-exportstatus__item--pending';
+    return 'kt-openwarn__item';
+  }
+  let importRows = [];
+  async function fetchImportPreview() {
+    const url = $('importSheetUrl').value.trim();
+    const month = $('importMonth').value;
+    if (!url) { alert('スプレッドシートのURLを入力してください。'); return; }
+    if (!month) { alert('対象月を選択してください。'); return; }
+    const parsed = parseSheetUrl(url);
+    if (!parsed) { alert('URLからスプレッドシートを特定できませんでした。URLを確認してください。'); return; }
+
+    $('importFetchBtn').disabled = true;
+    try {
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${parsed.id}/export?format=csv&gid=${parsed.gid}`;
+      const res = await fetch(csvUrl);
+      if (!res.ok) throw new Error('fetch failed');
+      const text = await res.text();
+      const rows = parseImportCsv(text);
+
+      // 日付・ドライバー名ごとに集計（同じ日に複数車両分ある場合は合算）
+      const agg = {};
+      for (const r of rows) {
+        const day = parseInt(r[0], 10);
+        const rawName = (r[5] || '').trim();
+        const name = normalizeName(rawName);
+        if (!day || day < 1 || day > 31 || !name) continue;
+        const sales = parseYen(r[12]);
+        const uncollected = parseYen(r[10]);
+        if (!sales) continue;
+        const key = day + '|' + name;
+        if (!agg[key]) agg[key] = { day, name, rawName, sales: 0, uncollected: 0 };
+        agg[key].sales += sales;
+        agg[key].uncollected += uncollected;
+      }
+
+      const monthRecs = await fetchMonth(month);
+      const results = [];
+      for (const key of Object.keys(agg).sort((a, b) => agg[a].day - agg[b].day)) {
+        const item = agg[key];
+        const date = `${month}-${String(item.day).padStart(2, '0')}`;
+        const matchedStaff = staff.find(s => normalizeName(s.name) === item.name);
+        let status, applyDefault = false, staffId = null, existingSales = null;
+        if (!matchedStaff) {
+          status = 'notfound';
+        } else {
+          staffId = matchedStaff.id;
+          const existingRec = monthRecs.find(r => r.staffId === staffId && r.date === date && r.out);
+          if (!existingRec) {
+            status = 'norecord';
+          } else if (existingRec.salesGross == null) {
+            status = 'new';
+            applyDefault = true;
+          } else if (existingRec.salesGross === item.sales) {
+            status = 'same';
+          } else {
+            status = 'diff';
+            existingSales = existingRec.salesGross;
+          }
+        }
+        results.push({
+          date, staffId, staffName: matchedStaff ? matchedStaff.name : null, sheetName: item.rawName,
+          sales: item.sales, uncollected: item.uncollected, status, applyDefault, existingSales,
+        });
+      }
+      importRows = results;
+      renderImportPreview();
+    } catch (e) {
+      alert('取り込みに失敗しました。URLが正しいか、スプレッドシートの共有設定（リンクを知っている全員が閲覧可）を確認してください。');
+    } finally {
+      $('importFetchBtn').disabled = false;
+    }
+  }
+  function renderImportPreview() {
+    const body = $('importPreviewBody');
+    body.innerHTML = '';
+    for (const row of importRows) {
+      const canCheck = row.status === 'new' || row.status === 'diff';
+      const checkboxHtml = canCheck
+        ? `<input type="checkbox" class="importRowCheck" data-key="${row.date}|${row.staffId}" ${row.applyDefault ? 'checked' : ''} />`
+        : '—';
+      const salesText = row.status === 'diff'
+        ? `${yen(row.sales)}円（既存：${yen(row.existingSales)}円）`
+        : `${yen(row.sales)}円`;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${checkboxHtml}</td>
+        <td>${row.date.slice(5).replace('-', '/')}</td>
+        <td>${row.staffName || row.sheetName}</td>
+        <td><span class="${importStatusBadgeClass(row.status)}">${IMPORT_STATUS_LABEL[row.status]}</span></td>
+        <td>${salesText}</td>
+        <td>${yen(row.uncollected)}円</td>
+      `;
+      body.appendChild(tr);
+    }
+    $('importPreviewWrap').hidden = importRows.length === 0;
+    $('importApplyBtn').hidden = !importRows.some(r => r.status === 'new' || r.status === 'diff');
+  }
+  $('importFetchBtn').onclick = () => fetchImportPreview();
+  $('importApplyBtn').onclick = async () => {
+    const checks = document.querySelectorAll('.importRowCheck:checked');
+    if (!checks.length) { alert('反映する行を選択してください。'); return; }
+    $('importApplyBtn').disabled = true;
+    let okCount = 0, ngCount = 0;
+    for (const cb of checks) {
+      const idx = cb.dataset.key.indexOf('|');
+      const date = cb.dataset.key.slice(0, idx);
+      const staffId = cb.dataset.key.slice(idx + 1);
+      const row = importRows.find(r => r.date === date && r.staffId === staffId);
+      if (!row) continue;
+      try {
+        await upsertAttendance({
+          staffId,
+          date,
+          salesGross: row.sales,
+          sales: taxExcluded(row.sales),
+          uncollected: row.uncollected,
+        });
+        okCount++;
+      } catch (e) {
+        ngCount++;
+      }
+    }
+    await refreshData();
+    renderHist(); renderWage();
+    alert(`${okCount}件反映しました。${ngCount ? ngCount + '件は失敗しました。' : ''}`);
+    importRows = [];
+    $('importPreviewWrap').hidden = true;
+    $('importApplyBtn').hidden = true;
+    $('importApplyBtn').disabled = false;
   };
 
   // ── CSV出力 ──

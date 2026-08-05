@@ -1120,6 +1120,7 @@ button {
 @media (max-width: 1100px) {
   .nav__links  { display: none; }
   .nav__cta    { display: none; }
+  .lang-switch { display: none; }
   .nav__hamburger { display: flex; }
 
   .footer__grid {

@@ -218,6 +218,15 @@ const navItems = [
 
     <!-- モバイルメニュー -->
     <div class="nav__mobile" id="mobile-menu" role="navigation" aria-label="モバイルメニュー">
+      <div class="nav__mobile-lang nav__mobile-lang--top">
+        <span class="nav__mobile-lang-label">Language / 言語</span>
+        <div class="nav__mobile-lang-btns">
+          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="ja">🇯🇵 日本語</button>
+          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="en">🇺🇸 English</button>
+          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="zh-CN">🇨🇳 中文</button>
+          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="ko">🇰🇷 한국어</button>
+        </div>
+      </div>
       {navItems.map(item => (
         item.children ? (
           <>
@@ -245,15 +254,6 @@ const navItems = [
       <a href="/contact" class="btn btn--primary nav__mobile-cta">
         予約・お問い合わせ
       </a>
-      <div class="nav__mobile-lang">
-        <span class="nav__mobile-lang-label">Language / 言語</span>
-        <div class="nav__mobile-lang-btns">
-          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="ja">🇯🇵 日本語</button>
-          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="en">🇺🇸 English</button>
-          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="zh-CN">🇨🇳 中文</button>
-          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="ko">🇰🇷 한국어</button>
-        </div>
-      </div>
     </div>
   </header>
 

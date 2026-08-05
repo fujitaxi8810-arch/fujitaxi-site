@@ -178,6 +178,24 @@ const navItems = [
         ))}
       </ul>
 
+      <!-- 言語切替 -->
+      <div class="lang-switch" id="lang-switch">
+        <button class="lang-switch__btn" id="lang-switch-toggle" aria-haspopup="true" aria-expanded="false" aria-label="言語を選択">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          <span>言語</span>
+        </button>
+        <ul class="lang-switch__menu" role="list">
+          <li><button type="button" class="lang-switch__opt" data-lang="ja">日本語</button></li>
+          <li><button type="button" class="lang-switch__opt" data-lang="en">English</button></li>
+          <li><button type="button" class="lang-switch__opt" data-lang="zh-CN">中文</button></li>
+          <li><button type="button" class="lang-switch__opt" data-lang="ko">한국어</button></li>
+        </ul>
+      </div>
+      <div id="google_translate_element" style="display:none"></div>
+
       <!-- CTA -->
       <a href="/contact" class="btn btn--primary btn--sm nav__cta">
         予約・お問い合わせ
@@ -227,6 +245,15 @@ const navItems = [
       <a href="/contact" class="btn btn--primary nav__mobile-cta">
         予約・お問い合わせ
       </a>
+      <div class="nav__mobile-lang">
+        <span class="nav__mobile-lang-label">Language</span>
+        <div class="nav__mobile-lang-btns">
+          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="ja">日本語</button>
+          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="en">English</button>
+          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="zh-CN">中文</button>
+          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="ko">한국어</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -469,6 +496,50 @@ const navItems = [
 
 <!-- ── スクリプト ── -->
 <script>
+  /* ── 言語切替（Google翻訳） ── */
+  (window as any).googleTranslateElementInit = function () {
+    new (window as any).google.translate.TranslateElement(
+      { pageLanguage: 'ja', includedLanguages: 'en,zh-CN,ko', autoDisplay: false },
+      'google_translate_element'
+    );
+  };
+  const gtScript = document.createElement('script');
+  gtScript.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+  document.head.appendChild(gtScript);
+
+  function setSiteLanguage(lang: string) {
+    const host = location.hostname;
+    if (lang === 'ja') {
+      document.cookie = 'googtrans=;path=/;expires=Thu, 01 Jan 1970 00:00:00 UTC';
+      document.cookie = `googtrans=;path=/;domain=${host};expires=Thu, 01 Jan 1970 00:00:00 UTC`;
+      document.cookie = `googtrans=;path=/;domain=.${host};expires=Thu, 01 Jan 1970 00:00:00 UTC`;
+    } else {
+      document.cookie = `googtrans=/ja/${lang};path=/`;
+      document.cookie = `googtrans=/ja/${lang};path=/;domain=${host}`;
+      document.cookie = `googtrans=/ja/${lang};path=/;domain=.${host}`;
+    }
+    location.reload();
+  }
+
+  const langToggle = document.getElementById('lang-switch-toggle');
+  const langSwitch = document.getElementById('lang-switch');
+  langToggle?.addEventListener('click', () => {
+    const isOpen = langSwitch?.classList.toggle('is-open');
+    langToggle.setAttribute('aria-expanded', String(!!isOpen));
+  });
+  document.querySelectorAll('.lang-switch__opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lang = (btn as HTMLElement).dataset.lang;
+      if (lang) setSiteLanguage(lang);
+      langSwitch?.classList.remove('is-open');
+    });
+  });
+  document.addEventListener('click', (e) => {
+    if (langSwitch && !langSwitch.contains(e.target as Node)) {
+      langSwitch.classList.remove('is-open');
+    }
+  });
+
   /* ── ドロップダウンナビ ── */
   document.querySelectorAll('.nav__dropdown-wrap').forEach(wrap => {
     const dropdown = wrap.querySelector('.nav__dropdown');

@@ -1167,3 +1167,101 @@ button {
   opacity: 1;
   transform: translateY(0);
 }
+
+/* ============================================
+   言語切替（Google翻訳）
+   ============================================ */
+
+.lang-switch {
+  position: relative;
+}
+.lang-switch__btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: var(--radius-full);
+  color: var(--fuji-gray-muted);
+  padding: 0.45rem 0.9rem;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.lang-switch__btn:hover {
+  border-color: var(--fuji-yellow);
+  color: var(--fuji-yellow);
+}
+.lang-switch__menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 140px;
+  background: var(--fuji-black-card);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  padding: 0.4rem;
+  list-style: none;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: var(--z-nav);
+}
+.lang-switch.is-open .lang-switch__menu {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.lang-switch__opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--fuji-white);
+  padding: 0.55rem 0.75rem;
+  font-size: var(--text-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.lang-switch__opt:hover {
+  background: rgba(245,200,0,0.1);
+  color: var(--fuji-yellow);
+}
+
+/* Google翻訳ウィジェットの見た目を隠す（機能だけ利用） */
+.goog-te-banner-frame,
+.skiptranslate > iframe {
+  display: none !important;
+}
+body {
+  top: 0 !important;
+}
+.goog-te-gadget { height: 0; overflow: hidden; }
+
+.nav__mobile-lang {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+.nav__mobile-lang-label {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--fuji-gray-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.6rem;
+}
+.nav__mobile-lang-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.lang-switch__opt--mobile {
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: var(--radius-full);
+  padding: 0.4rem 0.9rem;
+  font-size: var(--text-sm);
+}

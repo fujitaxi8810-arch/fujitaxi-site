@@ -180,18 +180,18 @@ const navItems = [
 
       <!-- 言語切替 -->
       <div class="lang-switch" id="lang-switch">
-        <button class="lang-switch__btn" id="lang-switch-toggle" aria-haspopup="true" aria-expanded="false" aria-label="言語を選択">
+        <button class="lang-switch__btn" id="lang-switch-toggle" aria-haspopup="true" aria-expanded="false" aria-label="Language / 言語を選択">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
           </svg>
-          <span>言語</span>
+          <span>Language / 言語</span>
         </button>
         <ul class="lang-switch__menu" role="list">
-          <li><button type="button" class="lang-switch__opt" data-lang="ja">日本語</button></li>
-          <li><button type="button" class="lang-switch__opt" data-lang="en">English</button></li>
-          <li><button type="button" class="lang-switch__opt" data-lang="zh-CN">中文</button></li>
-          <li><button type="button" class="lang-switch__opt" data-lang="ko">한국어</button></li>
+          <li><button type="button" class="lang-switch__opt" data-lang="ja"><span class="lang-switch__flag" aria-hidden="true">🇯🇵</span>日本語</button></li>
+          <li><button type="button" class="lang-switch__opt" data-lang="en"><span class="lang-switch__flag" aria-hidden="true">🇺🇸</span>English</button></li>
+          <li><button type="button" class="lang-switch__opt" data-lang="zh-CN"><span class="lang-switch__flag" aria-hidden="true">🇨🇳</span>中文</button></li>
+          <li><button type="button" class="lang-switch__opt" data-lang="ko"><span class="lang-switch__flag" aria-hidden="true">🇰🇷</span>한국어</button></li>
         </ul>
       </div>
       <div id="google_translate_element" style="display:none"></div>
@@ -246,12 +246,12 @@ const navItems = [
         予約・お問い合わせ
       </a>
       <div class="nav__mobile-lang">
-        <span class="nav__mobile-lang-label">Language</span>
+        <span class="nav__mobile-lang-label">Language / 言語</span>
         <div class="nav__mobile-lang-btns">
-          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="ja">日本語</button>
-          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="en">English</button>
-          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="zh-CN">中文</button>
-          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="ko">한국어</button>
+          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="ja">🇯🇵 日本語</button>
+          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="en">🇺🇸 English</button>
+          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="zh-CN">🇨🇳 中文</button>
+          <button type="button" class="lang-switch__opt lang-switch__opt--mobile" data-lang="ko">🇰🇷 한국어</button>
         </div>
       </div>
     </div>

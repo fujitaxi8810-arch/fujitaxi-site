@@ -78,6 +78,7 @@ import '../styles/kt-components.css';
             <input type="date" id="datePick" class="kt-input" />
             <button type="button" class="kt-btn kt-btn--ghost" id="nextDayBtn">▶</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="todayBtn">今日</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="showPastBtn" hidden>経過分も表示</button>
             <button type="button" class="kt-btn" id="printBtn">印刷</button>
           </div>
         </div>
@@ -1061,6 +1062,42 @@ import '../styles/kt-components.css';
 
     $('historyReloadBtn').onclick = loadHistory;
 
+    // ── 経過した予約を隠す ──
+    // 予約時刻から1時間たった分は配車ボードから消していく。
+    // ただし今日を見ているときだけ。過去の日を開いたら全件が対象になってしまうため。
+    const HIDE_AFTER_MINUTES = 60;
+    let showPast = false;
+    let lastHiddenCount = -1;
+
+    function isPastReservation(r: any) {
+      return Date.now() - new Date(r.reservedAt).getTime() > HIDE_AFTER_MINUTES * 60 * 1000;
+    }
+
+    function hidingApplies() {
+      return !showPast && ($('datePick').value || todayJst()) === todayJst();
+    }
+
+    function hiddenRows() {
+      return hidingApplies() ? boardRows.filter(isPastReservation) : [];
+    }
+
+    function visibleBoardRows() {
+      return hidingApplies() ? boardRows.filter((r) => !isPastReservation(r)) : boardRows;
+    }
+
+    $('showPastBtn').onclick = () => {
+      showPast = !showPast;
+      $('showPastBtn').textContent = showPast ? '経過分を隠す' : '経過分も表示';
+      renderBoard();
+    };
+
+    // 時間が過ぎたら勝手に消えるように。表示が変わるときだけ描き直す
+    // （毎分描き直すと、開いている担当者セレクトが閉じてしまうため）
+    setInterval(() => {
+      if ($('boardPanel').hidden) return;
+      if (hiddenRows().length !== lastHiddenCount) renderBoard();
+    }, 60 * 1000);
+
     // ── ① 配車ボード ──
     async function loadBoard() {
       const dateKey = $('datePick').value || todayJst();
@@ -1089,18 +1126,28 @@ import '../styles/kt-components.css';
       const dateKey = $('datePick').value || todayJst();
       $('boardTitle').textContent = `配車ボード　${dateKey.replace(/-/g, '/')}（${weekdayOf(dateKey)}）`;
 
+      const rows = visibleBoardRows();
+      const hidden = hiddenRows().length;
+      lastHiddenCount = hidden;
+
+      // 「経過分も表示」は、隠す対象が実際にあるときだけ出す
+      $('showPastBtn').hidden = hidden === 0 && !showPast;
+
       const table = $('boardTable');
       table.innerHTML = '';
-      $('boardEmpty').hidden = boardRows.length > 0;
+      $('boardEmpty').hidden = rows.length > 0;
+      $('boardEmpty').textContent = boardRows.length > 0 && rows.length === 0
+        ? `この日の予約はすべて時間が過ぎました（${hidden}件）。「経過分も表示」で確認できます。`
+        : 'この日の予約はありません。';
 
       renderBoardSummary();
 
-      if (boardRows.length === 0) return;
+      if (rows.length === 0) return;
 
       table.appendChild(headerRow(['時刻', '状態', '担当者', 'お客様名', '迎車場所', '行き先・メモ', '電話', '済', '']));
 
       const tbody = document.createElement('tbody');
-      for (const r of boardRows) {
+      for (const r of rows) {
         const tr = document.createElement('tr');
         applyRowStatus(tr, r);
 
@@ -1201,12 +1248,16 @@ import '../styles/kt-components.css';
     }
 
     function renderBoardSummary() {
+      // 件数も画面に出ている分だけを数える（隠した分を足すと数が合わなく見えるため）
+      const shown = visibleBoardRows();
+      const hidden = hiddenRows().length;
+
       // キャンセル済みは「未割当」「確認済」の母数から外す（対応不要のため）
-      const live = boardRows.filter((r) => r.status !== 'cancelled');
+      const live = shown.filter((r) => r.status !== 'cancelled');
       const unassigned = live.filter((r) => !r.staffId).length;
       const done = live.filter((r) => r.checked).length;
       const changed = live.filter((r) => r.status === 'changed').length;
-      const cancelled = boardRows.length - live.length;
+      const cancelled = shown.length - live.length;
 
       const fresh = live.filter(isNewSinceHandover).length;
 
@@ -1214,6 +1265,7 @@ import '../styles/kt-components.css';
       if (changed > 0) parts.push(`変更あり ${changed}件`);
       if (cancelled > 0) parts.push(`キャンセル ${cancelled}件`);
       if (fresh > 0) parts.push(`新着 ${fresh}件`);
+      if (hidden > 0) parts.push(`時間経過で非表示 ${hidden}件`);
 
       const tail = fresh > 0 && latestHandover
         ? `　　「新着」は${jstDateKey(latestHandover.handedOverAt).slice(5).replace('-', '/')} `

@@ -66,8 +66,11 @@ import '../styles/kt-components.css';
       </div>
 
       <!-- ── 乗務割（/shift の内容を読むだけ。編集は /shift 側）
-           スクロールしても見えるよう固定。邪魔なときは畳める ── -->
-      <details class="kt-panel ha-details ha-duty-panel" id="dutyPanel" open>
+           スクロールしても見えるよう固定。邪魔なときは畳める。
+           既定は閉じておく：開いたままページ最上部にいると、その手前の
+           見出し・管理者バー・タブだけで画面の大半を使ってしまい、
+           下の配車ボードが完全に画面外へ押し出されるため（実測で確認済み） ── -->
+      <details class="kt-panel ha-details ha-duty-panel" id="dutyPanel">
         <summary class="ha-details__summary">
           <span class="kt-title" id="dutyTitle">乗務割</span>
           <span class="ha-details__hint">クリックで開く</span>
@@ -1019,11 +1022,21 @@ import '../styles/kt-components.css';
       (b as HTMLElement).onclick = () => applyZoom(Number((b as HTMLElement).dataset.zoom));
     }
 
-    // 開閉の状態は端末に覚えさせる（閉じた人が毎回開き直さずに済むように）
+    // 開閉の状態は端末に覚えさせる（閉じた人が毎回開き直さずに済むように）。
+    // 既定は閉じている（HTML側）。前回「開いた」を選んだ端末だけ開いた状態にする。
     const DUTY_OPEN_KEY = 'fuji-haisha-duty-open';
-    if (localStorage.getItem(DUTY_OPEN_KEY) === 'closed') $('dutyPanel').open = false;
+    if (localStorage.getItem(DUTY_OPEN_KEY) === 'open') $('dutyPanel').open = true;
     $('dutyPanel').addEventListener('toggle', () => {
       localStorage.setItem(DUTY_OPEN_KEY, $('dutyPanel').open ? 'open' : 'closed');
+      if ($('dutyPanel').open) {
+        // 開いた直後は、ページ最上部にいるとその手前の見出し・タブ等だけで
+        // 画面の大半を使ってしまい「乗務割しか見えない」状態になる。
+        // sticky位置（ヘッダー直下）まで運んで、乗務割と配車ボードが
+        // 両方見える状態にする。
+        requestAnimationFrame(() => {
+          $('dutyPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
     });
 
     // 開いたときに初めて読み込む（普段は畳んでいるので、毎回取りに行かない）
@@ -1813,6 +1826,22 @@ import '../styles/kt-components.css';
       z-index: 5;
       background: var(--fuji-black-card, #1a1a1a);
       box-shadow: 0 6px 16px rgba(0,0,0,0.45);
+      /*
+       * 画面高さの割合で上限を付ける（ヘッダー分を引いた残り全部、ではない）。
+       * ページ先頭〜乗務割までの間にヒーロー見出しやタブがあるため、
+       * 「残り全部」を許すと乗務割だけで画面がほぼ埋まり、開いた瞬間
+       * 配車ボードが画面外に押し出されてしまう（実測で確認済み）。
+       * 画面の半分弱に絶対制限し、超えた分は中でスクロールする。
+       */
+      max-height: min(46vh, 420px);
+      overflow-y: auto;
+    }
+    /* summary（見出し）は常に見えるように、中の折りたたみ本体だけをスクロール対象にする */
+    .ha-duty-panel > .ha-details__summary {
+      position: sticky;
+      top: 0;
+      background: inherit;
+      z-index: 1;
     }
 
     /* ラベル列は中身に合わせて伸ばす。固定幅だと「スクール原町」が折り返す */
@@ -2012,6 +2041,10 @@ import '../styles/kt-components.css';
     }
     .ha-grid { border-collapse: collapse; width: 100%; }
     .ha-grid th, .ha-grid td { color: #111; font-size: 1rem; padding: 0.5rem 0.6rem; }
+    /* 文字を折り返して表を画面幅に収める。横スクロールはタッチだと操作しづらいので、
+       できるだけ起こさない（.kt-table の nowrap を打ち消す） */
+    .ha-grid td, .ha-grid th { white-space: normal; }
+    .ha-grid td.ha-time, .ha-grid th.ha-sticky { white-space: nowrap; }
     .ha-grid th {
       color: #111;
       border-bottom: 2px solid #d4a900;

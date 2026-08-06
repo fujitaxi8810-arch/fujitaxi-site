@@ -283,8 +283,6 @@ import '../styles/kt-components.css';
     } from '../lib/haisha-db';
     import { parseReservationCsv, decodeCsvBuffer } from '../lib/haisha-csv';
 
-    const LOGGED_OUT_MSG = 'ログインしていないため保存できません。画面上部の「ログインする」を押してください。';
-
     /**
      * 失敗の理由に応じた案内を返す。
      * ログイン切れに「電波状況を確認してください」と出しても永久に直らないため、必ず区別する。
@@ -583,20 +581,9 @@ import '../styles/kt-components.css';
     }
 
     // ── 引き継ぎ後の新着 ──
-    // 事務所は18時で終了し、以降は配車担当者が交代する。
-    // 交代後に入った予約が分かるよう、直近の18時以降に登録された予約に印を付ける。
-    const HANDOVER_HOUR = 18;
-
-    /** 直近に過ぎた18:00（JST）の時刻。今が18時前なら前日の18:00 */
-    function lastHandoverTime() {
-      const now = Date.now();
-      const jst = new Date(now + 9 * 3600 * 1000);
-      // JSTのその日の18:00をUTCミリ秒に戻す
-      let boundary = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate(), HANDOVER_HOUR)
-        - 9 * 3600 * 1000;
-      if (boundary > now) boundary -= 24 * 3600 * 1000;
-      return boundary;
-    }
+    // 事務所終了後などに配車担当者が交代した際、それ以降に入った予約に印を付ける。
+    // 基準は「引き継ぎ完了」を押した時刻。時刻固定にしていた頃は、昼間に見ると
+    // 前日18時が基準になり、その日の朝の予約まで新着扱いになる問題があった。
 
     /** DSでの登録時刻。手入力の予約はDBに入った時刻で代用する */
     function addedAt(r: any) {
@@ -604,18 +591,22 @@ import '../styles/kt-components.css';
     }
 
     /**
-     * 「新着」の基準時刻。
-     * 引き継ぎが記録されていればその時刻、無ければ直近の18時にフォールバックする
-     * （運用開始直後や、押し忘れが続いたときに全件が新着になるのを避けるため）。
+     * 「新着」の基準時刻。引き継ぎが記録されていればその時刻。
+     *
+     * 記録が無いときは null（＝何も新着にしない）。
+     * 以前は「直近に過ぎた18時」を基準にしていたが、たとえば昼間に見ると
+     * 基準が前日18時になり、その日の朝に入った予約まで新着扱いになってしまう。
+     * 引き継ぎボタンがある今は、押した時刻を基準にする方が確実。
      */
-    function newBaselineTime() {
-      if (latestHandover?.handedOverAt) return new Date(latestHandover.handedOverAt).getTime();
-      return lastHandoverTime();
+    function newBaselineTime(): number | null {
+      return latestHandover?.handedOverAt ? new Date(latestHandover.handedOverAt).getTime() : null;
     }
 
     function isNewSinceHandover(r: any) {
+      const base = newBaselineTime();
+      if (base === null) return false;
       const t = addedAt(r);
-      return t ? new Date(t).getTime() >= newBaselineTime() : false;
+      return t ? new Date(t).getTime() >= base : false;
     }
 
     // ── 引き継ぎ ──
@@ -626,7 +617,7 @@ import '../styles/kt-components.css';
       const noteEl = $('handoverNote');
 
       if (!latestHandover) {
-        when.textContent = `記録なし（${HANDOVER_HOUR}時を基準にしています）`;
+        when.textContent = 'まだありません（記録すると、それ以降の予約に「新着」が付きます）';
         // 申し送りの置き場所が分かるよう、まだ無くても枠は出しておく
         noteEl.hidden = false;
         noteEl.className = 'ha-handover__note ha-handover__note--empty';
@@ -671,10 +662,10 @@ import '../styles/kt-components.css';
           await updateHandoverNote(latestHandover.id, note);
           latestHandover = { ...latestHandover, note };
         } else {
-          // まだ引き継ぎ記録が無い場合。新着の基準が動かないよう、
-          // フォールバックで使っている18時をそのまま記録時刻にする
-          const baseIso = new Date(lastHandoverTime()).toISOString();
-          latestHandover = await recordHandover(null, note, baseIso);
+          // まだ引き継ぎ記録が無い場合は、この時点を基準として作る。
+          // 過去の時刻にすると、申し送りを書いただけで既存の予約に
+          // 新着が一斉に付いてしまうため。
+          latestHandover = await recordHandover(null, note);
         }
         $('noteModal').hidden = true;
         renderHandover();
@@ -1224,11 +1215,9 @@ import '../styles/kt-components.css';
       if (cancelled > 0) parts.push(`キャンセル ${cancelled}件`);
       if (fresh > 0) parts.push(`新着 ${fresh}件`);
 
-      const base = latestHandover
-        ? `${jstDateKey(latestHandover.handedOverAt).slice(5).replace('-', '/')} ${jstTimeLabel(latestHandover.handedOverAt)}の引き継ぎ`
-        : `${HANDOVER_HOUR}時`;
-      const tail = fresh > 0
-        ? `　　「新着」は${base}以降に入った予約です。`
+      const tail = fresh > 0 && latestHandover
+        ? `　　「新着」は${jstDateKey(latestHandover.handedOverAt).slice(5).replace('-', '/')} `
+          + `${jstTimeLabel(latestHandover.handedOverAt)}の引き継ぎ以降に入った予約です。`
         : '　　担当者・状態を選ぶとその場で保存されます。';
       $('boardSummary').textContent = parts.join('　') + tail;
     }

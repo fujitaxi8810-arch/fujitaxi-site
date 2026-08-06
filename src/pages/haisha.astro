@@ -710,17 +710,20 @@ import '../styles/kt-components.css';
     // 配車確認シート上部の勤務区分に対応する。記号の対応はユーザー確認済み。
     // 「スクール原町」「交流」「乗合」は /shift に該当記号が無いため未対応。
     // 配車確認シートの並び順に合わせる。
-    // source:'shift'   … /shift のコードから引く（表示専用。編集は /shift 側）
-    // source:'daily'   … 月次シフトでは決まらず前日に確定するため、この画面で割り当てる
-    const DUTY_GROUPS = [
-      { key: '①', label: '普通', source: 'shift' },
-      { key: '③', label: '遅番', source: 'shift' },
-      { key: 'S', label: 'スクール', source: 'shift' },
-      { key: 'school_haramachi', label: 'スクール原町', source: 'daily' },
-      { key: 'exchange', label: '交流', source: 'daily' },
-      { key: '貸切', label: '貸切', source: 'shift' },
-      { key: 'SH', label: '乗合', source: 'shift' },
+    // shiftKey … /shift のコードから引く（表示のみ。変更は /shift 側）
+    // dailyKey … この画面で日ごとに足す分（×で外せる）
+    // 貸切は両方持つ：基本はシフト通りだが、当日変わることがあるため追加もできる
+    const DUTY_GROUPS: { label: string; shiftKey?: string; dailyKey?: DutyCat }[] = [
+      { label: '普通', shiftKey: '①' },
+      { label: '遅番', shiftKey: '③' },
+      { label: 'スクール', shiftKey: 'S' },
+      { label: 'スクール原町', dailyKey: 'school_haramachi' },
+      { label: '交流', dailyKey: 'exchange' },
+      { label: '貸切', shiftKey: '貸切', dailyKey: 'charter' },
+      { label: '乗合', shiftKey: 'SH' },
     ];
+
+    type DutyCat = 'school_haramachi' | 'exchange' | 'charter';
 
     function dutyDateKey() {
       return $('datePick').value || todayJst();
@@ -780,52 +783,55 @@ import '../styles/kt-components.css';
         const names = document.createElement('span');
         names.className = 'ha-duty-names';
 
-        if (g.source === 'shift') {
-          const members = sortByShiftOrder(
-            (byCode.get(g.key) || [])
-              .map((d) => ({ ...d, staff: staff.find((s) => s.id === d.staffId) }))
-              .filter((d) => d.staff)
-          );
-          shiftShown += members.length;
-          if (members.length === 0) {
-            const none = document.createElement('span');
-            none.className = 'ha-duty-none';
-            none.textContent = '—';
-            names.appendChild(none);
-          } else {
-            for (const m of members) names.appendChild(dutyBadge(m.staff, { phoneDuty: m.phoneDuty }));
-          }
-        } else {
-          const cat = g.key as 'school_haramachi' | 'exchange';
-          const assigned = sortByShiftOrder(
-            dailyDutyRows
-              .filter((d) => d.category === g.key)
-              .map((d) => ({ ...d, staff: staff.find((s) => s.id === d.staffId) }))
-              .filter((d) => d.staff)
-          );
-          if (assigned.length === 0) {
-            const none = document.createElement('span');
-            none.className = 'ha-duty-none';
-            none.textContent = '—';
-            names.appendChild(none);
-          }
-          for (const m of assigned) {
-            names.appendChild(dutyBadge(m.staff, {
-              onRemove: async () => {
-                try {
-                  await removeDailyDuty(dateKey, cat, m.staffId);
-                  dailyDutyRows = dailyDutyRows.filter(
-                    (d) => !(d.category === g.key && d.staffId === m.staffId));
-                  renderDuty();
-                } catch (e) {
-                  alert(failMsg(e, '担当の削除'));
-                }
-              },
-            }));
-          }
+        // /shift 由来（表示のみ。変更は /shift 側で行う）
+        const fromShift = g.shiftKey
+          ? sortByShiftOrder(
+              (byCode.get(g.shiftKey) || [])
+                .map((d) => ({ ...d, staff: staff.find((s) => s.id === d.staffId) }))
+                .filter((d) => d.staff)
+            )
+          : [];
+        shiftShown += fromShift.length;
+        for (const m of fromShift) {
+          names.appendChild(dutyBadge(m.staff, { phoneDuty: m.phoneDuty }));
+        }
 
-          // 追加用のセレクト。選ぶと即保存して、すぐ次を選べるように戻す
-          const already = new Set(assigned.map((a) => a.staffId));
+        // この画面で日ごとに足した分（×で外せる）
+        const cat = g.dailyKey;
+        const fromDaily = cat
+          ? sortByShiftOrder(
+              dailyDutyRows
+                .filter((d) => d.category === cat)
+                .map((d) => ({ ...d, staff: staff.find((s) => s.id === d.staffId) }))
+                .filter((d) => d.staff)
+            )
+          : [];
+        for (const m of fromDaily) {
+          names.appendChild(dutyBadge(m.staff, {
+            onRemove: async () => {
+              try {
+                await removeDailyDuty(dateKey, cat!, m.staffId);
+                dailyDutyRows = dailyDutyRows.filter(
+                  (d) => !(d.category === cat && d.staffId === m.staffId));
+                renderDuty();
+              } catch (e) {
+                alert(failMsg(e, '担当の削除'));
+              }
+            },
+          }));
+        }
+
+        if (fromShift.length === 0 && fromDaily.length === 0) {
+          const none = document.createElement('span');
+          none.className = 'ha-duty-none';
+          none.textContent = '—';
+          names.appendChild(none);
+        }
+
+        // 追加用のセレクト。選ぶと即保存して、すぐ次を選べるように戻す。
+        // すでに出ている人（シフト由来も含む）は候補から外す
+        if (cat) {
+          const already = new Set([...fromShift, ...fromDaily].map((a) => a.staffId));
           const pick = document.createElement('select');
           pick.className = 'ha-select ha-duty-add';
           pick.appendChild(new Option('＋ 追加', ''));
@@ -838,7 +844,7 @@ import '../styles/kt-components.css';
             pick.disabled = true;
             try {
               await addDailyDuty(dateKey, cat, staffId);
-              dailyDutyRows = [...dailyDutyRows, { category: g.key, staffId }];
+              dailyDutyRows = [...dailyDutyRows, { category: cat, staffId }];
               renderDuty();
             } catch (e) {
               alert(failMsg(e, '担当の追加'));
@@ -855,7 +861,8 @@ import '../styles/kt-components.css';
 
       $('dutyNote').textContent = shiftShown === 0
         ? 'この日のシフトが未入力です。/shift で作成すると、普通・遅番・スクール・貸切・乗合がここに出ます。'
-        : '※ 普通・遅番・スクール・貸切・乗合は /shift の内容です（変更は /shift で）。スクール原町・交流はこの画面で割り当てます。';
+        : '※ 普通・遅番・スクール・乗合と貸切の基本分は /shift の内容です（変更は /shift で）。'
+          + 'スクール原町・交流と、貸切の追加分はこの画面で割り当てます（×が付いている名前がこの画面で足した分です）。';
     }
 
     // ── 変更履歴 ──

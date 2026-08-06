@@ -320,19 +320,63 @@ create policy dispatch_history_select on dispatch_history
 
 配車確認シート上部の勤務区分と `/shift` のコードの対応（ユーザー確認済み）:
 
-| 配車確認シートの行 | `/shift` のコード |
+| 配車確認シートの行 | 出どころ |
 |---|---|
-| 普通 | `①`（普通番 7:00-16:00） |
-| 遅番 | `③`（遅番 15:30-24:30） |
-| スクール | `S` |
-| シャトル | `SH` |
-| 貸切 | `貸切` |
-| **スクール原町** | **該当なし（未対応）** |
-| **交流** | **該当なし（未対応）** |
-| **乗合** | **該当なし（未対応）** |
+| 普通 | `/shift` の `①`（普通番 7:00-16:00） |
+| 遅番 | `/shift` の `③`（遅番 15:30-24:30） |
+| スクール | `/shift` の `S` |
+| 乗合 | `/shift` の `SH`（シャトル便） |
+| **スクール原町** | `/haisha` で日ごとに割り当て（前日に確定） |
+| **交流** | `/haisha` で日ごとに割り当て（前日に確定） |
+| **貸切** | **併用**：`/shift` の `貸切` が基本＋`/haisha` で当日追加 |
 
-未対応の3区分をどう扱うかは保留中。`/shift` にコードを追加するか、`/haisha` 側で日ごとに
-手入力する専用テーブルを持つかのどちらか。ユーザーへの確認待ち。
+スクール原町・交流は月次シフトでは決まらないため、`dispatch_duties` テーブルに
+日付＋区分＋スタッフで持つ（§5.6参照）。
+
+**貸切だけは両方を並べる**。基本はシフト通りだが当日変わることがある、というユーザーの運用に合わせた:
+
+- `/shift` の `貸切` 由来の名前 … ×なし（変更は `/shift` 側で行う）
+- `/haisha` で足した名前 … ×付きで外せる
+- 追加セレクトの候補からは、すでに出ている人（シフト由来を含む）を除外する
+
+なお**シフト由来の人をこの画面から外すことはできない**（除外レコードを持たせていないため）。
+当日その人が貸切から抜ける運用が出てきた場合は、除外の仕組みを追加する必要がある。
+
+## 5.6 日次の勤務割り当て（dispatch_duties）
+
+月次シフトでは決まらず、前日〜当日に確定する区分を、日付ごとに保存する。編集はこの画面から
+「＋追加」／「×」で行い、事務所ロック（管理者ログイン）は不要（毎日の入れ替えを想定するため）。
+
+```sql
+create table dispatch_duties (
+  id uuid primary key default gen_random_uuid(),
+  work_date date not null,
+  category text not null check (category in ('school_haramachi','exchange','charter')),
+  staff_id uuid not null references staff(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (work_date, category, staff_id)
+);
+
+create index dispatch_duties_date_idx on dispatch_duties (work_date);
+
+alter table dispatch_duties enable row level security;
+
+create policy dispatch_duties_select on dispatch_duties
+  for select to authenticated using (true);
+create policy dispatch_duties_insert on dispatch_duties
+  for insert to authenticated with check (true);
+create policy dispatch_duties_delete on dispatch_duties
+  for delete to authenticated using (true);
+```
+
+`category` は当初 `school_haramachi` / `exchange` の2種類だったが、`貸切` を月次シフト
+（`/shift` の `貸切` コード）から日次割り当てに変更した際に `charter` を追加した:
+
+```sql
+alter table dispatch_duties drop constraint dispatch_duties_category_check;
+alter table dispatch_duties add constraint dispatch_duties_category_check
+  check (category in ('school_haramachi','exchange','charter'));
+```
 
 ---
 

@@ -1861,13 +1861,10 @@ import '../styles/kt-components.css';
       background: inherit;
       z-index: 1;
     }
-    /* 画面上部に貼り付いている間だけ幅を狭くする（IntersectionObserverが付け外しする）。
-       本来の位置にあるとき（ページ最上部でまだスクロールしていない間）は
-       他のパネルと同じ幅のままにし、実際に浮いて見える状態のときだけ控えめにする */
+    /* 画面上部に貼り付いている間、他のパネルと同じ幅のまま
+       枠だけ強調して「浮いている」ことが分かるようにする
+       （幅を狭くする案は不採用。IntersectionObserver自体は他の用途にも使えるので残す） */
     .ha-duty-panel.is-stuck {
-      max-width: 26rem;
-      margin-left: auto;
-      margin-right: auto;
       border-color: rgba(245,200,0,0.35);
     }
 

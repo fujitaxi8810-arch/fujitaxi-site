@@ -1,0 +1,1877 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/kt-components.css';
+---
+
+<Layout
+  title="配車管理 – 富士タクシー（社内用）"
+  description="富士タクシー社内用の配車管理アプリ。予約の取り込み、担当者の割り当て、日別の配車確認ができます。"
+  noindex
+  hideFloatCta
+>
+
+  <section class="page-hero bg-black">
+    <div class="container">
+      <p class="eyebrow">Staff Only</p>
+      <h1>配車<span class="text-yellow">管理</span></h1>
+      <p class="page-hero__lead">予約を取り込んで担当者を割り当て、日別の配車表を確認できます。このページは社内用です。</p>
+    </div>
+  </section>
+
+  <section class="section bg-black" style="padding-top: 1rem;">
+    <div class="container kintai-wrap ha-wrap">
+
+      <!-- 管理者ロック（削除のみ管理者限定） -->
+      <div class="kt-adminbar">
+        <span class="kt-adminbar__label" id="adminState">🔒 閲覧・編集は可能／削除は管理者のみ</span>
+        <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
+      </div>
+
+      <!-- ログインしていないときの警告（未ログインだと参照は0件で返り、書き込みだけが失敗するため明示する） -->
+      <div class="ha-authbanner" id="authBanner" hidden>
+        <div>
+          <strong>ログインしていません。</strong>
+          <span id="authBannerMsg"></span><br />
+          この状態では予約が0件と表示され、取り込みや保存も失敗します。
+        </div>
+        <button type="button" class="kt-btn" id="authRetryBtn">ログインする</button>
+      </div>
+
+      <!-- タブ -->
+      <div class="ha-tabs">
+        <button type="button" class="ha-tab is-active" id="tabBoardBtn">日別の配車ボード</button>
+        <button type="button" class="ha-tab" id="tabListBtn">予約一覧</button>
+      </div>
+
+      <!-- ── 引き継ぎ（「新着」判定の基準時刻。交代した人が最初に見る想定で一番上に置く） ── -->
+      <div class="ha-handover" id="handoverBar">
+        <div class="ha-handover__info">
+          <span class="ha-handover__label">前回の引き継ぎ</span>
+          <span class="ha-handover__when" id="handoverWhen">—</span>
+          <p class="ha-handover__note" id="handoverNote" hidden></p>
+        </div>
+        <div class="ha-handover__actions">
+          <button type="button" class="kt-btn" id="handoverBtn">引き継ぎ完了</button>
+          <button type="button" class="kt-btn kt-btn--ghost" id="handoverUndoBtn" hidden>1つ前に戻す</button>
+        </div>
+      </div>
+
+      <!-- ── 本日の勤務（/shift の内容を読むだけ。編集は /shift 側） ── -->
+      <div class="kt-panel" id="dutyPanel">
+        <div class="kt-panel__head">
+          <h2 class="kt-title" id="dutyTitle">この日の勤務</h2>
+          <div class="kt-panel__tools">
+            <a href="/shift" class="kt-btn kt-btn--ghost" target="_blank" rel="noopener">シフトを編集</a>
+          </div>
+        </div>
+        <div id="dutyBody"></div>
+        <p class="ha-note" id="dutyNote"></p>
+      </div>
+
+      <!-- ── ① 日別の配車ボード ── -->
+      <div class="kt-panel" id="boardPanel">
+        <div class="kt-panel__head">
+          <h2 class="kt-title" id="boardTitle">配車ボード</h2>
+          <div class="kt-panel__tools">
+            <button type="button" class="kt-btn kt-btn--ghost" id="prevDayBtn">◀</button>
+            <input type="date" id="datePick" class="kt-input" />
+            <button type="button" class="kt-btn kt-btn--ghost" id="nextDayBtn">▶</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="todayBtn">今日</button>
+            <button type="button" class="kt-btn" id="printBtn">印刷</button>
+          </div>
+        </div>
+
+        <p class="ha-legend" id="boardSummary"></p>
+
+        <div class="kt-table-wrap ha-grid-wrap">
+          <table class="kt-table ha-grid" id="boardTable"></table>
+        </div>
+        <p class="kt-empty" id="boardEmpty" hidden>この日の予約はありません。</p>
+      </div>
+
+      <!-- ── ② 予約一覧 ── -->
+      <div class="kt-panel" id="listPanel" hidden>
+        <div class="kt-panel__head">
+          <h2 class="kt-title">予約一覧</h2>
+          <div class="kt-panel__tools">
+            <button type="button" class="kt-btn" id="importBtn">CSVを取り込む</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="newBtn">＋ 新規予約</button>
+          </div>
+        </div>
+
+        <div class="ha-filters">
+          <label class="ha-field">
+            <span>開始日</span>
+            <input type="date" id="fromPick" class="kt-input" />
+          </label>
+          <label class="ha-field">
+            <span>終了日</span>
+            <input type="date" id="toPick" class="kt-input" />
+          </label>
+          <label class="ha-field ha-field--grow">
+            <span>検索（お客様名・電話・場所）</span>
+            <input type="search" id="searchInput" class="kt-input" placeholder="例：菅野 / 9067 / 病院" />
+          </label>
+          <button type="button" class="kt-btn kt-btn--ghost" id="reloadBtn">再読み込み</button>
+        </div>
+
+        <p class="ha-legend" id="listSummary"></p>
+
+        <div class="kt-table-wrap ha-grid-wrap">
+          <table class="kt-table ha-grid" id="listTable"></table>
+        </div>
+        <p class="kt-empty" id="listEmpty" hidden>該当する予約はありません。</p>
+      </div>
+
+      <!-- ── 変更履歴（DBトリガーが自動記録） ── -->
+      <div class="kt-panel" id="historyPanel">
+        <div class="kt-panel__head">
+          <h2 class="kt-title">変更履歴</h2>
+          <div class="kt-panel__tools">
+            <button type="button" class="kt-btn kt-btn--ghost" id="historyReloadBtn">更新</button>
+          </div>
+        </div>
+        <p class="ha-note">
+          予約の追加・変更・削除を新しい順に最大100件表示します。「元に戻す」で変更前の状態に戻せます。<br />
+          CSVの取り込みで<strong>中身が変わらなかった行は記録されません</strong>（毎回100件流れてしまうため）。
+        </p>
+        <div id="historyBody"></div>
+      </div>
+
+      <!-- ── 配車担当者の設定（管理者のみ） ── -->
+      <div class="kt-panel" id="staffAdminPanel" hidden>
+        <div class="kt-panel__head">
+          <h2 class="kt-title">配車担当者の設定（管理者）</h2>
+        </div>
+        <p class="ha-note">
+          チェックを入れた人が、担当者の選択肢に出ます。事務職の方など配車に乗らない人は外してください。<br />
+          外しても、<strong>すでに割り当て済みの予約はそのまま残ります</strong>。<br />
+          ここに名前が無い人は、まだスタッフ登録されていません。<a href="/kintai" target="_blank" rel="noopener">勤怠ページ</a>で登録してください。
+        </p>
+        <div id="staffAdminBody" class="ha-assign-grid"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── 予約の編集モーダル ── -->
+  <div class="kt-modal-overlay" id="editModal" hidden>
+    <div class="kt-modal ha-modal" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+      <h2 class="kt-title" id="editTitle">予約の編集</h2>
+
+      <div class="ha-form">
+        <label class="ha-field"><span>予約日時 *</span><input type="datetime-local" id="fReservedAt" class="kt-input" /></label>
+        <label class="ha-field"><span>お客様名 *</span><input type="text" id="fCustomerName" class="kt-input" /></label>
+        <label class="ha-field"><span>読み</span><input type="text" id="fCustomerKana" class="kt-input" /></label>
+        <label class="ha-field"><span>電話番号</span><input type="tel" id="fPhone" class="kt-input" /></label>
+        <label class="ha-field"><span>アラーム(分前)</span><input type="number" id="fAlarm" class="kt-input" min="0" step="5" /></label>
+        <label class="ha-field"><span>担当者</span><span id="fStaffWrap"></span></label>
+        <label class="ha-field"><span>状態</span><span id="fStatusWrap"></span></label>
+        <label class="ha-field ha-field--full"><span>迎車場所名</span><input type="text" id="fPickupName" class="kt-input" /></label>
+        <label class="ha-field ha-field--full"><span>迎車住所</span><input type="text" id="fPickupAddress" class="kt-input" /></label>
+        <label class="ha-field ha-field--full"><span>場所メモ</span><input type="text" id="fPickupMemo" class="kt-input" /></label>
+        <label class="ha-field ha-field--full"><span>降車場所名</span><input type="text" id="fDropoffName" class="kt-input" /></label>
+        <label class="ha-field ha-field--full"><span>降車住所</span><input type="text" id="fDropoffAddress" class="kt-input" /></label>
+        <label class="ha-field ha-field--full"><span>オペレーター用メモ（行き先など）</span><textarea id="fOperatorMemo" class="kt-input" rows="3"></textarea></label>
+        <label class="ha-field ha-field--full"><span>アプリ側の申し送り</span><textarea id="fAppMemo" class="kt-input" rows="2"></textarea></label>
+      </div>
+
+      <p class="ha-note" id="editSourceNote"></p>
+
+      <div class="kt-modal__actions">
+        <button type="button" class="kt-btn" id="editSaveBtn">保存</button>
+        <button type="button" class="kt-btn kt-btn--danger" id="editDeleteBtn" hidden>削除（管理者）</button>
+        <button type="button" class="kt-btn kt-btn--ghost" id="editCancelBtn">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 引き継ぎモーダル ── -->
+  <div class="kt-modal-overlay" id="handoverModal" hidden>
+    <div class="kt-modal ha-modal" role="dialog" aria-modal="true" aria-labelledby="handoverTitle">
+      <h2 class="kt-title" id="handoverTitle">引き継ぎ完了</h2>
+      <p class="ha-note">
+        ここまでに入った予約の「新着」表示を消し、<strong>これ以降に入った予約を新着として表示</strong>します。<br />
+        全員の画面に反映されます。押し間違えたときは「1つ前に戻す」で取り消せます。
+      </p>
+
+      <div class="ha-field ha-field--full">
+        <span>引き継ぐ人（任意）</span>
+        <input type="text" id="hoBy" class="kt-input" placeholder="例：佐藤" />
+      </div>
+      <div class="ha-field ha-field--full">
+        <span>申し送り（任意）</span>
+        <textarea id="hoNote" class="kt-input" rows="3" placeholder="例：中村様の予約は折り返し待ち。19時までに連絡がなければキャンセル"></textarea>
+      </div>
+
+      <div class="kt-modal__actions">
+        <button type="button" class="kt-btn" id="hoConfirmBtn">確定する</button>
+        <button type="button" class="kt-btn kt-btn--ghost" id="hoCancelBtn">やめる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CSV取り込みモーダル ── -->
+  <div class="kt-modal-overlay" id="importModal" hidden>
+    <div class="kt-modal ha-modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+      <h2 class="kt-title" id="importTitle">CSVの取り込み</h2>
+
+      <p class="ha-note">
+        配車システム「DS」から書き出したCSVファイルを選ぶか、スプレッドシート「配車確認表」を
+        <strong>ヘッダー行ごと</strong>コピーして下の欄に貼り付けてください。<br />
+        すでに取り込んだ予約は<strong>上書き更新</strong>されます。割り当て済みの担当者・チェック・申し送りは消えません。
+      </p>
+
+      <div class="ha-field ha-field--full">
+        <span>CSVファイルを選ぶ</span>
+        <input type="file" id="importFile" class="kt-input" accept=".csv,.txt,text/csv,text/plain" />
+      </div>
+
+      <div class="ha-field ha-field--full">
+        <span>または貼り付け</span>
+        <textarea id="importText" class="kt-input ha-import-text" rows="6" placeholder="予約日時	アラーム(分前)	事業所名	お客様名 ..."></textarea>
+      </div>
+
+      <div id="importPreview" class="ha-preview" hidden></div>
+
+      <div class="kt-modal__actions">
+        <button type="button" class="kt-btn kt-btn--ghost" id="importParseBtn">内容を確認する</button>
+        <button type="button" class="kt-btn" id="importApplyBtn" disabled>取り込む</button>
+        <button type="button" class="kt-btn kt-btn--ghost" id="importCancelBtn">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import {
+      initAuth, isAdmin, signInAdmin, signOutToKiosk, fetchStaff,
+      fetchReservationsByDate, fetchReservationsRange, fetchShiftsByDate,
+      fetchDailyDuties, addDailyDuty, removeDailyDuty,
+      insertReservation, updateReservation, deleteReservation,
+      assignStaff, setChecked, setStatus, setStaffAssignable,
+      fetchLatestHandover, recordHandover, deleteHandover,
+      fetchDispatchHistory, revertHistoryEntry,
+      buildImportPlan, applyImportPlan,
+      jstDateKey, jstTimeLabel, todayJst,
+      hasSession, isAuthError,
+    } from '../lib/haisha-db';
+    import { parseReservationCsv, decodeCsvBuffer } from '../lib/haisha-csv';
+
+    const LOGGED_OUT_MSG = 'ログインしていないため保存できません。画面上部の「ログインする」を押してください。';
+
+    /**
+     * 失敗の理由に応じた案内を返す。
+     * ログイン切れに「電波状況を確認してください」と出しても永久に直らないため、必ず区別する。
+     */
+    function failMsg(e: any, what = '保存') {
+      if (isAuthError(e)) {
+        showLoggedOut('ログインの有効期限が切れた可能性があります。');
+        return `${what}できませんでした。ログインし直してください。`;
+      }
+      return `${what}に失敗しました。電波状況を確認して、もう一度お試しください。`;
+    }
+    // 入力要素の .value / .disabled を直接触るため any で受ける
+    const $ = (id: string): any => document.getElementById(id);
+
+    let staff: any[] = [];
+    let boardRows: any[] = [];
+    let listRows: any[] = [];
+    let dutyRows: any[] = [];
+    let dailyDutyRows: any[] = [];
+    let latestHandover: any = null;
+    let historyRows: any[] = [];
+    let editing: any = null;      // 編集中の予約（新規はnull）
+    let importPlan: any = null;
+
+    // ── 日付ユーティリティ ──
+    const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+
+    function shiftDate(dateKey: string, days: number) {
+      const d = new Date(`${dateKey}T00:00:00+09:00`);
+      d.setUTCDate(d.getUTCDate() + days);
+      return jstDateKey(d.toISOString());
+    }
+
+    function weekdayOf(dateKey: string) {
+      return WEEKDAYS[new Date(`${dateKey}T00:00:00+09:00`).getUTCDay()];
+    }
+
+    /** ISO → datetime-localの値（JST） */
+    function toLocalInput(iso: string) {
+      return `${jstDateKey(iso)}T${jstTimeLabel(iso)}`;
+    }
+
+    /** datetime-localの値（JST前提） → ISO */
+    function fromLocalInput(v: string) {
+      if (!v) return null;
+      const d = new Date(`${v}:00+09:00`);
+      return Number.isNaN(d.getTime()) ? null : d.toISOString();
+    }
+
+    // ── スタッフごとの色 ──
+    // 配車確認シートと同じく、人ごとに固有の色を持たせる。
+    // 勤務欄の名前と、配車ボードの担当者欄で同じ色になるので、
+    // 「今日の普通番は誰か」と「この予約は誰に割り当てたか」を色で照合できる。
+    // 淡い背景＋濃い文字（高彩度のベタ塗りは使わない）。
+    const STAFF_COLORS = [
+      { bg: '#eff6ff', fg: '#1d4ed8' }, { bg: '#fef2f2', fg: '#b91c1c' },
+      { bg: '#f0fdf4', fg: '#15803d' }, { bg: '#fffbeb', fg: '#92400e' },
+      { bg: '#f5f3ff', fg: '#6d28d9' }, { bg: '#ecfeff', fg: '#0e7490' },
+      { bg: '#fdf2f8', fg: '#be185d' }, { bg: '#f7fee7', fg: '#4d7c0f' },
+      { bg: '#eef2ff', fg: '#4338ca' }, { bg: '#fff7ed', fg: '#c2410c' },
+      { bg: '#f0fdfa', fg: '#115e59' }, { bg: '#fef3c7', fg: '#a16207' },
+      { bg: '#faf5ff', fg: '#a21caf' }, { bg: '#f1f5f9', fg: '#334155' },
+      { bg: '#fef7ed', fg: '#b45309' }, { bg: '#eceff1', fg: '#37474f' },
+    ];
+
+    let staffColorMap = new Map();
+
+    /** 表示順で色を配る。隣り合う人が必ず別の色になるようにするため、ハッシュではなく順番で決める */
+    function rebuildStaffColors() {
+      const sorted = [...staff].sort((a, b) =>
+        (a.shiftDisplayOrder ?? a.displayOrder) - (b.shiftDisplayOrder ?? b.displayOrder));
+      staffColorMap = new Map(sorted.map((s, i) => [s.id, STAFF_COLORS[i % STAFF_COLORS.length]]));
+    }
+
+    /** 要素にその人の色を当てる。未割当なら既定の見た目に戻す */
+    function applyStaffColor(el: HTMLElement, staffId: string | null) {
+      const c = staffId ? staffColorMap.get(staffId) : null;
+      if (c) {
+        el.style.background = c.bg;
+        el.style.color = c.fg;
+        el.style.borderColor = c.fg;
+      } else {
+        el.style.background = '';
+        el.style.color = '';
+        el.style.borderColor = '';
+      }
+    }
+
+    // ── 担当者セレクト ──
+    const STAFF_GROUPS = [
+      { key: null, label: '乗務員' },
+      { key: 'jumbo', label: 'ジャンボ' },
+      { key: 'office', label: '事務' },
+      { key: 'maintenance', label: '整備' },
+    ];
+
+    /**
+     * 担当者の候補。staff.haisha_assignable が false の人は外す。
+     * 誰を外すかはDBで管理する（コードに氏名を書くと、異体字や表記ゆれで壊れるため）。
+     * ただし既に割り当て済みの人は、対象外になっていても選択肢に残す
+     * （そうしないと選択が空欄になり、保存し直したときに割り当てが消えてしまう）。
+     */
+    function assignableStaff(keepId?: string | null) {
+      return staff.filter((s) => s.haishaAssignable !== false || (keepId && s.id === keepId));
+    }
+
+    function buildStaffSelect(selectedId?: string | null) {
+      const sel = document.createElement('select');
+      sel.className = 'ha-select';
+
+      const blank = document.createElement('option');
+      blank.value = '';
+      blank.textContent = '— 未割当 —';
+      sel.appendChild(blank);
+
+      for (const g of STAFF_GROUPS) {
+        const members = assignableStaff(selectedId)
+          .filter((s) => (s.shiftGroup ?? null) === g.key)
+          .sort((a, b) => (a.shiftDisplayOrder ?? a.displayOrder) - (b.shiftDisplayOrder ?? b.displayOrder));
+        if (members.length === 0) continue;
+        const og = document.createElement('optgroup');
+        og.label = g.label;
+        for (const m of members) {
+          const o = document.createElement('option');
+          o.value = m.id;
+          o.textContent = m.name;
+          og.appendChild(o);
+        }
+        sel.appendChild(og);
+      }
+
+      sel.value = selectedId || '';
+      applyStaffColor(sel, sel.value || null);
+      return sel;
+    }
+
+    function staffName(staffId: string | null) {
+      if (!staffId) return '';
+      const s = staff.find((x) => x.id === staffId);
+      return s ? s.name : '（退職者）';
+    }
+
+    // ── ログイン状態の表示 ──
+    // 未ログインでも参照は「0件」で返ってしまうので、画面に明示しないと
+    // 「予約が無い」のか「ログインできていない」のか区別がつかない。
+    function showLoggedOut(reason = '') {
+      $('authBannerMsg').textContent = reason;
+      $('authBanner').hidden = false;
+      $('importBtn').disabled = true;
+      $('newBtn').disabled = true;
+    }
+
+    function clearLoggedOut() {
+      $('authBanner').hidden = true;
+      $('importBtn').disabled = false;
+      $('newBtn').disabled = false;
+    }
+
+    $('authRetryBtn').onclick = async () => {
+      const result = await initAuth();
+      if (!result.ok) {
+        alert(result.error || 'ログインできませんでした。');
+        return;
+      }
+      clearLoggedOut();
+      try {
+        staff = await fetchStaff();
+        rebuildStaffColors();
+      } catch (e) { /* 表示は続行する */ }
+      renderAdminBar();
+      await refreshCurrentTab();
+    };
+
+    // ── 管理者バー ──
+    function renderAdminBar() {
+      const unlocked = isAdmin();
+      $('adminState').textContent = unlocked
+        ? '🔓 管理者：削除もできます'
+        : '🔒 閲覧・編集は可能／削除は管理者のみ';
+      $('adminToggleBtn').textContent = unlocked ? 'ロックする' : '管理者ロック解除';
+      $('staffAdminPanel').hidden = !unlocked;
+      if (unlocked) renderStaffAdmin();
+    }
+
+    // ── 配車担当者の設定（管理者のみ） ──
+    // 誰を担当者候補に出すかをこの画面で切り替える。
+    // 氏名ではなく id で更新するので、異体字や同姓の取り違えが起きない。
+    const GROUP_LABELS = { null: '乗務員', jumbo: 'ジャンボ', office: '事務', maintenance: '整備' };
+
+    function renderStaffAdmin() {
+      const body = $('staffAdminBody');
+      body.innerHTML = '';
+
+      const sorted = [...staff].sort((a, b) =>
+        (a.shiftDisplayOrder ?? a.displayOrder) - (b.shiftDisplayOrder ?? b.displayOrder));
+
+      for (const s of sorted) {
+        const label = document.createElement('label');
+        label.className = 'ha-assign-item';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'ha-check';
+        cb.checked = s.haishaAssignable !== false;
+        cb.onchange = async () => {
+          const next = cb.checked;
+          cb.disabled = true;
+          try {
+            await setStaffAssignable(s.id, next);
+            s.haishaAssignable = next;
+            // 担当者セレクトの中身が変わるので、表示中の画面を作り直す
+            if (!$('boardPanel').hidden) renderBoard();
+            else renderList();
+            renderDuty();
+          } catch (e) {
+            alert(isAuthError(e)
+              ? '変更できませんでした。管理者としてログインし直してください。'
+              : '変更に失敗しました。電波状況を確認して、もう一度お試しください。');
+            cb.checked = !next;
+          } finally {
+            cb.disabled = false;
+          }
+        };
+        label.appendChild(cb);
+
+        // 管理画面でも本人の色を出して、どの色が誰かを確認できるようにする
+        const name = document.createElement('span');
+        name.className = 'ha-badge ha-assign-name';
+        applyStaffColor(name, s.id);
+        name.textContent = s.name;
+        label.appendChild(name);
+
+        const grp = document.createElement('span');
+        grp.className = 'ha-assign-group';
+        grp.textContent = GROUP_LABELS[String(s.shiftGroup)] ?? '乗務員';
+        label.appendChild(grp);
+
+        body.appendChild(label);
+      }
+    }
+
+    async function requireAdmin() {
+      if (isAdmin()) return true;
+      const email = prompt('管理者アカウントのメールアドレスを入力してください。', 'admin@fujitaxi.local');
+      if (!email) return false;
+      const password = prompt('管理者パスワードを入力してください。');
+      if (!password) return false;
+      const result = await signInAdmin(email.trim(), password);
+      if (!result.ok) {
+        alert(result.error || 'ログインに失敗しました。');
+        return false;
+      }
+      return true;
+    }
+
+    $('adminToggleBtn').onclick = async () => {
+      if (isAdmin()) await signOutToKiosk();
+      else await requireAdmin();
+      renderAdminBar();
+    };
+
+    // ── タブ ──
+    function showTab(which: string) {
+      const board = which === 'board';
+      $('boardPanel').hidden = !board;
+      $('dutyPanel').hidden = !board;
+      $('handoverBar').hidden = !board;
+      $('historyPanel').hidden = !board;
+      $('listPanel').hidden = board;
+      $('tabBoardBtn').classList.toggle('is-active', board);
+      $('tabListBtn').classList.toggle('is-active', !board);
+      if (!board) loadList();
+    }
+    $('tabBoardBtn').onclick = () => showTab('board');
+    $('tabListBtn').onclick = () => showTab('list');
+
+    // ── 共通のセル生成 ──
+    function td(text: string | null | undefined, className = '') {
+      const cell = document.createElement('td');
+      if (className) cell.className = className;
+      cell.textContent = text ?? '';
+      return cell;
+    }
+
+    function headerRow(labels: string[]) {
+      const thead = document.createElement('thead');
+      const tr = document.createElement('tr');
+      for (const l of labels) {
+        const th = document.createElement('th');
+        th.textContent = l;
+        if (l === '時刻' || l === '予約日時') th.className = 'ha-sticky';
+        tr.appendChild(th);
+      }
+      thead.appendChild(tr);
+      return thead;
+    }
+
+    // ── 引き継ぎ後の新着 ──
+    // 事務所は18時で終了し、以降は配車担当者が交代する。
+    // 交代後に入った予約が分かるよう、直近の18時以降に登録された予約に印を付ける。
+    const HANDOVER_HOUR = 18;
+
+    /** 直近に過ぎた18:00（JST）の時刻。今が18時前なら前日の18:00 */
+    function lastHandoverTime() {
+      const now = Date.now();
+      const jst = new Date(now + 9 * 3600 * 1000);
+      // JSTのその日の18:00をUTCミリ秒に戻す
+      let boundary = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate(), HANDOVER_HOUR)
+        - 9 * 3600 * 1000;
+      if (boundary > now) boundary -= 24 * 3600 * 1000;
+      return boundary;
+    }
+
+    /** DSでの登録時刻。手入力の予約はDBに入った時刻で代用する */
+    function addedAt(r: any) {
+      return r.registeredAt || r.createdAt || null;
+    }
+
+    /**
+     * 「新着」の基準時刻。
+     * 引き継ぎが記録されていればその時刻、無ければ直近の18時にフォールバックする
+     * （運用開始直後や、押し忘れが続いたときに全件が新着になるのを避けるため）。
+     */
+    function newBaselineTime() {
+      if (latestHandover?.handedOverAt) return new Date(latestHandover.handedOverAt).getTime();
+      return lastHandoverTime();
+    }
+
+    function isNewSinceHandover(r: any) {
+      const t = addedAt(r);
+      return t ? new Date(t).getTime() >= newBaselineTime() : false;
+    }
+
+    // ── 引き継ぎ ──
+    const HANDOVER_NAME_KEY = 'fuji-haisha-handover-name';
+
+    function renderHandover() {
+      const when = $('handoverWhen');
+      const noteEl = $('handoverNote');
+
+      if (!latestHandover) {
+        when.textContent = `記録なし（${HANDOVER_HOUR}時を基準にしています）`;
+        noteEl.hidden = true;
+        $('handoverUndoBtn').hidden = true;
+        return;
+      }
+
+      const t = latestHandover.handedOverAt;
+      const who = latestHandover.handedOverBy ? `（${latestHandover.handedOverBy}）` : '';
+      when.textContent =
+        `${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}${who} 以降が新着`;
+
+      if (latestHandover.note) {
+        noteEl.hidden = false;
+        noteEl.textContent = `申し送り：${latestHandover.note}`;
+      } else {
+        noteEl.hidden = true;
+      }
+      $('handoverUndoBtn').hidden = false;
+    }
+
+    $('handoverBtn').onclick = () => {
+      $('hoBy').value = localStorage.getItem(HANDOVER_NAME_KEY) || '';
+      $('hoNote').value = '';
+      $('handoverModal').hidden = false;
+      $('hoBy').focus();
+    };
+    $('hoCancelBtn').onclick = () => { $('handoverModal').hidden = true; };
+    $('handoverModal').onclick = (e) => { if (e.target === $('handoverModal')) $('hoCancelBtn').click(); };
+
+    $('hoConfirmBtn').onclick = async () => {
+      const by = $('hoBy').value.trim();
+      const note = $('hoNote').value.trim();
+      $('hoConfirmBtn').disabled = true;
+      try {
+        latestHandover = await recordHandover(by || null, note || null);
+        if (by) localStorage.setItem(HANDOVER_NAME_KEY, by);
+        $('handoverModal').hidden = true;
+        renderHandover();
+        renderBoard();
+      } catch (e) {
+        alert(failMsg(e, '引き継ぎの記録'));
+      } finally {
+        $('hoConfirmBtn').disabled = false;
+      }
+    };
+
+    $('handoverUndoBtn').onclick = async () => {
+      if (!latestHandover) return;
+      if (!confirm('直前の引き継ぎ記録を取り消します。ひとつ前の引き継ぎが基準に戻ります。よろしいですか？')) return;
+      try {
+        await deleteHandover(latestHandover.id);
+        latestHandover = await fetchLatestHandover();
+        renderHandover();
+        renderBoard();
+      } catch (e) {
+        alert(failMsg(e, '引き継ぎの取り消し'));
+      }
+    };
+
+    /** 「8/5 19:23」形式。新着バッジの説明に使う */
+    function addedLabel(r: any) {
+      const t = addedAt(r);
+      if (!t) return '登録日時 不明';
+      return `登録 ${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}`;
+    }
+
+    function newBadge(r: any) {
+      const b = document.createElement('span');
+      b.className = 'ha-badge ha-badge--new';
+      b.textContent = '新着';
+      b.title = `${addedLabel(r)}（18時の引き継ぎ以降）`;
+      return b;
+    }
+
+    /** 迎車場所の表示文字列（場所名＋住所を1セルにまとめる） */
+    function pickupText(r: any) {
+      const parts = [r.pickupName, r.pickupAddress].filter(Boolean);
+      return parts.join(' / ');
+    }
+
+    // ── 状態（通常／変更あり／キャンセル） ──
+    // DS側の変更・取り消しは自動判定せず、人がここで指定する。
+    // アプリ側の列なのでCSVを取り込み直しても消えない。
+    const STATUS_KEYS = ['normal', 'changed', 'cancelled'];
+    const STATUS_LABELS = { normal: '通常', changed: '変更あり', cancelled: 'キャンセル' };
+
+    function buildStatusSelect(current: string) {
+      const sel = document.createElement('select');
+      sel.className = `ha-select ha-status ha-status--${current}`;
+      for (const key of STATUS_KEYS) {
+        const o = document.createElement('option');
+        o.value = key;
+        o.textContent = STATUS_LABELS[key];
+        sel.appendChild(o);
+      }
+      sel.value = current;
+      return sel;
+    }
+
+    /** 行の見た目を状態に合わせる。キャンセル済みは未割当扱いにしない */
+    function applyRowStatus(tr: HTMLElement, r: any) {
+      tr.classList.toggle('ha-row--cancelled', r.status === 'cancelled');
+      tr.classList.toggle('ha-row--changed', r.status === 'changed');
+      tr.classList.toggle('ha-row--unassigned', !r.staffId && r.status !== 'cancelled');
+    }
+
+    // ── この日の勤務（/shift から読むだけ） ──
+    // 配車確認シート上部の勤務区分に対応する。記号の対応はユーザー確認済み。
+    // 「スクール原町」「交流」「乗合」は /shift に該当記号が無いため未対応。
+    // 配車確認シートの並び順に合わせる。
+    // source:'shift'   … /shift のコードから引く（表示専用。編集は /shift 側）
+    // source:'daily'   … 月次シフトでは決まらず前日に確定するため、この画面で割り当てる
+    const DUTY_GROUPS = [
+      { key: '①', label: '普通', source: 'shift' },
+      { key: '③', label: '遅番', source: 'shift' },
+      { key: 'S', label: 'スクール', source: 'shift' },
+      { key: 'school_haramachi', label: 'スクール原町', source: 'daily' },
+      { key: 'exchange', label: '交流', source: 'daily' },
+      { key: '貸切', label: '貸切', source: 'shift' },
+      { key: 'SH', label: '乗合', source: 'shift' },
+    ];
+
+    function dutyDateKey() {
+      return $('datePick').value || todayJst();
+    }
+
+    function sortByShiftOrder(list: any[]) {
+      return list.sort((a, b) =>
+        (a.staff.shiftDisplayOrder ?? a.staff.displayOrder) - (b.staff.shiftDisplayOrder ?? b.staff.displayOrder));
+    }
+
+    /** 名前バッジ。日次割り当ての行では×で外せる */
+    function dutyBadge(st: any, opts: { phoneDuty?: boolean; onRemove?: () => void }) {
+      const b = document.createElement('span');
+      b.className = 'ha-badge ha-duty-name';
+      applyStaffColor(b, st.id);
+      b.appendChild(document.createTextNode(st.name));
+      if (opts.phoneDuty) {
+        const p = document.createElement('span');
+        p.className = 'ha-duty-phone';
+        p.textContent = '電';
+        p.title = '電話番';
+        b.appendChild(p);
+      }
+      if (opts.onRemove) {
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'ha-duty-remove';
+        x.textContent = '×';
+        x.title = '外す';
+        x.onclick = opts.onRemove;
+        b.appendChild(x);
+      }
+      return b;
+    }
+
+    function renderDuty() {
+      const body = $('dutyBody');
+      body.innerHTML = '';
+      const dateKey = dutyDateKey();
+
+      const byCode = new Map();
+      for (const d of dutyRows) {
+        if (!byCode.has(d.code)) byCode.set(d.code, []);
+        byCode.get(d.code).push(d);
+      }
+
+      let shiftShown = 0;
+      for (const g of DUTY_GROUPS) {
+        const row = document.createElement('div');
+        row.className = 'ha-duty-row';
+
+        const label = document.createElement('span');
+        label.className = 'ha-duty-label';
+        label.textContent = g.label;
+        row.appendChild(label);
+
+        const names = document.createElement('span');
+        names.className = 'ha-duty-names';
+
+        if (g.source === 'shift') {
+          const members = sortByShiftOrder(
+            (byCode.get(g.key) || [])
+              .map((d) => ({ ...d, staff: staff.find((s) => s.id === d.staffId) }))
+              .filter((d) => d.staff)
+          );
+          shiftShown += members.length;
+          if (members.length === 0) {
+            const none = document.createElement('span');
+            none.className = 'ha-duty-none';
+            none.textContent = '—';
+            names.appendChild(none);
+          } else {
+            for (const m of members) names.appendChild(dutyBadge(m.staff, { phoneDuty: m.phoneDuty }));
+          }
+        } else {
+          const cat = g.key as 'school_haramachi' | 'exchange';
+          const assigned = sortByShiftOrder(
+            dailyDutyRows
+              .filter((d) => d.category === g.key)
+              .map((d) => ({ ...d, staff: staff.find((s) => s.id === d.staffId) }))
+              .filter((d) => d.staff)
+          );
+          if (assigned.length === 0) {
+            const none = document.createElement('span');
+            none.className = 'ha-duty-none';
+            none.textContent = '—';
+            names.appendChild(none);
+          }
+          for (const m of assigned) {
+            names.appendChild(dutyBadge(m.staff, {
+              onRemove: async () => {
+                try {
+                  await removeDailyDuty(dateKey, cat, m.staffId);
+                  dailyDutyRows = dailyDutyRows.filter(
+                    (d) => !(d.category === g.key && d.staffId === m.staffId));
+                  renderDuty();
+                } catch (e) {
+                  alert(failMsg(e, '担当の削除'));
+                }
+              },
+            }));
+          }
+
+          // 追加用のセレクト。選ぶと即保存して、すぐ次を選べるように戻す
+          const already = new Set(assigned.map((a) => a.staffId));
+          const pick = document.createElement('select');
+          pick.className = 'ha-select ha-duty-add';
+          pick.appendChild(new Option('＋ 追加', ''));
+          for (const s of assignableStaff().filter((s) => !already.has(s.id))) {
+            pick.appendChild(new Option(s.name, s.id));
+          }
+          pick.onchange = async () => {
+            const staffId = pick.value;
+            if (!staffId) return;
+            pick.disabled = true;
+            try {
+              await addDailyDuty(dateKey, cat, staffId);
+              dailyDutyRows = [...dailyDutyRows, { category: g.key, staffId }];
+              renderDuty();
+            } catch (e) {
+              alert(failMsg(e, '担当の追加'));
+              pick.value = '';
+              pick.disabled = false;
+            }
+          };
+          names.appendChild(pick);
+        }
+
+        row.appendChild(names);
+        body.appendChild(row);
+      }
+
+      $('dutyNote').textContent = shiftShown === 0
+        ? 'この日のシフトが未入力です。/shift で作成すると、普通・遅番・スクール・貸切・乗合がここに出ます。'
+        : '※ 普通・遅番・スクール・貸切・乗合は /shift の内容です（変更は /shift で）。スクール原町・交流はこの画面で割り当てます。';
+    }
+
+    // ── 変更履歴 ──
+    // 何がどう変わったかを日本語で出す。列名のままでは現場で読めないため。
+    const FIELD_LABELS = {
+      reserved_at: '予約日時', alarm_minutes: 'アラーム(分前)', customer_name: 'お客様名',
+      customer_kana: '読み', phone: '電話番号', reservation_memo: '予約メモ',
+      operator_memo: 'オペレーター用メモ', pickup_name: '迎車場所名', pickup_memo: '場所メモ',
+      pickup_address: '迎車住所', dropoff_name: '降車場所名', dropoff_address: '降車住所',
+      staff_id: '担当者', checked: '確認', app_memo: '申し送り', status: '状態',
+      registered_by: '登録オペレーター', registered_at: '登録日時', office_name: '事業所名',
+    };
+
+    /** 値を読める形にする。担当者はid→氏名、状態はコード→日本語 */
+    function fieldValueLabel(field: string, v: any) {
+      if (v === null || v === undefined || v === '') return '（空）';
+      if (field === 'staff_id') return staffName(v) || '（不明）';
+      if (field === 'status') return STATUS_LABELS[v] ?? v;
+      if (field === 'checked') return v ? '済' : '未';
+      if (field === 'reserved_at' || field === 'registered_at') {
+        return `${jstDateKey(v).slice(5).replace('-', '/')} ${jstTimeLabel(v)}`;
+      }
+      return String(v);
+    }
+
+    /** old と new を比べて、変わった項目だけを返す */
+    function diffFields(oldRow: any, newRow: any) {
+      const out: { field: string; from: any; to: any }[] = [];
+      for (const field of Object.keys(FIELD_LABELS)) {
+        const a = oldRow?.[field] ?? null;
+        const b = newRow?.[field] ?? null;
+        if (JSON.stringify(a) !== JSON.stringify(b)) out.push({ field, from: a, to: b });
+      }
+      return out;
+    }
+
+    function historySubject(e: any) {
+      const row = e.newRow || e.oldRow || {};
+      const when = row.reserved_at
+        ? `${jstDateKey(row.reserved_at).slice(5).replace('-', '/')} ${jstTimeLabel(row.reserved_at)}`
+        : '';
+      return `${when} ${row.customer_name || '（お客様名なし）'}`.trim();
+    }
+
+    async function loadHistory() {
+      try {
+        historyRows = await fetchDispatchHistory(100);
+      } catch (e) {
+        $('historyBody').textContent = '履歴を読み込めませんでした。';
+        return;
+      }
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const body = $('historyBody');
+      body.innerHTML = '';
+
+      if (historyRows.length === 0) {
+        const p = document.createElement('p');
+        p.className = 'kt-empty';
+        p.textContent = 'まだ変更はありません。';
+        body.appendChild(p);
+        return;
+      }
+
+      for (const e of historyRows) {
+        const item = document.createElement('div');
+        item.className = 'ha-hist';
+
+        const head = document.createElement('div');
+        head.className = 'ha-hist__head';
+
+        const kind = document.createElement('span');
+        kind.className = `ha-badge ha-hist__kind ha-hist__kind--${e.action}`;
+        kind.textContent = { insert: '追加', update: '変更', delete: '削除' }[e.action] ?? e.action;
+        head.appendChild(kind);
+
+        const subject = document.createElement('span');
+        subject.className = 'ha-hist__subject';
+        subject.textContent = historySubject(e);
+        head.appendChild(subject);
+
+        const meta = document.createElement('span');
+        meta.className = 'ha-hist__meta';
+        meta.textContent =
+          `${jstDateKey(e.changedAt).slice(5).replace('-', '/')} ${jstTimeLabel(e.changedAt)}`
+          + (e.changedBy ? ` ${e.changedBy}` : '');
+        head.appendChild(meta);
+
+        const revert = document.createElement('button');
+        revert.type = 'button';
+        revert.className = 'kt-btn kt-btn--ghost ha-hist__revert';
+        revert.textContent = '元に戻す';
+        revert.onclick = async () => {
+          const label = { insert: 'この追加を取り消します（予約が削除されます）',
+                          update: 'この変更を取り消して、変更前の状態に戻します',
+                          delete: '削除された予約を復元します' }[e.action];
+          if (!confirm(`${label}。よろしいですか？\n\n対象：${historySubject(e)}`)) return;
+          revert.disabled = true;
+          try {
+            await revertHistoryEntry(e);
+            await loadBoard();
+            await loadHistory();
+          } catch (err) {
+            // 削除の復元中に、CSV取り込みで同じ予約が作り直されているとここに来る
+            alert(err?.code === '23505'
+              ? '同じ予約がすでに存在するため復元できません。CSVの取り込みで作り直された可能性があります。'
+              : failMsg(err, '元に戻す操作'));
+            revert.disabled = false;
+          }
+        };
+        head.appendChild(revert);
+        item.appendChild(head);
+
+        // 変更内容の明細
+        if (e.action === 'update') {
+          const changes = diffFields(e.oldRow, e.newRow);
+          const ul = document.createElement('ul');
+          ul.className = 'ha-hist__changes';
+          for (const c of changes) {
+            const li = document.createElement('li');
+            li.textContent =
+              `${FIELD_LABELS[c.field]}：${fieldValueLabel(c.field, c.from)} → ${fieldValueLabel(c.field, c.to)}`;
+            ul.appendChild(li);
+          }
+          if (changes.length > 0) item.appendChild(ul);
+        }
+
+        body.appendChild(item);
+      }
+    }
+
+    $('historyReloadBtn').onclick = loadHistory;
+
+    // ── ① 配車ボード ──
+    async function loadBoard() {
+      const dateKey = $('datePick').value || todayJst();
+      try {
+        const [rows, duties, daily, handover] = await Promise.all([
+          fetchReservationsByDate(dateKey),
+          fetchShiftsByDate(dateKey),
+          fetchDailyDuties(dateKey),
+          fetchLatestHandover(),
+        ]);
+        boardRows = rows;
+        dutyRows = duties;
+        dailyDutyRows = daily;
+        latestHandover = handover;
+      } catch (e) {
+        alert(failMsg(e, 'データの読み込み'));
+        return;
+      }
+      $('dutyTitle').textContent = `この日の勤務　${dateKey.replace(/-/g, '/')}（${weekdayOf(dateKey)}）`;
+      renderHandover();
+      renderDuty();
+      renderBoard();
+    }
+
+    function renderBoard() {
+      const dateKey = $('datePick').value || todayJst();
+      $('boardTitle').textContent = `配車ボード　${dateKey.replace(/-/g, '/')}（${weekdayOf(dateKey)}）`;
+
+      const table = $('boardTable');
+      table.innerHTML = '';
+      $('boardEmpty').hidden = boardRows.length > 0;
+
+      renderBoardSummary();
+
+      if (boardRows.length === 0) return;
+
+      table.appendChild(headerRow(['時刻', '状態', '担当者', 'お客様名', '迎車場所', '行き先・メモ', '電話', '済', '']));
+
+      const tbody = document.createElement('tbody');
+      for (const r of boardRows) {
+        const tr = document.createElement('tr');
+        applyRowStatus(tr, r);
+
+        const timeCell = td(jstTimeLabel(r.reservedAt), 'ha-sticky ha-time');
+        if (isNewSinceHandover(r)) {
+          tr.classList.add('ha-row--new');
+          timeCell.appendChild(newBadge(r));
+        }
+        tr.appendChild(timeCell);
+
+        // 状態（選択で即保存）
+        const statusCell = document.createElement('td');
+        const stSel = buildStatusSelect(r.status);
+        stSel.onchange = async () => {
+          const next = stSel.value as 'normal' | 'changed' | 'cancelled';
+          const prev = r.status;
+          stSel.disabled = true;
+          try {
+            await setStatus(r.id, next);
+            r.status = next;
+            stSel.className = `ha-select ha-status ha-status--${next}`;
+            applyRowStatus(tr, r);
+            renderBoardSummary();
+          } catch (e) {
+            alert(failMsg(e, '状態の保存'));
+            stSel.value = prev;
+          } finally {
+            stSel.disabled = false;
+          }
+        };
+        statusCell.appendChild(stSel);
+        tr.appendChild(statusCell);
+
+        // 担当者（選択で即保存）
+        const staffCell = document.createElement('td');
+        const sel = buildStaffSelect(r.staffId);
+        sel.onchange = async () => {
+          const next = sel.value || null;
+          const prev = r.staffId;
+          sel.disabled = true;
+          try {
+            await assignStaff(r.id, next);
+            r.staffId = next;
+            applyStaffColor(sel, next);
+            applyRowStatus(tr, r);
+            renderBoardSummary();
+          } catch (e) {
+            alert(failMsg(e, '担当者の保存'));
+            sel.value = prev || '';
+          } finally {
+            sel.disabled = false;
+          }
+        };
+        staffCell.appendChild(sel);
+        tr.appendChild(staffCell);
+
+        tr.appendChild(td(r.customerName));
+        tr.appendChild(td(pickupText(r), 'ha-wrapcell'));
+        tr.appendChild(td(r.operatorMemo, 'ha-wrapcell'));
+        tr.appendChild(td(r.phone));
+
+        // 確認チェック（即保存）
+        const checkCell = document.createElement('td');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'ha-check';
+        cb.checked = r.checked;
+        cb.onchange = async () => {
+          const next = cb.checked;
+          cb.disabled = true;
+          try {
+            await setChecked(r.id, next);
+            r.checked = next;
+            renderBoardSummary();
+          } catch (e) {
+            alert(failMsg(e, 'チェックの保存'));
+            cb.checked = !next;
+          } finally {
+            cb.disabled = false;
+          }
+        };
+        checkCell.appendChild(cb);
+        tr.appendChild(checkCell);
+
+        const editCell = document.createElement('td');
+        editCell.className = 'ha-noprint';
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'ha-linkbtn';
+        editBtn.textContent = '編集';
+        editBtn.onclick = () => openEdit(r);
+        editCell.appendChild(editBtn);
+        tr.appendChild(editCell);
+
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+    }
+
+    function renderBoardSummary() {
+      // キャンセル済みは「未割当」「確認済」の母数から外す（対応不要のため）
+      const live = boardRows.filter((r) => r.status !== 'cancelled');
+      const unassigned = live.filter((r) => !r.staffId).length;
+      const done = live.filter((r) => r.checked).length;
+      const changed = live.filter((r) => r.status === 'changed').length;
+      const cancelled = boardRows.length - live.length;
+
+      const fresh = live.filter(isNewSinceHandover).length;
+
+      const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
+      if (changed > 0) parts.push(`変更あり ${changed}件`);
+      if (cancelled > 0) parts.push(`キャンセル ${cancelled}件`);
+      if (fresh > 0) parts.push(`新着 ${fresh}件`);
+
+      const base = latestHandover
+        ? `${jstDateKey(latestHandover.handedOverAt).slice(5).replace('-', '/')} ${jstTimeLabel(latestHandover.handedOverAt)}の引き継ぎ`
+        : `${HANDOVER_HOUR}時`;
+      const tail = fresh > 0
+        ? `　　「新着」は${base}以降に入った予約です。`
+        : '　　担当者・状態を選ぶとその場で保存されます。';
+      $('boardSummary').textContent = parts.join('　') + tail;
+    }
+
+    $('datePick').onchange = loadBoard;
+    $('prevDayBtn').onclick = () => { $('datePick').value = shiftDate($('datePick').value, -1); loadBoard(); };
+    $('nextDayBtn').onclick = () => { $('datePick').value = shiftDate($('datePick').value, 1); loadBoard(); };
+    $('todayBtn').onclick = () => { $('datePick').value = todayJst(); loadBoard(); };
+    $('printBtn').onclick = () => window.print();
+
+    // ── ② 予約一覧 ──
+    async function loadList() {
+      const from = $('fromPick').value;
+      const to = $('toPick').value;
+      if (!from || !to) return;
+      try {
+        listRows = await fetchReservationsRange(from, to);
+      } catch (e) {
+        alert(failMsg(e, 'データの読み込み'));
+        return;
+      }
+      renderList();
+    }
+
+    function renderList() {
+      const q = ($('searchInput').value || '').trim().toLowerCase();
+      const digits = q.replace(/\D/g, '');
+      const rows = listRows.filter((r) => {
+        if (!q) return true;
+        const hay = [r.customerName, r.customerKana, r.pickupName, r.pickupAddress, r.operatorMemo]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (hay.includes(q)) return true;
+        return digits !== '' && (r.phone || '').replace(/\D/g, '').includes(digits);
+      });
+
+      const table = $('listTable');
+      table.innerHTML = '';
+      $('listEmpty').hidden = rows.length > 0;
+      $('listSummary').textContent = `${rows.length}件を表示（期間内 ${listRows.length}件）　行をクリックすると編集できます。`;
+
+      if (rows.length === 0) return;
+
+      table.appendChild(headerRow(['予約日時', '状態', 'お客様名', '電話', '迎車場所', '行き先・メモ', '担当者', '済']));
+
+      const tbody = document.createElement('tbody');
+      for (const r of rows) {
+        const tr = document.createElement('tr');
+        tr.className = 'ha-row--click';
+        applyRowStatus(tr, r);
+        tr.onclick = () => openEdit(r);
+
+        const when = `${jstDateKey(r.reservedAt).slice(5).replace('-', '/')}(${weekdayOf(jstDateKey(r.reservedAt))}) ${jstTimeLabel(r.reservedAt)}`;
+        const whenCell = td(when, 'ha-sticky ha-time');
+        if (isNewSinceHandover(r)) {
+          tr.classList.add('ha-row--new');
+          whenCell.appendChild(newBadge(r));
+        }
+        tr.appendChild(whenCell);
+
+        const stCell = td('');
+        if (r.status !== 'normal') {
+          const badge = document.createElement('span');
+          badge.className = `ha-badge ha-badge--${r.status}`;
+          badge.textContent = STATUS_LABELS[r.status];
+          stCell.appendChild(badge);
+        }
+        tr.appendChild(stCell);
+
+        tr.appendChild(td(r.customerName));
+        tr.appendChild(td(r.phone));
+        tr.appendChild(td(pickupText(r), 'ha-wrapcell'));
+        tr.appendChild(td(r.operatorMemo, 'ha-wrapcell'));
+
+        const staffCell = td('');
+        if (r.staffId) {
+          const badge = document.createElement('span');
+          badge.className = 'ha-badge ha-badge--assigned';
+          applyStaffColor(badge, r.staffId);
+          badge.textContent = staffName(r.staffId);
+          staffCell.appendChild(badge);
+        } else {
+          const badge = document.createElement('span');
+          badge.className = 'ha-badge ha-badge--unassigned';
+          badge.textContent = '未割当';
+          staffCell.appendChild(badge);
+        }
+        tr.appendChild(staffCell);
+
+        tr.appendChild(td(r.checked ? '✓' : ''));
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+    }
+
+    $('searchInput').oninput = renderList;
+    $('fromPick').onchange = loadList;
+    $('toPick').onchange = loadList;
+    $('reloadBtn').onclick = loadList;
+
+    // ── 編集モーダル ──
+    function openEdit(rec: any) {
+      editing = rec;
+      $('editTitle').textContent = rec ? '予約の編集' : '新規予約';
+      $('fReservedAt').value = rec ? toLocalInput(rec.reservedAt) : `${$('datePick').value || todayJst()}T09:00`;
+      $('fCustomerName').value = rec?.customerName || '';
+      $('fCustomerKana').value = rec?.customerKana || '';
+      $('fPhone').value = rec?.phone || '';
+      $('fAlarm').value = rec?.alarmMinutes ?? '';
+      $('fPickupName').value = rec?.pickupName || '';
+      $('fPickupAddress').value = rec?.pickupAddress || '';
+      $('fPickupMemo').value = rec?.pickupMemo || '';
+      $('fDropoffName').value = rec?.dropoffName || '';
+      $('fDropoffAddress').value = rec?.dropoffAddress || '';
+      $('fOperatorMemo').value = rec?.operatorMemo || '';
+      $('fAppMemo').value = rec?.appMemo || '';
+
+      const wrap = $('fStaffWrap');
+      wrap.innerHTML = '';
+      wrap.appendChild(buildStaffSelect(rec?.staffId));
+
+      const stWrap = $('fStatusWrap');
+      stWrap.innerHTML = '';
+      stWrap.appendChild(buildStatusSelect(rec?.status || 'normal'));
+
+      $('editSourceNote').textContent = rec
+        ? (rec.source === 'csv'
+            ? '※ この予約はCSV取り込み由来です。予約日時・お客様名・電話番号を変更すると、次回の取り込みで別の予約として扱われることがあります。'
+            : '※ この予約はアプリで手入力されたものです。CSV取り込みの対象外です。')
+        : '※ アプリで手入力した予約はCSV取り込みで上書きされません。';
+
+      $('editDeleteBtn').hidden = !rec || !isAdmin();
+      $('editModal').hidden = false;
+    }
+
+    $('editCancelBtn').onclick = () => { $('editModal').hidden = true; editing = null; };
+    $('editModal').onclick = (e) => { if (e.target === $('editModal')) $('editCancelBtn').click(); };
+
+    $('editSaveBtn').onclick = async () => {
+      const reservedAt = fromLocalInput($('fReservedAt').value);
+      if (!reservedAt) { alert('予約日時を入力してください。'); return; }
+      const customerName = $('fCustomerName').value.trim();
+      if (!customerName) { alert('お客様名を入力してください。'); return; }
+
+      const alarmRaw = $('fAlarm').value.trim();
+      const sel = $('fStaffWrap').querySelector('select');
+      const stSel = $('fStatusWrap').querySelector('select');
+      const payload = {
+        reservedAt,
+        customerName,
+        customerKana: $('fCustomerKana').value.trim() || null,
+        phone: $('fPhone').value.trim() || null,
+        alarmMinutes: alarmRaw === '' ? null : Number(alarmRaw),
+        pickupName: $('fPickupName').value.trim() || null,
+        pickupAddress: $('fPickupAddress').value.trim() || null,
+        pickupMemo: $('fPickupMemo').value.trim() || null,
+        dropoffName: $('fDropoffName').value.trim() || null,
+        dropoffAddress: $('fDropoffAddress').value.trim() || null,
+        operatorMemo: $('fOperatorMemo').value.trim() || null,
+        appMemo: $('fAppMemo').value.trim() || null,
+        staffId: sel && sel.value ? sel.value : null,
+        status: stSel ? stSel.value : 'normal',
+      };
+
+      $('editSaveBtn').disabled = true;
+      try {
+        if (editing) await updateReservation(editing.id, payload);
+        else await insertReservation(payload);
+        $('editModal').hidden = true;
+        editing = null;
+        await refreshCurrentTab();
+      } catch (e) {
+        alert(failMsg(e, '予約の保存'));
+      } finally {
+        $('editSaveBtn').disabled = false;
+      }
+    };
+
+    $('editDeleteBtn').onclick = async () => {
+      if (!editing) return;
+      if (!confirm(`「${editing.customerName}」の予約を削除します。よろしいですか？`)) return;
+      try {
+        await deleteReservation(editing.id);
+        $('editModal').hidden = true;
+        editing = null;
+        await refreshCurrentTab();
+      } catch (e) {
+        alert(isAuthError(e) ? '削除できませんでした。管理者としてログインし直してください。' : '削除に失敗しました。電波状況を確認して、もう一度お試しください。');
+      }
+    };
+
+    $('newBtn').onclick = () => openEdit(null);
+
+    async function refreshCurrentTab() {
+      if ($('boardPanel').hidden) await loadList();
+      else await loadBoard();
+    }
+
+    // ── CSV取り込み ──
+    function openImport() {
+      importPlan = null;
+      $('importText').value = '';
+      $('importFile').value = '';
+      $('importPreview').hidden = true;
+      $('importPreview').innerHTML = '';
+      $('importApplyBtn').disabled = true;
+      $('importModal').hidden = false;
+    }
+
+    $('importBtn').onclick = openImport;
+    $('importCancelBtn').onclick = () => { $('importModal').hidden = true; };
+
+    $('importFile').onchange = async () => {
+      const file = $('importFile').files?.[0];
+      if (!file) return;
+      const buf = await file.arrayBuffer();
+      $('importText').value = decodeCsvBuffer(buf);
+      $('importApplyBtn').disabled = true;
+      $('importPreview').hidden = true;
+    };
+
+    $('importText').oninput = () => {
+      $('importApplyBtn').disabled = true;
+      $('importPreview').hidden = true;
+    };
+
+    function line(parent: HTMLElement, text: string, className = '') {
+      const p = document.createElement('p');
+      if (className) p.className = className;
+      p.textContent = text;
+      parent.appendChild(p);
+      return p;
+    }
+
+    $('importParseBtn').onclick = async () => {
+      const text = $('importText').value;
+      if (!text.trim()) { alert('CSVファイルを選ぶか、内容を貼り付けてください。'); return; }
+
+      const parsed = parseReservationCsv(text);
+      const box = $('importPreview');
+      box.innerHTML = '';
+      box.hidden = false;
+      $('importApplyBtn').disabled = true;
+
+      if (parsed.rows.length === 0) {
+        line(box, '取り込める行がありませんでした。', 'ha-preview__error');
+        for (const e of parsed.errors.slice(0, 10)) {
+          line(box, e.line === 0 ? e.reason : `${e.line}行目: ${e.reason}`, 'ha-preview__error');
+        }
+        return;
+      }
+
+      $('importParseBtn').disabled = true;
+      try {
+        importPlan = await buildImportPlan(parsed.rows);
+      } catch (e) {
+        line(box, isAuthError(e) ? 'ログインしていないため確認できません。画面上部の「ログインする」を押してください。' : '既存データの確認に失敗しました。電波状況を確認してもう一度お試しください。', 'ha-preview__error');
+        return;
+      } finally {
+        $('importParseBtn').disabled = false;
+      }
+
+      const keepStaff = importPlan.updates.filter((u) => u.hasStaff).length;
+
+      line(box, `対象期間：${importPlan.dateFrom} 〜 ${importPlan.dateTo}`);
+      line(box, `新規に追加：${importPlan.inserts.length}件`, 'ha-preview__ok');
+      line(box, `既存を更新：${importPlan.updates.length}件`
+        + (keepStaff > 0 ? `（うち${keepStaff}件は担当者が割り当て済み。担当者はそのまま残します）` : ''), 'ha-preview__ok');
+      if (importPlan.duplicatesInFile > 0) {
+        line(box, `ファイル内で重複していた行：${importPlan.duplicatesInFile}件（後の行を採用します）`, 'ha-preview__warn');
+      }
+      if (parsed.errors.length > 0) {
+        line(box, `読み取れなかった行：${parsed.errors.length}件`, 'ha-preview__warn');
+        for (const e of parsed.errors.slice(0, 5)) {
+          line(box, `　${e.line}行目: ${e.reason}`, 'ha-preview__warn');
+        }
+      }
+
+      const cols = document.createElement('details');
+      const sum = document.createElement('summary');
+      sum.textContent = `読み取った列（${parsed.mapping.length}列）`;
+      cols.appendChild(sum);
+      const ul = document.createElement('ul');
+      for (const m of parsed.mapping) {
+        const li = document.createElement('li');
+        li.textContent = `${m.header} → ${m.field}`;
+        ul.appendChild(li);
+      }
+      cols.appendChild(ul);
+      box.appendChild(cols);
+
+      $('importApplyBtn').disabled = false;
+    };
+
+    $('importApplyBtn').onclick = async () => {
+      if (!importPlan) return;
+      $('importApplyBtn').disabled = true;
+      try {
+        const result = await applyImportPlan(importPlan);
+        $('importModal').hidden = true;
+        alert(`取り込みました。\n新規 ${result.inserted}件 / 更新 ${result.updated}件`);
+        if (importPlan.dateFrom) {
+          $('datePick').value = importPlan.dateFrom;
+          $('fromPick').value = importPlan.dateFrom;
+          $('toPick').value = importPlan.dateTo;
+        }
+        importPlan = null;
+        await refreshCurrentTab();
+      } catch (e) {
+        alert(failMsg(e, '取り込み'));
+        $('importApplyBtn').disabled = false;
+      }
+    };
+
+    // ── 起動 ──
+    async function boot() {
+      // 日付欄はログインの成否に関わらず先に埋めておく
+      // （ログインに失敗したときに日付が空のまま残ると、壊れて見えるため）
+      const today = todayJst();
+      $('datePick').value = today;
+      $('fromPick').value = shiftDate(today, -7);
+      $('toPick').value = shiftDate(today, 30);
+
+      const authResult = await initAuth();
+      if (!authResult.ok || !(await hasSession())) {
+        // ここで return せずに画面は出しておく。ログインできていないことを
+        // バナーで示し、「ログインする」からやり直せるようにする。
+        showLoggedOut(authResult.error || '');
+        renderAdminBar();
+        return;
+      }
+      clearLoggedOut();
+
+      try {
+        staff = await fetchStaff();
+        rebuildStaffColors();
+      } catch (e) {
+        alert(failMsg(e, 'スタッフ情報の読み込み'));
+        return;
+      }
+
+      renderAdminBar();
+      await loadBoard();
+      await loadHistory();
+    }
+
+    boot();
+  </script>
+
+  <style is:global>
+    .ha-wrap { max-width: 100%; }
+
+    /* ── タブ ── */
+    .ha-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .ha-tab {
+      background: transparent;
+      border: 1px solid rgba(245,200,0,0.35);
+      border-radius: var(--radius-md);
+      color: rgba(255,255,255,0.75);
+      font-size: var(--text-sm);
+      font-weight: 700;
+      padding: 0.55rem 1.1rem;
+      cursor: pointer;
+      min-height: 44px;
+    }
+    .ha-tab:hover { color: var(--fuji-yellow); }
+    .ha-tab.is-active {
+      background: var(--fuji-yellow);
+      border-color: var(--fuji-yellow);
+      color: var(--fuji-black);
+    }
+
+    /* ── 未ログイン警告 ── */
+    .ha-authbanner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      background: #fef7ed;
+      border: 1px solid #b45309;
+      border-radius: var(--radius-lg);
+      color: #7c2d12;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      padding: 0.85rem 1.25rem;
+    }
+    .ha-authbanner strong { color: #7c2d12; }
+    .ha-authbanner .kt-btn {
+      background: #b45309;
+      border-color: #b45309;
+      color: #fff;
+      white-space: nowrap;
+    }
+    .ha-authbanner .kt-btn:hover { background: #92400e; }
+
+    /* ── 引き継ぎ ── */
+    .ha-handover {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      background: #ecfeff;
+      border: 1px solid #0e7490;
+      border-radius: var(--radius-lg);
+      padding: 0.75rem 1.15rem;
+    }
+    .ha-handover__info { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; flex: 1; }
+    .ha-handover__label { color: #0e7490; font-size: 0.8rem; font-weight: 900; }
+    .ha-handover__when { color: #0c4a6e; font-size: 1rem; font-weight: 700; }
+    .ha-handover__note {
+      flex-basis: 100%;
+      margin: 0.35rem 0 0;
+      background: #fff;
+      border-left: 4px solid #0e7490;
+      border-radius: var(--radius-md);
+      color: #164e63;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      padding: 0.5rem 0.75rem;
+      white-space: pre-wrap;
+    }
+    .ha-handover__actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .ha-handover .kt-btn {
+      background: #0e7490;
+      border-color: #0e7490;
+      color: #fff;
+      white-space: nowrap;
+    }
+    .ha-handover .kt-btn:hover { background: #155e75; }
+    .ha-handover .kt-btn--ghost {
+      background: transparent;
+      color: #0e7490;
+      font-weight: 700;
+    }
+    .ha-handover .kt-btn--ghost:hover { background: rgba(14,116,144,0.1); }
+
+    /* ── この日の勤務 ── */
+    .ha-duty-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.35rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .ha-duty-row:last-child { border-bottom: none; }
+    .ha-duty-label {
+      flex: 0 0 5.5rem;
+      color: var(--fuji-yellow);
+      font-size: 0.95rem;
+      font-weight: 900;
+      padding-top: 0.15rem;
+    }
+    .ha-duty-names { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .ha-duty-none { color: rgba(255,255,255,0.4); font-size: 0.95rem; }
+    .ha-duty-name {
+      /* 枠線は .ha-badge の border:1px solid が currentColor を拾うため、
+         color と同色になる。淡い地＋濃い文字＋同色の枠で揃える */
+      background: #eef2ff;
+      color: #312e81;
+      font-size: 0.95rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .ha-duty-phone {
+      background: #b91c1c;
+      color: #fff;
+      border-radius: var(--radius-full);
+      font-size: 0.7rem;
+      font-weight: 900;
+      line-height: 1;
+      padding: 0.15rem 0.3rem;
+    }
+    /* 日次割り当ての「×」。バッジの中に収める */
+    .ha-duty-remove {
+      background: transparent;
+      border: none;
+      color: #312e81;
+      font-size: 1.05rem;
+      font-weight: 900;
+      line-height: 1;
+      padding: 0 0 0 0.15rem;
+      cursor: pointer;
+      opacity: 0.55;
+    }
+    .ha-duty-remove:hover { opacity: 1; color: #b91c1c; }
+    /* 追加用セレクトは控えめに。押せることは分かる程度の見た目にする */
+    .ha-select.ha-duty-add {
+      min-height: 34px;
+      min-width: 6.5rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      background: transparent;
+      border-style: dashed;
+      border-color: rgba(255,255,255,0.35);
+      color: rgba(255,255,255,0.8);
+    }
+    .ha-select.ha-duty-add:hover { border-color: var(--fuji-yellow); color: var(--fuji-yellow); }
+    .ha-select.ha-duty-add option { background: #141414; color: #fff; }
+
+    /* ── 変更履歴 ── */
+    .ha-hist {
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 0.6rem 0;
+    }
+    .ha-hist:last-child { border-bottom: none; }
+    .ha-hist__head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+    .ha-hist__kind { font-size: 0.8rem; }
+    .ha-hist__kind--insert { background: #f0fdf4; border-color: #15803d; color: #15803d; }
+    .ha-hist__kind--update { background: #eff6ff; border-color: #1d4ed8; color: #1d4ed8; }
+    .ha-hist__kind--delete { background: #fef2f2; border-color: #b91c1c; color: #b91c1c; }
+    .ha-hist__subject { color: #fff; font-size: 1rem; font-weight: 700; flex: 1; min-width: 12rem; }
+    .ha-hist__meta { color: rgba(255,255,255,0.55); font-size: 0.8rem; white-space: nowrap; }
+    .ha-hist__revert { min-height: 36px; padding: 0.3rem 0.8rem; font-size: 0.85rem; }
+    .ha-hist__changes {
+      margin: 0.35rem 0 0 0.5rem;
+      padding-left: 1rem;
+      color: rgba(255,255,255,0.8);
+      font-size: 0.9rem;
+      line-height: 1.7;
+    }
+
+    /* ── 配車担当者の設定 ── */
+    .ha-assign-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+      gap: 0.35rem;
+      margin-top: 0.6rem;
+    }
+    .ha-assign-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--radius-md);
+      padding: 0.5rem 0.75rem;
+      min-height: 44px;
+      cursor: pointer;
+    }
+    .ha-assign-item:hover { border-color: rgba(245,200,0,0.5); }
+    .ha-assign-item .ha-assign-name { flex: 1; }
+    .ha-assign-name { font-size: 0.95rem; }
+    .ha-assign-group {
+      background: #eef2ff;
+      border: 1px solid #312e81;
+      border-radius: var(--radius-full);
+      color: #312e81;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.1rem 0.5rem;
+      white-space: nowrap;
+    }
+
+    .ha-legend { color: rgba(255,255,255,0.85); font-size: 0.9rem; margin: 0.25rem 0 0.75rem; }
+    .ha-note { color: rgba(255,255,255,0.75); font-size: 0.85rem; line-height: 1.6; margin: 0; }
+
+    /* ── 絞り込み ── */
+    .ha-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      align-items: flex-end;
+      margin-bottom: 0.75rem;
+    }
+    .ha-field { display: flex; flex-direction: column; gap: 0.25rem; }
+    .ha-field > span { color: rgba(255,255,255,0.75); font-size: 0.8rem; font-weight: 700; }
+    .ha-field--grow { flex: 1 1 14rem; }
+    .ha-field--full { grid-column: 1 / -1; }
+
+    /* ── 表（白背景・濃い文字。印刷にも耐えるように） ── */
+    .ha-grid-wrap {
+      overflow-x: auto;
+      background: #fff;
+      border-radius: var(--radius-md);
+      padding: 0.5rem;
+    }
+    .ha-grid { border-collapse: collapse; width: 100%; }
+    .ha-grid th, .ha-grid td { color: #111; font-size: 1rem; padding: 0.5rem 0.6rem; }
+    .ha-grid th {
+      color: #111;
+      border-bottom: 2px solid #d4a900;
+      background: #fff;
+      font-size: 0.9rem;
+    }
+    .ha-grid td { border-bottom: 1px solid #e5e5e5; }
+    .ha-grid tbody tr:hover { background: #fafafa; }
+
+    /* 1列目（時刻）はスクロールしても残す */
+    .ha-grid th.ha-sticky, .ha-grid td.ha-sticky {
+      position: sticky;
+      left: 0;
+      background: #fff;
+      z-index: 1;
+      white-space: nowrap;
+    }
+    .ha-grid thead th.ha-sticky { z-index: 2; }
+    .ha-time { font-weight: 900; font-size: 1.1rem; }
+
+    /* 長文セルは折り返す */
+    .ha-wrapcell { white-space: normal; min-width: 12rem; max-width: 22rem; line-height: 1.5; }
+
+    .ha-row--unassigned td.ha-sticky, .ha-row--unassigned { background: #fffaf0; }
+    .ha-row--click { cursor: pointer; }
+
+    /* 変更あり：確認が要る行として目立たせる */
+    .ha-row--changed td.ha-sticky, .ha-row--changed { background: #fffbeb; }
+    .ha-row--changed td.ha-time { color: #92400e; }
+
+    /* キャンセル：対応不要なので沈める。取り消し線で一目で分かるように */
+    .ha-row--cancelled td.ha-sticky, .ha-row--cancelled { background: #f4f4f5; }
+    .ha-row--cancelled td { color: #9ca3af; text-decoration: line-through; }
+    .ha-row--cancelled td.ha-time { color: #9ca3af; }
+    /* 操作できる部分に取り消し線がかかると読みにくいので戻す */
+    .ha-row--cancelled select,
+    .ha-row--cancelled .ha-badge,
+    .ha-row--cancelled .ha-linkbtn { text-decoration: none; }
+
+    /* ── バッジ（淡い背景＋濃い文字） ── */
+    .ha-badge {
+      display: inline-block;
+      border: 1px solid;
+      border-radius: var(--radius-full);
+      font-size: 0.9rem;
+      font-weight: 700;
+      padding: 0.15rem 0.7rem;
+      white-space: nowrap;
+    }
+    .ha-badge--assigned { background: #eff6ff; border-color: #1d4ed8; color: #1d4ed8; }
+    .ha-badge--unassigned { background: #fef7ed; border-color: #b45309; color: #b45309; }
+    .ha-badge--changed { background: #fffbeb; border-color: #92400e; color: #92400e; }
+    .ha-badge--cancelled { background: #f4f4f5; border-color: #6b7280; color: #6b7280; }
+    /* 引き継ぎ後の新着。他の状態色と衝突しないよう青緑を当てる */
+    .ha-badge--new {
+      background: #ecfeff;
+      border-color: #0e7490;
+      color: #0e7490;
+      font-size: 0.75rem;
+      margin-left: 0.4rem;
+      vertical-align: middle;
+    }
+    /* 背景色は未割当・変更あり・キャンセルで使い切っているので、左の縦線で示す */
+    .ha-row--new td.ha-sticky { box-shadow: inset 4px 0 0 #0e7490; }
+
+    /* 状態セレクトも同じ配色にして、表を見渡したときに色で判別できるようにする。
+       .ha-select が後ろで定義されているため、クラス2つ分の詳細度で上書きする */
+    .ha-select.ha-status { font-size: 0.9rem; min-width: 7rem; font-weight: 700; }
+    .ha-select.ha-status--normal { background: #fff; border-color: #bbb; color: #111; }
+    .ha-select.ha-status--changed { background: #fffbeb; border-color: #92400e; color: #92400e; }
+    .ha-select.ha-status--cancelled { background: #f4f4f5; border-color: #6b7280; color: #6b7280; }
+
+    /* ── 表の中の入力 ── */
+    .ha-select {
+      background: #fff;
+      border: 1px solid #bbb;
+      border-radius: var(--radius-md);
+      color: #111;
+      font-size: 1rem;
+      font-weight: 700;
+      padding: 0.35rem 0.4rem;
+      min-height: 44px;
+      min-width: 8rem;
+      cursor: pointer;
+    }
+    .ha-select:disabled { opacity: 0.6; }
+    .ha-check { width: 22px; height: 22px; cursor: pointer; }
+    .ha-linkbtn {
+      background: transparent;
+      border: 1px solid #bbb;
+      border-radius: var(--radius-md);
+      color: #444;
+      font-size: 0.9rem;
+      font-weight: 700;
+      padding: 0.35rem 0.75rem;
+      min-height: 40px;
+      cursor: pointer;
+    }
+    .ha-linkbtn:hover { border-color: #111; color: #111; }
+
+    /* ── モーダル ── */
+    .ha-modal { max-width: 680px; }
+    .ha-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+      gap: 0.7rem;
+    }
+    .ha-form .kt-input { width: 100%; }
+    .ha-import-text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; white-space: pre; }
+
+    .ha-preview {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: var(--radius-md);
+      padding: 0.75rem 1rem;
+      color: rgba(255,255,255,0.9);
+      font-size: 0.9rem;
+      line-height: 1.7;
+      max-height: 16rem;
+      overflow-y: auto;
+    }
+    .ha-preview p { margin: 0; }
+    .ha-preview__ok { color: #86efac; font-weight: 700; }
+    .ha-preview__warn { color: #fcd34d; }
+    .ha-preview__error { color: #fca5a5; font-weight: 700; }
+    .ha-preview details { margin-top: 0.5rem; }
+    .ha-preview summary { cursor: pointer; color: var(--fuji-yellow); }
+    .ha-preview ul { margin: 0.35rem 0 0 1.2rem; font-size: 0.82rem; color: rgba(255,255,255,0.75); }
+
+    /* ── 印刷 ── */
+    @media print {
+      .nav, .footer, .page-hero, .kt-adminbar, .ha-tabs,
+      .kt-panel__tools, .ha-noprint { display: none !important; }
+      body, .section { background: #fff !important; }
+      .kt-panel { border-color: #000; background: #fff; padding: 0; }
+      .kt-title { color: #000; }
+      .ha-legend { color: #000; }
+      .ha-grid-wrap { overflow: visible; padding: 0; }
+      .ha-grid th, .ha-grid td { color: #000; font-size: 0.9rem; }
+      .ha-row--unassigned, .ha-row--unassigned td.ha-sticky { background: #f5f5f5 !important; }
+      .ha-select { border: none; background: transparent; font-size: 0.95rem; padding: 0; min-height: 0; }
+      .ha-wrapcell { max-width: none; }
+    }
+  </style>
+</Layout>

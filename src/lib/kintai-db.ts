@@ -29,6 +29,8 @@ export type Staff = {
   shiftSpecial: boolean;
   shiftGroup: 'office' | 'maintenance' | 'jumbo' | null;
   shiftDisplayOrder: number | null;
+  /** 配車(/haisha)の担当者候補に出すか。列が無い環境では true 扱い */
+  haishaAssignable: boolean;
 };
 
 export type Payments = Record<string, number>;
@@ -184,6 +186,7 @@ function rowToStaff(row: any): Staff {
     shiftSpecial: row.shift_special,
     shiftGroup: row.shift_group,
     shiftDisplayOrder: row.shift_display_order,
+    haishaAssignable: row.haisha_assignable ?? true,
   };
 }
 

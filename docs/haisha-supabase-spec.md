@@ -1,0 +1,343 @@
+# 配車管理 `/haisha` Supabase 仕様書
+
+**作成日:** 2026-08-05
+**対象:** `src/pages/haisha.astro` / `src/lib/haisha-db.ts`
+
+勤怠 `/kintai`・シフト `/shift` と**同じ Supabase プロジェクト**に配車予約テーブルを1つ追加する。
+認証（kiosk / admin）と `staff` マスタは既存のものをそのまま使う。
+
+---
+
+## 1. 背景
+
+配車予約は **電脳交通のクラウド型配車システム「DS」** で受けている。
+DSから書き出したCSVをGoogleスプレッドシートに貼り付け、手作業で曜日別の「配車確認シート」に整形し、担当者を割り当てている。
+
+CSVの実データ（2026/08/06分・22件）から分かったこと:
+
+- CSVには**担当者カラムが無い**。担当者の割り当ては人間が別シートでやっている ← ここがアプリ化の主目的
+- **降車場所名・降車住所は全行空欄**。行き先は「オペレーター用メモ」に日本語の自由文で入っている
+- 事業所名は「富士タクシー(福島)」1種類、登録オペレーターも1種類
+
+### 将来のAPI連携
+
+電脳交通には「**DSコネクト**」という外部サービス接続システムがあり、国交省実証で配車アプリ↔DSの標準API実績もある。
+ただし公開APIドキュメントは無く、契約・個別開発が前提。
+
+そのため取り込み処理は **`importReservations(rows: NormalizedRow[])`** という
+「正規化済みの行を渡す」形にしてあり、APIが使えるようになったら**入口のパーサだけ差し替えれば済む**。
+
+---
+
+## 2. テーブル定義
+
+Supabase ダッシュボード → SQL Editor で以下を実行する。
+
+```sql
+-- ════════════════════════════════════════════
+-- 配車予約テーブル
+-- ════════════════════════════════════════════
+create table dispatch_reservations (
+  id uuid primary key default gen_random_uuid(),
+
+  -- ── DSのCSV由来（スプレッドシート「配車確認表」の列に対応） ──
+  reserved_at      timestamptz not null,   -- 予約日時
+  reserved_date    date not null,          -- 予約日（JST。トリガーで自動設定）
+  alarm_minutes    int,                    -- アラーム(分前)  例: 15 / 20 / 30
+  office_name      text,                   -- 事業所名
+  customer_name    text not null,          -- お客様名
+  customer_kana    text,                   -- 読み
+  phone            text,                   -- 電話番号
+  reservation_memo text,                   -- 予約メモ
+  operator_memo    text,                   -- オペレーター用メモ（行き先が入る）
+  pickup_name      text,                   -- 場所名（迎車）
+  pickup_memo      text,                   -- 場所メモ
+  pickup_address   text,                   -- 住所
+  dropoff_name     text,                   -- 降車場所名（実運用では空）
+  dropoff_address  text,                   -- 降車住所（実運用では空）
+  registered_at    timestamptz,            -- 登録日時
+  registered_by    text,                   -- 登録オペレーター
+
+  -- ── アプリ側で付与（CSV再取り込みで消えてはいけない） ──
+  staff_id   uuid references staff(id) on delete set null,  -- 担当者（勤怠のスタッフ）
+  checked    boolean not null default false,                -- 配車確認シートのチェックリスト相当
+  app_memo   text,                                          -- アプリ側の申し送り
+  status     text not null default 'normal'                 -- 通常／変更あり／キャンセル（人が手で設定）
+             check (status in ('normal','changed','cancelled')),
+  source     text not null default 'csv' check (source in ('csv','manual')),
+  sort_order int,                                           -- 同時刻内の並び調整用
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index dispatch_reservations_date_idx  on dispatch_reservations (reserved_date, reserved_at);
+create index dispatch_reservations_staff_idx on dispatch_reservations (staff_id);
+
+-- 再取り込み時の重複防止（安全網）。
+-- 同一時刻・同一電話番号のCSV行は同じ予約とみなす。
+-- phone が null の行同士は衝突しないため coalesce で空文字に寄せる。
+create unique index dispatch_reservations_csv_key
+  on dispatch_reservations (reserved_at, coalesce(phone, ''))
+  where source = 'csv';
+```
+
+### reserved_date を JST で自動設定するトリガー
+
+`reserved_at` は `timestamptz`。日別の絞り込みは日本時間で行いたいので、
+JSTの日付を `reserved_date` に落としておく。
+
+> `timestamptz AT TIME ZONE 'literal'` は Postgres では STABLE 扱いのため
+> 生成列（generated column）には使えない。トリガーで設定する。
+
+```sql
+create or replace function set_reserved_date() returns trigger as $$
+begin
+  new.reserved_date := (new.reserved_at at time zone 'Asia/Tokyo')::date;
+  new.updated_at := now();
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger dispatch_reservations_set_date
+  before insert or update on dispatch_reservations
+  for each row execute function set_reserved_date();
+```
+
+---
+
+## 3. RLS
+
+`/kintai` と同じ方針。`is_admin()` は勤怠の移行時に作成済みのものを再利用する。
+
+```sql
+alter table dispatch_reservations enable row level security;
+
+-- 参照：認証済みなら全員（ドライバーが自分の担当を見られるように）
+create policy dispatch_select on dispatch_reservations
+  for select to authenticated using (true);
+
+-- 追加・更新：kiosk も可（事務所端末は kiosk ログインで運用しているため）
+create policy dispatch_insert on dispatch_reservations
+  for insert to authenticated with check (true);
+
+create policy dispatch_update on dispatch_reservations
+  for update to authenticated using (true) with check (true);
+
+-- 削除：管理者のみ
+create policy dispatch_delete on dispatch_reservations
+  for delete to authenticated using (is_admin());
+```
+
+`is_admin()` が未作成の場合（新規プロジェクト等）は以下も実行する。
+
+```sql
+create or replace function is_admin() returns boolean as $$
+  select coalesce((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin', false);
+$$ language sql stable;
+```
+
+---
+
+## 4. 取り込みのセマンティクス（重要）
+
+CSVを**取り込み直しても、アプリ側で入れた情報は上書きしない**。
+
+| 種別 | カラム | 再取り込み時 |
+|---|---|---|
+| DS由来 | `reserved_at` `alarm_minutes` `office_name` `customer_name` `customer_kana` `phone` `reservation_memo` `operator_memo` `pickup_*` `dropoff_*` `registered_at` `registered_by` | **更新する** |
+| アプリ側 | `staff_id` `checked` `app_memo` `status` `sort_order` | **触らない** |
+
+担当者を割り当てた後に修正版CSVを入れ直しても、割り当てが消えないようにするため。
+
+### DS側の変更・キャンセルの扱い（決定済み）
+
+`status` は**人が手で設定する**。取り込み処理は自動判定しない。
+
+| DS側で起きたこと | 取り込み結果 | 人がやること |
+|---|---|---|
+| 予約が増えた | 新規行として追加される | 担当者を割り当てる |
+| 予約時間が変わった | **別の予約として追加される**（照合キーが変わるため） | 古い方の行に **`changed`（変更あり）** を付ける |
+| 予約が取り消された | CSVから消えるだけで、行は残り続ける | その行に **`cancelled`（キャンセル）** を付ける |
+
+自動で削除・統合しない理由は、誤ったCSVを1回貼っただけで大量の行が消える／書き換わる事故を避けるため。
+`cancelled` の行は配車ボードで灰色＋取り消し線になり、「要対応」「未割当」の件数から除外される。
+
+**照合キー**: `(reserved_at, phone)`。両方が一致する既存行を「同じ予約」とみなす。
+
+実装は `upsert(onConflict:...)` を使わず、**取り込み対象の日付範囲の既存行を先に取得し、
+JS側で新規／更新に振り分けてから insert と update を別々に発行する**。
+（部分ユニークインデックスは `onConflict` の列指定と噛み合わないため、また
+アプリ側カラムを確実に守るため。）
+
+---
+
+## 5. ユーザーが行う手作業
+
+1. Supabase ダッシュボード → **SQL Editor** で本書 §2 と §3 のSQLを実行する
+   （`/kintai` と同じプロジェクトを使う。新しいプロジェクトは作らない）
+2. 環境変数は既存の `PUBLIC_SUPABASE_URL` / `PUBLIC_SUPABASE_ANON_KEY` をそのまま使うため、**追加設定は不要**
+3. ログインも既存の `kiosk@fujitaxi.local` / `admin@fujitaxi.local` をそのまま使うため、**アカウント追加は不要**
+
+### 動作確認用のCSV
+
+DSからの書き出しCSV、またはスプレッドシート「配車確認表」を
+`ファイル > ダウンロード > カンマ区切り形式(.csv)` で保存したものを1つ用意する。
+
+### ⚠️ 別途対応が必要な件
+
+現在、元になっているGoogleスプレッドシートは**認証なしでCSVを取得できる共有設定**になっている。
+氏名・電話番号・住所が含まれるため、共有設定を「**制限付き**」に変更することを強く推奨する。
+
+---
+
+## 5.4 担当者候補から外す人（staff.haisha_assignable）
+
+配車の担当者に出したくない人は `staff.haisha_assignable = false` にする。
+
+```sql
+alter table staff add column haisha_assignable boolean not null default true;
+```
+
+**コードに氏名を直接書かないこと。** 過去に氏名の異体字・表記ゆれで不具合が多発しているため、
+誰を外すかは必ずDBで管理する。列が無い環境では `true` 扱いにフォールバックする
+（`kintai-db.ts` の `rowToStaff`）。
+
+なお**既に割り当て済みの人は、対象外になっていても選択肢に残す**。
+そうしないとその予約のセレクトが空欄になり、保存し直した拍子に割り当てが消えるため。
+
+---
+
+## 5.45 引き継ぎと「新着」表示
+
+事務所は18時で終了し、以降は配車担当者が交代する。交代後に入った予約を「新着」バッジで示す。
+
+**基準時刻は「引き継ぎ完了」ボタンを押した時刻**。実際の交代は18時ちょうどとは限らないため、
+時刻固定ではなく明示的な操作を基準にする。
+
+```sql
+create table dispatch_handovers (
+  id uuid primary key default gen_random_uuid(),
+  handed_over_at timestamptz not null default now(),
+  handed_over_by text,   -- 引き継いだ人（任意）
+  note text              -- 申し送り（任意）
+);
+
+create index dispatch_handovers_at_idx on dispatch_handovers (handed_over_at desc);
+
+alter table dispatch_handovers enable row level security;
+
+create policy dispatch_handovers_select on dispatch_handovers
+  for select to authenticated using (true);
+create policy dispatch_handovers_insert on dispatch_handovers
+  for insert to authenticated with check (true);
+-- 誤操作の取り消し（1つ前に戻す）を事務所でも行えるようにする
+create policy dispatch_handovers_delete on dispatch_handovers
+  for delete to authenticated using (true);
+```
+
+- 判定に使う時刻は `registered_at`（DSでの登録日時）。手入力の予約は `created_at` で代用
+- **引き継ぎ記録が1件も無い場合は、直近の18時にフォールバック**する
+  （`haisha.astro` の `HANDOVER_HOUR`）。運用開始直後や押し忘れが続いたときに
+  全件が新着になるのを避けるため
+- 記録は履歴として残るので、**最新1件を消せば直前の引き継ぎに戻せる**（`deleteHandover`）
+- 押すと全端末に反映される。引き継ぎの性質上これが正しいので、確認モーダルを挟む
+- 背景色は未割当・変更あり・キャンセルで使い切っているため、新着は**左端の縦線＋青緑バッジ**で示す
+
+## 5.47 変更履歴と巻き戻し
+
+予約の追加・変更・削除を**DBトリガーで自動記録**する。アプリ側で記録すると、
+経路（取り込み・編集・担当者割り当て）ごとに書き漏らすため。クライアントからは**読み取りと復元のみ**。
+
+```sql
+create table dispatch_history (
+  id uuid primary key default gen_random_uuid(),
+  reservation_id uuid not null,
+  action text not null check (action in ('insert','update','delete')),
+  old_row jsonb,
+  new_row jsonb,
+  changed_by text,
+  changed_at timestamptz not null default now()
+);
+
+create index dispatch_history_at_idx  on dispatch_history (changed_at desc);
+create index dispatch_history_res_idx on dispatch_history (reservation_id);
+
+create or replace function log_dispatch_change() returns trigger as $$
+declare
+  actor text := coalesce(auth.jwt() ->> 'email', 'unknown');
+begin
+  if (TG_OP = 'INSERT') then
+    insert into dispatch_history(reservation_id, action, new_row, changed_by)
+      values (new.id, 'insert', to_jsonb(new), actor);
+    return new;
+  elsif (TG_OP = 'UPDATE') then
+    -- 中身が変わっていないUPDATEは記録しない。
+    -- CSVを取り込むと全行がUPDATEされるため、これが無いと毎回100件の履歴で埋まる。
+    if (to_jsonb(old) - 'updated_at') = (to_jsonb(new) - 'updated_at') then
+      return new;
+    end if;
+    insert into dispatch_history(reservation_id, action, old_row, new_row, changed_by)
+      values (new.id, 'update', to_jsonb(old), to_jsonb(new), actor);
+    return new;
+  else
+    insert into dispatch_history(reservation_id, action, old_row, changed_by)
+      values (old.id, 'delete', to_jsonb(old), actor);
+    return old;
+  end if;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+create trigger dispatch_reservations_history
+  after insert or update or delete on dispatch_reservations
+  for each row execute function log_dispatch_change();
+
+alter table dispatch_history enable row level security;
+
+-- 参照のみ許可。書き込みポリシーを作らないことで、履歴の改ざんを防ぐ
+-- （トリガーは security definer なので所有者権限で書き込める）
+create policy dispatch_history_select on dispatch_history
+  for select to authenticated using (true);
+```
+
+**巻き戻しの挙動**（`revertHistoryEntry`）:
+
+| 履歴の種別 | 元に戻すと |
+|---|---|
+| `update` | その予約を変更前の値に戻す |
+| `insert` | その予約を削除する |
+| `delete` | 消された予約を**同じidで復元**する |
+
+- 戻す操作自体も履歴に残る（トリガーが拾うため）
+- `id` `created_at` `reserved_date` は復元対象外（`reserved_date` はトリガーが再計算）
+- 削除の復元時、CSV取り込みで同じ予約が作り直されていると
+  部分ユニークインデックスに弾かれる（`23505`）。その旨を画面に出す
+
+## 5.5 この日の勤務（shifts テーブルの参照）
+
+配車ボードの上に「この日の勤務」を表示する。**`shifts` テーブルを読むだけ**で、書き込みはしない
+（シフトの正は `/shift` ページ。二重管理を避けるため）。
+
+配車確認シート上部の勤務区分と `/shift` のコードの対応（ユーザー確認済み）:
+
+| 配車確認シートの行 | `/shift` のコード |
+|---|---|
+| 普通 | `①`（普通番 7:00-16:00） |
+| 遅番 | `③`（遅番 15:30-24:30） |
+| スクール | `S` |
+| シャトル | `SH` |
+| 貸切 | `貸切` |
+| **スクール原町** | **該当なし（未対応）** |
+| **交流** | **該当なし（未対応）** |
+| **乗合** | **該当なし（未対応）** |
+
+未対応の3区分をどう扱うかは保留中。`/shift` にコードを追加するか、`/haisha` 側で日ごとに
+手入力する専用テーブルを持つかのどちらか。ユーザーへの確認待ち。
+
+---
+
+## 6. 想定していないこと（将来の課題）
+
+- **DSコネクトによるAPI直結**。実現すればCSVの手作業が消える。電脳交通への問い合わせが前提
+- **アラーム(分前)の通知**。現状はDS側の機能。アプリでは値を保持・表示するのみで、鳴らさない
+- **降車場所の構造化**。DSが降車情報を出していないため、行き先は `operator_memo` の自由文のまま

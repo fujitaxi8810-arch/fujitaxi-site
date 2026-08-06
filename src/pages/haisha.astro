@@ -612,17 +612,52 @@ import '../styles/kt-components.css';
       return r.registeredAt || r.createdAt || null;
     }
 
+    // 引き継ぎボタンの押し忘れに備えた自動判定。
+    // 事務所は19時で終了し、以降は担当者が交代する。
+    const AUTO_HANDOVER_HOUR = 19;
+    // 自動判定を効かせる時間の長さ（19時から翌9時までの夜勤帯）。
+    //
+    // この「窓」がこの機能の肝。以前は窓を設けず「直近に過ぎた19時」を
+    // 無条件に基準にしていたため、昼14時に画面を見ると基準が前日19時になり、
+    // その日の朝に入った予約まで新着扱いになってしまった（ユーザー指摘で発覚）。
+    // 窓を設けると、昼間は自動基準が外れて誤検知が起きない。
+    const AUTO_HANDOVER_WINDOW_HOURS = 14;
+
     /**
-     * 「新着」の基準時刻。引き継ぎが記録されていればその時刻。
+     * 直近に過ぎた19:00（JST）。ただし夜勤帯を過ぎていたら null。
+     * 例：19時→当日19時 ／ 深夜2時→前日19時 ／ 昼14時→null（前日19時は19時間前で窓の外）
+     */
+    function autoHandoverTime(now = Date.now()): number | null {
+      const jst = new Date(now + 9 * 3600 * 1000);
+      let boundary = Date.UTC(
+        jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate(), AUTO_HANDOVER_HOUR
+      ) - 9 * 3600 * 1000;
+      if (boundary > now) boundary -= 24 * 3600 * 1000; // まだ19時前なら前日の19時
+      const ageHours = (now - boundary) / 3600000;
+      return ageHours <= AUTO_HANDOVER_WINDOW_HOURS ? boundary : null;
+    }
+
+    /**
+     * 「新着」の基準時刻。手動の引き継ぎ記録と、19時の自動判定の
+     * **新しい方**を使う。
      *
-     * 記録が無いときは null（＝何も新着にしない）。
-     * 以前は「直近に過ぎた固定時刻」を基準にしていたが、たとえば昼間に見ると
-     * 基準が前日の分になり、その日の朝に入った予約まで新着扱いになってしまう。
-     * 引き継ぎボタンがある今は、押した時刻を基準にする方が確実。
-     * 交代時刻が変わっても（18時→19時など）コード変更は不要。
+     * 手動を優先しないのは、押し忘れ防止のため。逆に自動を優先しないのは、
+     * 19時より後に手で押し直したとき（例：20時に実際に交代）に、
+     * その操作が無視されてしまわないようにするため。
      */
     function newBaselineTime(): number | null {
-      return latestHandover?.handedOverAt ? new Date(latestHandover.handedOverAt).getTime() : null;
+      const manual = latestHandover?.handedOverAt ? new Date(latestHandover.handedOverAt).getTime() : null;
+      const auto = autoHandoverTime();
+      if (manual === null) return auto;
+      if (auto === null) return manual;
+      return Math.max(manual, auto);
+    }
+
+    /** 今の基準が自動判定によるものか（画面の説明文の出し分けに使う） */
+    function baselineIsAuto(): boolean {
+      const base = newBaselineTime();
+      const auto = autoHandoverTime();
+      return base !== null && auto !== null && base === auto;
     }
 
     function isNewSinceHandover(r: any) {
@@ -639,8 +674,13 @@ import '../styles/kt-components.css';
       const when = $('handoverWhen');
       const noteEl = $('handoverNote');
 
+      const auto = autoHandoverTime();
+
       if (!latestHandover) {
-        when.textContent = 'まだありません（記録すると、それ以降の予約に「新着」が付きます）';
+        when.textContent = auto !== null
+          // 押し忘れていても19時の自動判定が効いている状態
+          ? `${AUTO_HANDOVER_HOUR}時（自動）以降が新着　※記録を押すとその時刻が基準になります`
+          : 'まだありません（記録すると、それ以降の予約に「新着」が付きます）';
         // 申し送りの置き場所が分かるよう、まだ無くても枠は出しておく
         noteEl.hidden = false;
         noteEl.className = 'ha-handover__note ha-handover__note--empty';
@@ -652,8 +692,11 @@ import '../styles/kt-components.css';
 
       const t = latestHandover.handedOverAt;
       const who = latestHandover.handedOverBy ? `（${latestHandover.handedOverBy}）` : '';
-      when.textContent =
-        `${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}${who} 以降が新着`;
+      when.textContent = baselineIsAuto()
+        // 記録はあるが、それより後に19時を過ぎている（前日の記録が残っている等）
+        ? `${AUTO_HANDOVER_HOUR}時（自動）以降が新着　`
+          + `※前回の記録は ${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}${who}`
+        : `${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}${who} 以降が新着`;
 
       noteEl.hidden = false;
       if (latestHandover.note) {
@@ -749,11 +792,12 @@ import '../styles/kt-components.css';
       const b = document.createElement('span');
       b.className = 'ha-badge ha-badge--new';
       b.textContent = '新着';
-      // 基準は記録された引き継ぎ時刻。固定の時刻ではないので、実際の時刻を出す
-      const base = latestHandover?.handedOverAt;
-      b.title = base
-        ? `${addedLabel(r)}（${jstDateKey(base).slice(5).replace('-', '/')} ${jstTimeLabel(base)}の引き継ぎ以降）`
-        : addedLabel(r);
+      // 基準は「手動の記録」か「19時の自動判定」の新しい方。実際に使われた時刻を出す
+      const base = newBaselineTime();
+      b.title = base === null
+        ? addedLabel(r)
+        : `${addedLabel(r)}（${jstDateKey(new Date(base).toISOString()).slice(5).replace('-', '/')} `
+          + `${jstTimeLabel(new Date(base).toISOString())}${baselineIsAuto() ? '（自動）' : 'の引き継ぎ'}以降）`;
       return b;
     }
 
@@ -1361,9 +1405,11 @@ import '../styles/kt-components.css';
       if (fresh > 0) parts.push(`新着 ${fresh}件`);
       if (hidden > 0) parts.push(`時間経過で非表示 ${hidden}件`);
 
-      const tail = fresh > 0 && latestHandover
-        ? `　　「新着」は${jstDateKey(latestHandover.handedOverAt).slice(5).replace('-', '/')} `
-          + `${jstTimeLabel(latestHandover.handedOverAt)}の引き継ぎ以降に入った予約です。`
+      const baseTime = newBaselineTime();
+      const baseIso = baseTime === null ? null : new Date(baseTime).toISOString();
+      const tail = fresh > 0 && baseIso
+        ? `　　「新着」は${jstDateKey(baseIso).slice(5).replace('-', '/')} `
+          + `${jstTimeLabel(baseIso)}${baselineIsAuto() ? '（自動）' : 'の引き継ぎ'}以降に入った予約です。`
         : '　　担当者・状態を選ぶとその場で保存されます。';
       $('boardSummary').textContent = parts.join('　') + tail;
     }

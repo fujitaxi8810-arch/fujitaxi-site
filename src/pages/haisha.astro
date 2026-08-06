@@ -49,6 +49,7 @@ import '../styles/kt-components.css';
           <span class="ha-handover__label">前回の引き継ぎ</span>
           <span class="ha-handover__when" id="handoverWhen">—</span>
           <p class="ha-handover__note" id="handoverNote" hidden></p>
+          <button type="button" class="ha-handover__noteedit" id="noteEditBtn">✎ 申し送りを書く</button>
         </div>
         <div class="ha-handover__actions">
           <button type="button" class="kt-btn" id="handoverBtn">引き継ぎ・申し送りを記録</button>
@@ -59,7 +60,7 @@ import '../styles/kt-components.css';
       <!-- ── 本日の勤務（/shift の内容を読むだけ。編集は /shift 側） ── -->
       <div class="kt-panel" id="dutyPanel">
         <div class="kt-panel__head">
-          <h2 class="kt-title" id="dutyTitle">この日の勤務</h2>
+          <h2 class="kt-title" id="dutyTitle">乗務割</h2>
           <div class="kt-panel__tools">
             <a href="/shift" class="kt-btn kt-btn--ghost" target="_blank" rel="noopener">シフトを編集</a>
           </div>
@@ -214,6 +215,27 @@ import '../styles/kt-components.css';
     </div>
   </div>
 
+  <!-- ── 申し送りモーダル（引き継ぎとは別。新着の基準を動かさない） ── -->
+  <div class="kt-modal-overlay" id="noteModal" hidden>
+    <div class="kt-modal ha-modal" role="dialog" aria-modal="true" aria-labelledby="noteModalTitle">
+      <h2 class="kt-title" id="noteModalTitle">申し送り</h2>
+      <p class="ha-note">
+        次の担当者に伝えることを書きます。<strong>「新着」の表示は消えません</strong>
+        ―引き継ぎの記録とは別なので、何度でも書き足せます。
+      </p>
+
+      <div class="ha-field ha-field--full">
+        <span>申し送り</span>
+        <textarea id="noteText" class="kt-input" rows="4" placeholder="例：中村様の予約は折り返し待ち。19時までに連絡がなければキャンセル"></textarea>
+      </div>
+
+      <div class="kt-modal__actions">
+        <button type="button" class="kt-btn" id="noteSaveBtn">保存</button>
+        <button type="button" class="kt-btn kt-btn--ghost" id="noteCancelBtn">やめる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── CSV取り込みモーダル ── -->
   <div class="kt-modal-overlay" id="importModal" hidden>
     <div class="kt-modal ha-modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
@@ -252,7 +274,7 @@ import '../styles/kt-components.css';
       fetchDailyDuties, addDailyDuty, removeDailyDuty,
       insertReservation, updateReservation, deleteReservation,
       assignStaff, setChecked, setStatus, setStaffAssignable,
-      fetchLatestHandover, recordHandover, deleteHandover,
+      fetchLatestHandover, recordHandover, deleteHandover, updateHandoverNote,
       fetchDispatchHistory, revertHistoryEntry,
       buildImportPlan, applyImportPlan,
       jstDateKey, jstTimeLabel, todayJst,
@@ -607,7 +629,8 @@ import '../styles/kt-components.css';
         // 申し送りの置き場所が分かるよう、まだ無くても枠は出しておく
         noteEl.hidden = false;
         noteEl.className = 'ha-handover__note ha-handover__note--empty';
-        noteEl.textContent = '申し送りはまだありません。右の「引き継ぎ・申し送りを記録」から残せます。';
+        noteEl.textContent = '申し送りはまだありません。';
+        $('noteEditBtn').textContent = '✎ 申し送りを書く';
         $('handoverUndoBtn').hidden = true;
         return;
       }
@@ -621,12 +644,45 @@ import '../styles/kt-components.css';
       if (latestHandover.note) {
         noteEl.className = 'ha-handover__note';
         noteEl.textContent = `申し送り：${latestHandover.note}`;
+        $('noteEditBtn').textContent = '✎ 申し送りを編集';
       } else {
         noteEl.className = 'ha-handover__note ha-handover__note--empty';
         noteEl.textContent = '申し送りなし';
+        $('noteEditBtn').textContent = '✎ 申し送りを書く';
       }
       $('handoverUndoBtn').hidden = false;
     }
+
+    // 申し送りだけを書き換える。引き継ぎの記録時刻は触らないので新着は消えない
+    $('noteEditBtn').onclick = () => {
+      $('noteText').value = latestHandover?.note || '';
+      $('noteModal').hidden = false;
+      $('noteText').focus();
+    };
+    $('noteCancelBtn').onclick = () => { $('noteModal').hidden = true; };
+    $('noteModal').onclick = (e) => { if (e.target === $('noteModal')) $('noteCancelBtn').click(); };
+
+    $('noteSaveBtn').onclick = async () => {
+      const note = $('noteText').value.trim() || null;
+      $('noteSaveBtn').disabled = true;
+      try {
+        if (latestHandover) {
+          await updateHandoverNote(latestHandover.id, note);
+          latestHandover = { ...latestHandover, note };
+        } else {
+          // まだ引き継ぎ記録が無い場合。新着の基準が動かないよう、
+          // フォールバックで使っている18時をそのまま記録時刻にする
+          const baseIso = new Date(lastHandoverTime()).toISOString();
+          latestHandover = await recordHandover(null, note, baseIso);
+        }
+        $('noteModal').hidden = true;
+        renderHandover();
+      } catch (e) {
+        alert(failMsg(e, '申し送りの保存'));
+      } finally {
+        $('noteSaveBtn').disabled = false;
+      }
+    };
 
     $('handoverBtn').onclick = () => {
       $('hoBy').value = localStorage.getItem(HANDOVER_NAME_KEY) || '';
@@ -1029,7 +1085,7 @@ import '../styles/kt-components.css';
         alert(failMsg(e, 'データの読み込み'));
         return;
       }
-      $('dutyTitle').textContent = `この日の勤務　${dateKey.replace(/-/g, '/')}（${weekdayOf(dateKey)}）`;
+      // 日付は真下の配車ボードの見出しと日付選択に出ているので、ここでは繰り返さない
       renderHandover();
       renderDuty();
       renderBoard();
@@ -1599,6 +1655,20 @@ import '../styles/kt-components.css';
       color: #64748b;
       font-size: 0.85rem;
     }
+    /* 申し送りの編集リンク。申し送り欄のすぐ下に置いて、書く場所を分かりやすくする */
+    .ha-handover__noteedit {
+      flex-basis: 100%;
+      align-self: flex-start;
+      background: transparent;
+      border: none;
+      color: #0e7490;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.35rem 0 0;
+      cursor: pointer;
+      text-align: left;
+    }
+    .ha-handover__noteedit:hover { text-decoration: underline; }
     .ha-handover__actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .ha-handover .kt-btn {
       background: #0e7490;

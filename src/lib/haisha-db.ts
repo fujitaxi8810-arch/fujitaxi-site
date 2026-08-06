@@ -394,14 +394,34 @@ export async function fetchLatestHandover(): Promise<Handover | null> {
   return data ? rowToHandover(data) : null;
 }
 
-export async function recordHandover(by: string | null, note: string | null): Promise<Handover> {
+/**
+ * 引き継ぎを記録する。記録時刻が「新着」の基準になる。
+ * atIso を渡すとその時刻で記録する（申し送りだけを残したいときに、
+ * 基準を動かさないようフォールバックの18時をそのまま指定するために使う）。
+ */
+export async function recordHandover(
+  by: string | null,
+  note: string | null,
+  atIso?: string
+): Promise<Handover> {
+  const payload: Record<string, unknown> = { handed_over_by: by, note };
+  if (atIso) payload.handed_over_at = atIso;
   const { data, error } = await supabase
     .from('dispatch_handovers')
-    .insert({ handed_over_by: by, note })
+    .insert(payload)
     .select()
     .single();
   if (error) throw error;
   return rowToHandover(data);
+}
+
+/**
+ * 申し送りだけを書き換える。handed_over_at は触らないので、
+ * 「新着」の基準は変わらない（追記のたびに新着が消えるのを避けるため）。
+ */
+export async function updateHandoverNote(id: string, note: string | null): Promise<void> {
+  const { error } = await supabase.from('dispatch_handovers').update({ note }).eq('id', id);
+  if (error) throw error;
 }
 
 /** 誤操作の取り消し用。最新の1件を消すと、その前の引き継ぎが基準に戻る */

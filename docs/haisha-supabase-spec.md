@@ -231,6 +231,9 @@ create policy dispatch_handovers_select on dispatch_handovers
   for select to authenticated using (true);
 create policy dispatch_handovers_insert on dispatch_handovers
   for insert to authenticated with check (true);
+-- 申し送りだけの書き換えを許す（後述）
+create policy dispatch_handovers_update on dispatch_handovers
+  for update to authenticated using (true) with check (true);
 -- 誤操作の取り消し（1つ前に戻す）を事務所でも行えるようにする
 create policy dispatch_handovers_delete on dispatch_handovers
   for delete to authenticated using (true);
@@ -242,6 +245,14 @@ create policy dispatch_handovers_delete on dispatch_handovers
   全件が新着になるのを避けるため
 - 記録は履歴として残るので、**最新1件を消せば直前の引き継ぎに戻せる**（`deleteHandover`）
 - 押すと全端末に反映される。引き継ぎの性質上これが正しいので、確認モーダルを挟む
+
+**申し送りは引き継ぎと分けて編集できる**（`updateHandoverNote`）。
+引き継ぎを記録し直すと `handed_over_at` が今になり「新着」が消えてしまうため、
+申し送りの追記だけをしたい場合は `note` のみを更新する。
+
+- 引き継ぎ記録がまだ無い状態で申し送りを書いた場合は、`handed_over_at` に
+  **フォールバックで使っている18時をそのまま指定して**記録する。
+  こうすると基準時刻が動かないので、新着表示は変わらない
 - 背景色は未割当・変更あり・キャンセルで使い切っているため、新着は**左端の縦線＋青緑バッジ**で示す
 
 ## 5.47 変更履歴と巻き戻し

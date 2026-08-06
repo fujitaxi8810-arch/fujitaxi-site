@@ -145,10 +145,11 @@ import '../styles/kt-components.css';
       <!-- ── 配車担当者の設定（管理者のみ） ── -->
       <div class="kt-panel" id="staffAdminPanel" hidden>
         <div class="kt-panel__head">
-          <h2 class="kt-title">配車担当者の設定（管理者）</h2>
+          <h2 class="kt-title">配車に関わる人の設定（管理者）</h2>
         </div>
         <p class="ha-note">
-          チェックを入れた人が、担当者の選択肢に出ます。事務職の方など配車に乗らない人は外してください。<br />
+          チェックを入れた人が、<strong>乗務割と担当者の選択肢</strong>に出ます。
+          事務職の方など配車に乗らない人は外してください（シフトに入っていても乗務割に出なくなります）。<br />
           外しても、<strong>すでに割り当て済みの予約はそのまま残ります</strong>。<br />
           ここに名前が無い人は、まだスタッフ登録されていません。<a href="/kintai" target="_blank" rel="noopener">勤怠ページ</a>で登録してください。
         </p>
@@ -846,12 +847,14 @@ import '../styles/kt-components.css';
         const names = document.createElement('span');
         names.className = 'ha-duty-names';
 
-        // /shift 由来（表示のみ。変更は /shift 側で行う）
+        // /shift 由来（表示のみ。変更は /shift 側で行う）。
+        // 配車に関わらない人（事務など）はシフトに入っていても乗務割には出さない。
+        // 出す・出さないは「配車担当者の設定」の チェックボックス（staff.haisha_assignable）で決まる。
         const fromShift = g.shiftKey
           ? sortByShiftOrder(
               (byCode.get(g.shiftKey) || [])
                 .map((d) => ({ ...d, staff: staff.find((s) => s.id === d.staffId) }))
-                .filter((d) => d.staff)
+                .filter((d) => d.staff && d.staff.haishaAssignable !== false)
             )
           : [];
         shiftShown += fromShift.length;

@@ -191,9 +191,15 @@ DSからの書き出しCSV、またはスプレッドシート「配車確認表
 
 ---
 
-## 5.4 担当者候補から外す人（staff.haisha_assignable）
+## 5.4 配車に関わらない人（staff.haisha_assignable）
 
-配車の担当者に出したくない人は `staff.haisha_assignable = false` にする。
+配車に出したくない人は `staff.haisha_assignable = false` にする。これ1つで**2箇所**を制御する:
+
+- **担当者セレクト**の候補
+- **乗務割**の表示（`/shift` にシフトが入っていても出さない。事務職などが並ぶのを防ぐ）
+
+なお**日次割り当て（スクール原町・交流・貸切の追加分）は外しても表示し続ける**。
+明示的に割り当てた記録なので、消すのではなく×で外せる状態にしておく。
 
 ```sql
 alter table staff add column haisha_assignable boolean not null default true;

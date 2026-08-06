@@ -365,7 +365,8 @@ export async function revertHistoryEntry(entry: HistoryEntry): Promise<void> {
 /**
  * 事務所終了後などに配車担当者が交代する際の記録。
  * 「新着」判定の基準時刻になる（この時刻以降に登録された予約が新着）。
- * 記録が1件も無い場合は、直近の18時を基準にフォールバックする（haisha.astro 側）。
+ * 記録が1件も無い場合は、何も新着にしない（haisha.astro 側）。
+ * 固定の交代時刻は持たないので、運用が18時→19時に変わってもコード変更は不要。
  */
 export type Handover = {
   id: string;
@@ -396,8 +397,8 @@ export async function fetchLatestHandover(): Promise<Handover | null> {
 
 /**
  * 引き継ぎを記録する。記録時刻が「新着」の基準になる。
- * atIso を渡すとその時刻で記録する（申し送りだけを残したいときに、
- * 基準を動かさないようフォールバックの18時をそのまま指定するために使う）。
+ * atIso を渡すとその時刻で記録する（現状の呼び出しでは未使用だが、
+ * 基準時刻を明示したい場合のために残してある）。
  */
 export async function recordHandover(
   by: string | null,

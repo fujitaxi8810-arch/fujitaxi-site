@@ -603,8 +603,9 @@ import '../styles/kt-components.css';
 
     // ── 引き継ぎ後の新着 ──
     // 事務所終了後などに配車担当者が交代した際、それ以降に入った予約に印を付ける。
-    // 基準は「引き継ぎ完了」を押した時刻。時刻固定にしていた頃は、昼間に見ると
-    // 前日18時が基準になり、その日の朝の予約まで新着扱いになる問題があった。
+    // 基準は「引き継ぎ・申し送りを記録」を押した時刻（固定時刻ではない）。
+    // 固定時刻を基準にしていた頃は、昼間に見ると前日の基準時刻が採用され、
+    // その日の朝に入った予約まで新着扱いになる問題があった。
 
     /** DSでの登録時刻。手入力の予約はDBに入った時刻で代用する */
     function addedAt(r: any) {
@@ -615,9 +616,10 @@ import '../styles/kt-components.css';
      * 「新着」の基準時刻。引き継ぎが記録されていればその時刻。
      *
      * 記録が無いときは null（＝何も新着にしない）。
-     * 以前は「直近に過ぎた18時」を基準にしていたが、たとえば昼間に見ると
-     * 基準が前日18時になり、その日の朝に入った予約まで新着扱いになってしまう。
+     * 以前は「直近に過ぎた固定時刻」を基準にしていたが、たとえば昼間に見ると
+     * 基準が前日の分になり、その日の朝に入った予約まで新着扱いになってしまう。
      * 引き継ぎボタンがある今は、押した時刻を基準にする方が確実。
+     * 交代時刻が変わっても（18時→19時など）コード変更は不要。
      */
     function newBaselineTime(): number | null {
       return latestHandover?.handedOverAt ? new Date(latestHandover.handedOverAt).getTime() : null;
@@ -747,7 +749,11 @@ import '../styles/kt-components.css';
       const b = document.createElement('span');
       b.className = 'ha-badge ha-badge--new';
       b.textContent = '新着';
-      b.title = `${addedLabel(r)}（18時の引き継ぎ以降）`;
+      // 基準は記録された引き継ぎ時刻。固定の時刻ではないので、実際の時刻を出す
+      const base = latestHandover?.handedOverAt;
+      b.title = base
+        ? `${addedLabel(r)}（${jstDateKey(base).slice(5).replace('-', '/')} ${jstTimeLabel(base)}の引き継ぎ以降）`
+        : addedLabel(r);
       return b;
     }
 

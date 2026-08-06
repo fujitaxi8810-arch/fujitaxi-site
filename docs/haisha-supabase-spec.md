@@ -391,6 +391,25 @@ create policy dispatch_history_select on dispatch_history
 - 選択は localStorage に保存。65型は「特大」、PCは「標準」を一度選べば以降そのまま
 - 拡大するとヘッダーの高さも変わるので、`applyZoom` から `syncStickyOffset()` を呼び直す
 
+**特大時はコンテナの横幅も広げる。** 実機（65型）の写真で確認したところ、文字を拡大しても
+ヘッダー・見出し・本文はいずれも `--container-max`（`global.css` で `1200px`）に
+中央寄せされたままで、大画面では左右に大きな余白が残っていた。
+
+`.ha-wrap` だけを広げても、ヘッダー（`Layout.astro` の `.nav__inner`）や
+`.page-hero` の `.container` は既に `max-width: 100%` で画面幅いっぱいだった
+ため無意味。ヘッダー・見出し・本文が共通して参照している **`--container-max` 自体を
+`applyZoom` から上書き**することで、ページ全体を連動して広げる:
+
+```js
+if (pct >= 165) --container-max を min(96vw, 2200px) に
+else if (pct >= 130) --container-max を min(92vw, 1600px) に
+else removeProperty で既定の 1200px に戻す
+```
+
+`.ha-wrap` 自体は元々 `max-width: 100%` なので変更不要（親のコンテナが
+広がれば連動して広がる）。標準幅に戻すときは `removeProperty` を使うこと
+（固定値で 1200px を再設定すると `global.css` 側の変更に追従できなくなる）。
+
 配車確認シート上部の勤務区分と `/shift` のコードの対応（ユーザー確認済み）:
 
 | 配車確認シートの行 | 出どころ |

@@ -1028,6 +1028,15 @@ import '../styles/kt-components.css';
       for (const b of document.querySelectorAll('.ha-zoom__btn')) {
         b.classList.toggle('is-active', Number((b as HTMLElement).dataset.zoom) === pct);
       }
+      // 65型の大画面では、標準幅（--container-max: 1200px、ヘッダーや見出しも
+      // これに従う）が実機の横幅に対して狭く、中央の帯に寄って見える
+      // （実機の写真で確認済み）。文字を大きくするほど、コンテナの上限も
+      // 一緒に緩める。--container-max はヘッダーの nav__inner や
+      // page-hero も使っている変数なので、これを上書きすればページ全体が
+      // 連動して広がる（.ha-wrap 個別に広げても、ヘッダーは変わらないため）。
+      if (pct >= 165) document.documentElement.style.setProperty('--container-max', 'min(96vw, 2200px)');
+      else if (pct >= 130) document.documentElement.style.setProperty('--container-max', 'min(92vw, 1600px)');
+      else document.documentElement.style.removeProperty('--container-max');
       localStorage.setItem(ZOOM_KEY, String(pct));
       // ヘッダーの高さも一緒に変わるので、乗務割の貼り付き位置を取り直す
       syncStickyOffset();

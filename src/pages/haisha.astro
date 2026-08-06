@@ -51,7 +51,7 @@ import '../styles/kt-components.css';
           <p class="ha-handover__note" id="handoverNote" hidden></p>
         </div>
         <div class="ha-handover__actions">
-          <button type="button" class="kt-btn" id="handoverBtn">引き継ぎ完了</button>
+          <button type="button" class="kt-btn" id="handoverBtn">引き継ぎ・申し送りを記録</button>
           <button type="button" class="kt-btn kt-btn--ghost" id="handoverUndoBtn" hidden>1つ前に戻す</button>
         </div>
       </div>
@@ -192,7 +192,7 @@ import '../styles/kt-components.css';
   <!-- ── 引き継ぎモーダル ── -->
   <div class="kt-modal-overlay" id="handoverModal" hidden>
     <div class="kt-modal ha-modal" role="dialog" aria-modal="true" aria-labelledby="handoverTitle">
-      <h2 class="kt-title" id="handoverTitle">引き継ぎ完了</h2>
+      <h2 class="kt-title" id="handoverTitle">引き継ぎと申し送り</h2>
       <p class="ha-note">
         ここまでに入った予約の「新着」表示を消し、<strong>これ以降に入った予約を新着として表示</strong>します。<br />
         全員の画面に反映されます。押し間違えたときは「1つ前に戻す」で取り消せます。
@@ -203,7 +203,7 @@ import '../styles/kt-components.css';
         <input type="text" id="hoBy" class="kt-input" placeholder="例：佐藤" />
       </div>
       <div class="ha-field ha-field--full">
-        <span>申し送り（任意）</span>
+        <span>申し送り ― 次の担当者に伝えること（任意）</span>
         <textarea id="hoNote" class="kt-input" rows="3" placeholder="例：中村様の予約は折り返し待ち。19時までに連絡がなければキャンセル"></textarea>
       </div>
 
@@ -604,7 +604,10 @@ import '../styles/kt-components.css';
 
       if (!latestHandover) {
         when.textContent = `記録なし（${HANDOVER_HOUR}時を基準にしています）`;
-        noteEl.hidden = true;
+        // 申し送りの置き場所が分かるよう、まだ無くても枠は出しておく
+        noteEl.hidden = false;
+        noteEl.className = 'ha-handover__note ha-handover__note--empty';
+        noteEl.textContent = '申し送りはまだありません。右の「引き継ぎ・申し送りを記録」から残せます。';
         $('handoverUndoBtn').hidden = true;
         return;
       }
@@ -614,11 +617,13 @@ import '../styles/kt-components.css';
       when.textContent =
         `${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}${who} 以降が新着`;
 
+      noteEl.hidden = false;
       if (latestHandover.note) {
-        noteEl.hidden = false;
+        noteEl.className = 'ha-handover__note';
         noteEl.textContent = `申し送り：${latestHandover.note}`;
       } else {
-        noteEl.hidden = true;
+        noteEl.className = 'ha-handover__note ha-handover__note--empty';
+        noteEl.textContent = '申し送りなし';
       }
       $('handoverUndoBtn').hidden = false;
     }
@@ -1585,6 +1590,14 @@ import '../styles/kt-components.css';
       line-height: 1.6;
       padding: 0.5rem 0.75rem;
       white-space: pre-wrap;
+    }
+    /* まだ申し送りが無いときは、置き場所を示すだけの控えめな見た目にする */
+    .ha-handover__note--empty {
+      background: transparent;
+      border-left-color: rgba(14,116,144,0.3);
+      border-left-style: dashed;
+      color: #64748b;
+      font-size: 0.85rem;
     }
     .ha-handover__actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .ha-handover .kt-btn {

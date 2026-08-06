@@ -24,6 +24,14 @@ import '../styles/kt-components.css';
       <!-- 管理者ロック（削除のみ管理者限定） -->
       <div class="kt-adminbar">
         <span class="kt-adminbar__label" id="adminState">🔒 閲覧・編集は可能／削除は管理者のみ</span>
+        <!-- 65型のタッチ表示と手元のPCでは適切な文字サイズが違う。端末側からは
+             視距離が分からないので、見る人が選べるようにする -->
+        <div class="ha-zoom" role="group" aria-label="文字サイズ">
+          <span class="ha-zoom__label">文字サイズ</span>
+          <button type="button" class="ha-zoom__btn" data-zoom="100">標準</button>
+          <button type="button" class="ha-zoom__btn" data-zoom="130">大</button>
+          <button type="button" class="ha-zoom__btn" data-zoom="165">特大</button>
+        </div>
         <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
       </div>
 
@@ -991,6 +999,26 @@ import '../styles/kt-components.css';
     syncStickyOffset();
     window.addEventListener('resize', syncStickyOffset);
 
+    // ── 文字サイズ ──
+    // ルートの font-size を変えることで、rem指定のものが一括で拡大する。
+    // 65型のタッチ表示では離れて見るため、PCと同じ大きさでは読めない。
+    const ZOOM_KEY = 'fuji-haisha-zoom';
+
+    function applyZoom(pct: number) {
+      document.documentElement.style.fontSize = pct === 100 ? '' : `${pct}%`;
+      for (const b of document.querySelectorAll('.ha-zoom__btn')) {
+        b.classList.toggle('is-active', Number((b as HTMLElement).dataset.zoom) === pct);
+      }
+      localStorage.setItem(ZOOM_KEY, String(pct));
+      // ヘッダーの高さも一緒に変わるので、乗務割の貼り付き位置を取り直す
+      syncStickyOffset();
+    }
+
+    applyZoom(Number(localStorage.getItem(ZOOM_KEY)) || 100);
+    for (const b of document.querySelectorAll('.ha-zoom__btn')) {
+      (b as HTMLElement).onclick = () => applyZoom(Number((b as HTMLElement).dataset.zoom));
+    }
+
     // 開閉の状態は端末に覚えさせる（閉じた人が毎回開き直さずに済むように）
     const DUTY_OPEN_KEY = 'fuji-haisha-duty-open';
     if (localStorage.getItem(DUTY_OPEN_KEY) === 'closed') $('dutyPanel').open = false;
@@ -1642,6 +1670,32 @@ import '../styles/kt-components.css';
   <style is:global>
     .ha-wrap { max-width: 100%; }
 
+    /* ── 文字サイズの切替 ── */
+    .ha-zoom { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+    .ha-zoom__label {
+      color: rgba(255,255,255,0.55);
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-right: 0.2rem;
+    }
+    .ha-zoom__btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: var(--radius-full);
+      color: rgba(255,255,255,0.75);
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.3rem 0.85rem;
+      min-height: 2.5rem;
+      cursor: pointer;
+    }
+    .ha-zoom__btn:hover { border-color: var(--fuji-yellow); color: var(--fuji-yellow); }
+    .ha-zoom__btn.is-active {
+      background: var(--fuji-yellow);
+      border-color: var(--fuji-yellow);
+      color: var(--fuji-black);
+    }
+
     /* ── タブ ── */
     .ha-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .ha-tab {
@@ -1653,7 +1707,7 @@ import '../styles/kt-components.css';
       font-weight: 700;
       padding: 0.55rem 1.1rem;
       cursor: pointer;
-      min-height: 44px;
+      min-height: 2.75rem;
     }
     .ha-tab:hover { color: var(--fuji-yellow); }
     .ha-tab.is-active {
@@ -1834,7 +1888,7 @@ import '../styles/kt-components.css';
     .ha-duty-remove:hover { opacity: 1; color: #b91c1c; }
     /* 追加用セレクトは名前バッジと同じ丸い形にして、並んでも浮かないようにする */
     .ha-select.ha-duty-add {
-      min-height: 42px;
+      min-height: 2.625rem;
       min-width: 0;
       width: auto;
       font-size: 0.95rem;
@@ -1861,7 +1915,7 @@ import '../styles/kt-components.css';
       padding: 0.9rem 1.1rem;
       cursor: pointer;
       list-style: none;
-      min-height: 44px;
+      min-height: 2.75rem;
     }
     .ha-details__summary::-webkit-details-marker { display: none; }
     /* 開閉の向きが分かる三角を自前で描く */
@@ -1892,7 +1946,7 @@ import '../styles/kt-components.css';
     .ha-hist__kind--delete { background: #fef2f2; border-color: #b91c1c; color: #b91c1c; }
     .ha-hist__subject { color: #fff; font-size: 1rem; font-weight: 700; flex: 1; min-width: 12rem; }
     .ha-hist__meta { color: rgba(255,255,255,0.55); font-size: 0.8rem; white-space: nowrap; }
-    .ha-hist__revert { min-height: 36px; padding: 0.3rem 0.8rem; font-size: 0.85rem; }
+    .ha-hist__revert { min-height: 2.25rem; padding: 0.3rem 0.8rem; font-size: 0.85rem; }
     .ha-hist__changes {
       margin: 0.35rem 0 0 0.5rem;
       padding-left: 1rem;
@@ -1916,7 +1970,7 @@ import '../styles/kt-components.css';
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: var(--radius-md);
       padding: 0.5rem 0.75rem;
-      min-height: 44px;
+      min-height: 2.75rem;
       cursor: pointer;
     }
     .ha-assign-item:hover { border-color: rgba(245,200,0,0.5); }
@@ -2039,12 +2093,12 @@ import '../styles/kt-components.css';
       font-size: 1rem;
       font-weight: 700;
       padding: 0.35rem 0.4rem;
-      min-height: 44px;
+      min-height: 2.75rem;
       min-width: 8rem;
       cursor: pointer;
     }
     .ha-select:disabled { opacity: 0.6; }
-    .ha-check { width: 22px; height: 22px; cursor: pointer; }
+    .ha-check { width: 1.375rem; height: 1.375rem; cursor: pointer; }
     .ha-linkbtn {
       background: transparent;
       border: 1px solid #bbb;
@@ -2053,7 +2107,7 @@ import '../styles/kt-components.css';
       font-size: 0.9rem;
       font-weight: 700;
       padding: 0.35rem 0.75rem;
-      min-height: 40px;
+      min-height: 2.5rem;
       cursor: pointer;
     }
     .ha-linkbtn:hover { border-color: #111; color: #111; }

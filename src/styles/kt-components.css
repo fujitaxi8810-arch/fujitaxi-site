@@ -59,7 +59,7 @@
   font-weight: 700;
   padding: 0.55rem 1rem;
   cursor: pointer;
-  min-height: 44px;
+  min-height: 2.75rem;
 }
 .kt-btn:hover { background: rgba(245,200,0,0.22); }
 .kt-btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -104,7 +104,7 @@
   color: var(--fuji-white);
   padding: 0.5rem 0.75rem;
   font-size: var(--text-sm);
-  min-height: 44px;
+  min-height: 2.75rem;
 }
 
 /* ── スタッフのバッジ ── */
@@ -120,7 +120,7 @@
   font-weight: 900;
   padding: 0.45rem 0.9rem;
   cursor: pointer;
-  min-height: 40px;
+  min-height: 2.5rem;
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 .kt-staff:hover { border-color: var(--fuji-yellow); }

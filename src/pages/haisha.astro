@@ -227,7 +227,7 @@ import '../styles/kt-components.css';
       <h2 class="kt-title" id="deletedTitle">削除された予約</h2>
       <p class="ha-note">
         削除しても、変更履歴の記録から消えていません。<strong>お客様名の読み（あいうえお順）</strong>で
-        並んでいます。「復元」で元に戻せます。
+        並んでいます。確認のみで、この画面から復元はできません。
       </p>
       <div class="kt-table-wrap ha-grid-wrap">
         <table class="kt-table ha-grid" id="deletedTable"></table>
@@ -326,7 +326,7 @@ import '../styles/kt-components.css';
       assignStaff, setChecked, setStatus, setStaffAssignable,
       fetchLatestHandover, recordHandover, deleteHandover, updateHandoverNote,
       fetchDispatchHistory, revertHistoryEntry,
-      fetchDeletedReservations, restoreDeletedReservation,
+      fetchDeletedReservations,
       buildImportPlan, applyImportPlan, fetchLatestImportLog,
       jstDateKey, jstTimeLabel, todayJst,
       hasSession, isAuthError,
@@ -1139,7 +1139,8 @@ import '../styles/kt-components.css';
       $('deletedEmpty').hidden = list.length > 0;
       if (list.length === 0) return;
 
-      table.appendChild(headerRow(['お客様名', '読み', '予約日時', '迎車場所', '削除日時', '削除者', '']));
+      // 確認専用（復元操作は無い）
+      table.appendChild(headerRow(['お客様名', '読み', '予約日時', '迎車場所', '削除日時', '削除者']));
 
       const sorted = [...list].sort(byKanaThenName);
       const tbody = document.createElement('tbody');
@@ -1155,29 +1156,6 @@ import '../styles/kt-components.css';
         tr.appendChild(td([r.pickup_name, r.pickup_address].filter(Boolean).join(' / '), 'ha-wrapcell'));
         tr.appendChild(td(`${jstDateKey(d.deletedAt).slice(5).replace('-', '/')} ${jstTimeLabel(d.deletedAt)}`));
         tr.appendChild(td(d.deletedBy || ''));
-
-        const actionCell = document.createElement('td');
-        const restoreBtn = document.createElement('button');
-        restoreBtn.type = 'button';
-        restoreBtn.className = 'ha-linkbtn';
-        restoreBtn.textContent = '復元';
-        restoreBtn.onclick = async () => {
-          if (!confirm(`「${r.customer_name || 'この予約'}」を復元します。よろしいですか？`)) return;
-          restoreBtn.disabled = true;
-          try {
-            await restoreDeletedReservation(d);
-            list = list.filter((x) => x.historyId !== d.historyId);
-            renderDeletedTable(list);
-            await refreshCurrentTab();
-          } catch (e) {
-            alert(e?.code === '23505'
-              ? '同じ予約がすでに存在するため復元できません。'
-              : failMsg(e, '復元'));
-            restoreBtn.disabled = false;
-          }
-        };
-        actionCell.appendChild(restoreBtn);
-        tr.appendChild(actionCell);
 
         tbody.appendChild(tr);
       }

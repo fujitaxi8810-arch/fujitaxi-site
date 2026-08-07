@@ -471,10 +471,12 @@ create policy dispatch_imports_insert on dispatch_imports
   `localeCompare(x, 'ja')`。読み仮名が入っているデータは正しく五十音順になるが、
   読み仮名が空のデータは（ひらがなとの比較で）末尾寄りになる。今のところ
   明示的な分離はしていない
-- 各行に「復元」ボタン（`restoreDeletedReservation`。中身は `revertHistoryEntry` の
-  delete分岐と同じ）。復元後は一覧から即座に取り除き、表示中のタブも再読み込みする
-- CSVの再取り込みで同じ予約が作り直されていた場合、復元は一意制約違反（`23505`）になる。
-  その旨をエラーメッセージで示す（`dispatch_history` の削除復元と同じ扱い）
+- **確認専用**。復元ボタンは無い（ユーザー要望：「復元しなくて大丈夫。確認するだけ」）。
+  データそのものを復元したい場合は、ページ最下部の「変更履歴」パネルから
+  `revertHistoryEntry` で行える（同じ `dispatch_history` の delete レコードを使うが、
+  そちらは管理者操作としての「元に戻す」、こちらは一覧確認、と役割を分けている）
+- `restoreDeletedReservation`（`haisha-db.ts`）は実装として残しているが、
+  現在どのUIからも呼んでいない。復元操作をこちらの画面にも戻したくなった場合に使う
 
 ## 5.5 乗務割（shifts テーブルの参照）
 

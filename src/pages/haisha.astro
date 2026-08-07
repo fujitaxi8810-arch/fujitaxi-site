@@ -337,8 +337,19 @@ import '../styles/kt-components.css';
       return jstDateKey(d.toISOString());
     }
 
+    /**
+     * dateKey（'YYYY-MM-DD'）そのものの曜日を返す。
+     *
+     * 以前は `new Date(dateKey+'T00:00:00+09:00').getUTCDay()` としていたが、
+     * これは「JST午前0時」をUTCのタイムスタンプに変換した上でUTC基準の曜日を
+     * 取っていたことになり、JST00:00はUTC前日15:00なので**曜日が1日ずれる**
+     * バグがあった（8/6[木] が「水」と表示される）。
+     * dateKeyの年月日をそのままUTCの日付として組み立て、その曜日を取れば、
+     * 実行環境やブラウザのタイムゾーン設定に関係なく常に正しい。
+     */
     function weekdayOf(dateKey: string) {
-      return WEEKDAYS[new Date(`${dateKey}T00:00:00+09:00`).getUTCDay()];
+      const [y, m, d] = dateKey.split('-').map(Number);
+      return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
     }
 
     /** ISO → datetime-localの値（JST） */
@@ -1282,7 +1293,9 @@ import '../styles/kt-components.css';
 
       if (rows.length === 0) return;
 
-      table.appendChild(headerRow(['時刻', '状態', '担当者', 'お客様名', '迎車場所', '行き先・メモ', '電話', '済', '']));
+      // 電話番号はこの一覧には出さない（編集を開けば見える）。指で操作する
+      // タッチ画面で番号がそのまま並んでいると誤って見えてしまうため
+      table.appendChild(headerRow(['時刻', '状態', '担当者', 'お客様名', '迎車場所', '行き先・メモ', '済', '']));
 
       const tbody = document.createElement('tbody');
       for (const r of rows) {
@@ -1345,7 +1358,6 @@ import '../styles/kt-components.css';
         tr.appendChild(td(r.customerName));
         tr.appendChild(td(pickupText(r), 'ha-wrapcell'));
         tr.appendChild(td(r.operatorMemo, 'ha-wrapcell'));
-        tr.appendChild(td(r.phone));
 
         // 確認チェック（即保存）
         const checkCell = document.createElement('td');
@@ -2151,7 +2163,7 @@ import '../styles/kt-components.css';
     .ha-time { font-weight: 900; font-size: 1.1rem; }
 
     /* 長文セルは折り返す */
-    .ha-wrapcell { white-space: normal; min-width: 12rem; max-width: 22rem; line-height: 1.5; }
+    .ha-wrapcell { white-space: normal; min-width: 14rem; max-width: 24rem; line-height: 1.5; }
 
     .ha-row--unassigned td.ha-sticky, .ha-row--unassigned { background: #fffaf0; }
     .ha-row--click { cursor: pointer; }
@@ -2197,7 +2209,9 @@ import '../styles/kt-components.css';
 
     /* 状態セレクトも同じ配色にして、表を見渡したときに色で判別できるようにする。
        .ha-select が後ろで定義されているため、クラス2つ分の詳細度で上書きする */
-    .ha-select.ha-status { font-size: 0.9rem; min-width: 7rem; font-weight: 700; }
+    /* 「キャンセル」（5文字）がぎりぎり収まる幅まで狭め、
+       浮いた分を隣の「行き先・メモ」列（.ha-wrapcell）に回す */
+    .ha-select.ha-status { font-size: 0.85rem; min-width: 5.2rem; padding: 0.3rem 0.4rem; font-weight: 700; }
     .ha-select.ha-status--normal { background: #fff; border-color: #bbb; color: #111; }
     .ha-select.ha-status--changed { background: #fffbeb; border-color: #92400e; color: #92400e; }
     .ha-select.ha-status--cancelled { background: #f4f4f5; border-color: #6b7280; color: #6b7280; }

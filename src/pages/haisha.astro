@@ -828,6 +828,19 @@ import '../styles/kt-components.css';
       return parts.join(' / ');
     }
 
+    /**
+     * 「行き先・メモ」列の表示文字列。
+     *
+     * オペレーター用メモ・場所メモの両方を対象にする。実際のDS書き出しCSVを
+     * 検証したところ、目的地情報が「オペレーター用メモ」ではなく「場所メモ」
+     * 側に入っているケースがあった（運用・時期によってどちらに入るか一定しない
+     * ため、片方だけを見ていると空欄に見えてしまう）。両方あれば両方表示する。
+     */
+    function destinationText(r: any) {
+      const parts = [r.operatorMemo, r.pickupMemo].filter(Boolean);
+      return parts.join(' ／ ');
+    }
+
     // ── 状態（通常／変更あり／キャンセル） ──
     // DS側の変更・取り消しは自動判定せず、人がここで指定する。
     // アプリ側の列なのでCSVを取り込み直しても消えない。
@@ -1394,7 +1407,7 @@ import '../styles/kt-components.css';
 
         tr.appendChild(td(r.customerName));
         tr.appendChild(td(pickupText(r), 'ha-wrapcell'));
-        tr.appendChild(td(r.operatorMemo, 'ha-wrapcell'));
+        tr.appendChild(td(destinationText(r), 'ha-wrapcell'));
 
         // 確認チェック（即保存）
         const checkCell = document.createElement('td');
@@ -1488,7 +1501,7 @@ import '../styles/kt-components.css';
       const digits = q.replace(/\D/g, '');
       const rows = listRows.filter((r) => {
         if (!q) return true;
-        const hay = [r.customerName, r.customerKana, r.pickupName, r.pickupAddress, r.operatorMemo]
+        const hay = [r.customerName, r.customerKana, r.pickupName, r.pickupAddress, r.operatorMemo, r.pickupMemo]
           .filter(Boolean).join(' ').toLowerCase();
         if (hay.includes(q)) return true;
         return digits !== '' && (r.phone || '').replace(/\D/g, '').includes(digits);
@@ -1538,7 +1551,7 @@ import '../styles/kt-components.css';
 
         tr.appendChild(td(r.customerName));
         tr.appendChild(td(pickupText(r), 'ha-wrapcell'));
-        tr.appendChild(td(r.operatorMemo, 'ha-wrapcell'));
+        tr.appendChild(td(destinationText(r), 'ha-wrapcell'));
 
         const staffCell = td('');
         if (r.staffId) {

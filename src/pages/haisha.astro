@@ -1111,10 +1111,19 @@ import '../styles/kt-components.css';
     // 貼り付いている（stuck）間だけ幅を狭くする。
     // 直前に置いたセンチネルが画面外に出た＝乗務割が本来の位置を離れて
     // ヘッダー直下に固定された、という合図として使う。
+    //
+    // 開いたまま貼り付くと、乗務割（最大46vh/420px）がヘッダー下に居座り続け、
+    // その分だけ配車ボードの表示領域が圧迫されて見づらくなる（ユーザー指摘）。
+    // スクロールで貼り付いた瞬間、開いていれば自動的に閉じて場所を空ける。
+    // 見出しはそのまま残るので、必要ならもう一度クリックして開ける。
     const dutySentinel = document.getElementById('dutyStickySentinel');
     if (dutySentinel && 'IntersectionObserver' in window) {
       new IntersectionObserver(
-        ([entry]) => $('dutyPanel').classList.toggle('is-stuck', !entry.isIntersecting),
+        ([entry]) => {
+          const stuck = !entry.isIntersecting;
+          $('dutyPanel').classList.toggle('is-stuck', stuck);
+          if (stuck && $('dutyPanel').open) $('dutyPanel').open = false;
+        },
         { threshold: 0 }
       ).observe(dutySentinel);
     }

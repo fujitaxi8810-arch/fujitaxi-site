@@ -201,6 +201,12 @@ DSからの書き出しCSV、またはスプレッドシート「配車確認表
 なお**日次割り当て（スクール原町・交流・貸切の追加分）は外しても表示し続ける**。
 明示的に割り当てた記録なので、消すのではなく×で外せる状態にしておく。
 
+**画面（`staffAdminPanel`）は `<details>` で折りたためる**（既定は開いた状態。
+管理者ロック解除で `hidden` が外れると同時に見える）。乗務割・変更履歴と同じ
+`.ha-details` / `.ha-details__summary` / `.ha-details__body` の共通パターンを使っており、
+`hidden`（管理者権限による表示可否）と `open`（折りたたみの開閉）は独立して効く
+― `hidden` が付いている間は `open` に関わらず非表示のまま。
+
 ```sql
 alter table staff add column haisha_assignable boolean not null default true;
 ```

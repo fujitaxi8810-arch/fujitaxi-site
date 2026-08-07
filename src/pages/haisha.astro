@@ -155,18 +155,21 @@ import '../styles/kt-components.css';
       </div>
 
       <!-- ── 配車担当者の設定（管理者のみ） ── -->
-      <div class="kt-panel" id="staffAdminPanel" hidden>
-        <div class="kt-panel__head">
-          <h2 class="kt-title">配車に関わる人の設定（管理者）</h2>
+      <details class="kt-panel ha-details" id="staffAdminPanel" hidden open>
+        <summary class="ha-details__summary">
+          <span class="kt-title">配車に関わる人の設定（管理者）</span>
+          <span class="ha-details__hint">クリックで開く</span>
+        </summary>
+        <div class="ha-details__body">
+          <p class="ha-note">
+            チェックを入れた人が、<strong>乗務割と担当者の選択肢</strong>に出ます。
+            事務職の方など配車に乗らない人は外してください（シフトに入っていても乗務割に出なくなります）。<br />
+            外しても、<strong>すでに割り当て済みの予約はそのまま残ります</strong>。<br />
+            ここに名前が無い人は、まだスタッフ登録されていません。<a href="/kintai" target="_blank" rel="noopener">勤怠ページ</a>で登録してください。
+          </p>
+          <div id="staffAdminBody" class="ha-assign-grid"></div>
         </div>
-        <p class="ha-note">
-          チェックを入れた人が、<strong>乗務割と担当者の選択肢</strong>に出ます。
-          事務職の方など配車に乗らない人は外してください（シフトに入っていても乗務割に出なくなります）。<br />
-          外しても、<strong>すでに割り当て済みの予約はそのまま残ります</strong>。<br />
-          ここに名前が無い人は、まだスタッフ登録されていません。<a href="/kintai" target="_blank" rel="noopener">勤怠ページ</a>で登録してください。
-        </p>
-        <div id="staffAdminBody" class="ha-assign-grid"></div>
-      </div>
+      </details>
 
       <!-- ── 変更履歴（DBトリガーが自動記録。普段は畳んでおく）。ページの一番下に置く ── -->
       <details class="kt-panel ha-details" id="historyPanel">

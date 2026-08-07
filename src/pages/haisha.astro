@@ -21,20 +21,6 @@ import '../styles/kt-components.css';
   <section class="section bg-black" style="padding-top: 1rem;">
     <div class="container kintai-wrap ha-wrap">
 
-      <!-- 管理者ロック（削除のみ管理者限定） -->
-      <div class="kt-adminbar">
-        <span class="kt-adminbar__label" id="adminState">🔒 閲覧・編集は可能／削除は管理者のみ</span>
-        <!-- 65型のタッチ表示と手元のPCでは適切な文字サイズが違う。端末側からは
-             視距離が分からないので、見る人が選べるようにする -->
-        <div class="ha-zoom" role="group" aria-label="文字サイズ">
-          <span class="ha-zoom__label">文字サイズ</span>
-          <button type="button" class="ha-zoom__btn" data-zoom="100">標準</button>
-          <button type="button" class="ha-zoom__btn" data-zoom="130">大</button>
-          <button type="button" class="ha-zoom__btn" data-zoom="165">特大</button>
-        </div>
-        <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
-      </div>
-
       <!-- ログインしていないときの警告（未ログインだと参照は0件で返り、書き込みだけが失敗するため明示する） -->
       <div class="ha-authbanner" id="authBanner" hidden>
         <div>
@@ -162,6 +148,22 @@ import '../styles/kt-components.css';
           <div id="historyBody"></div>
         </div>
       </details>
+
+      <!-- 管理者ロック（削除のみ管理者限定）。ページ下部の管理者向け機能の
+           すぐ上に置く。文字サイズ切替は全ユーザー向けの機能だが、
+           管理者ロックと同じ場所に元々あったのでそのまま同居させている -->
+      <div class="kt-adminbar">
+        <span class="kt-adminbar__label" id="adminState">🔒 閲覧・編集は可能／削除は管理者のみ</span>
+        <!-- 65型のタッチ表示と手元のPCでは適切な文字サイズが違う。端末側からは
+             視距離が分からないので、見る人が選べるようにする -->
+        <div class="ha-zoom" role="group" aria-label="文字サイズ">
+          <span class="ha-zoom__label">文字サイズ</span>
+          <button type="button" class="ha-zoom__btn" data-zoom="100">標準</button>
+          <button type="button" class="ha-zoom__btn" data-zoom="130">大</button>
+          <button type="button" class="ha-zoom__btn" data-zoom="165">特大</button>
+        </div>
+        <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
+      </div>
 
       <!-- ── 配車担当者の設定（管理者のみ） ── -->
       <div class="kt-panel" id="staffAdminPanel" hidden>

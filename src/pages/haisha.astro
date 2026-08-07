@@ -799,6 +799,19 @@ import '../styles/kt-components.css';
       return `登録 ${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}`;
     }
 
+    /**
+     * 「変更あり」「キャンセル」で状態欄の表記が塗りつぶされても、
+     * 新着であることが分かるよう添える小さな印。
+     * 「新着」表記そのもの（状態が通常のとき）には付けない＝二重にならない。
+     */
+    function buildNewMark(r: any) {
+      const mark = document.createElement('span');
+      mark.className = 'ha-status-newmark';
+      mark.textContent = '新';
+      mark.title = newBadgeTitle(r);
+      return mark;
+    }
+
     /** 新着の説明文（いつ入った予約で、何を基準に新着なのか）。ツールチップに使う */
     function newBadgeTitle(r: any) {
       // 基準は「手動の記録」か「19時の自動判定」の新しい方。実際に使われた時刻を出す
@@ -1322,6 +1335,19 @@ import '../styles/kt-components.css';
         const statusCell = document.createElement('td');
         const stSel = buildStatusSelect(r.status, isNew);
         if (isNew) stSel.title = newBadgeTitle(r);
+        statusCell.appendChild(stSel);
+
+        // 「変更あり」「キャンセル」で「新着」の文字が消えても分かるよう、小さく印を添える
+        let newMark: HTMLElement | null = null;
+        function syncNewMark() {
+          if (newMark) { newMark.remove(); newMark = null; }
+          if (isNew && stSel.value !== 'normal') {
+            newMark = buildNewMark(r);
+            statusCell.appendChild(newMark);
+          }
+        }
+        syncNewMark();
+
         stSel.onchange = async () => {
           const next = stSel.value as 'normal' | 'changed' | 'cancelled';
           const prev = r.status;
@@ -1331,6 +1357,7 @@ import '../styles/kt-components.css';
             r.status = next;
             const showAsNew = isNew && next === 'normal';
             stSel.className = `ha-select ha-status ha-status--${showAsNew ? 'new' : next}`;
+            syncNewMark();
             applyRowStatus(tr, r);
             renderBoardSummary();
           } catch (e) {
@@ -1340,7 +1367,6 @@ import '../styles/kt-components.css';
             stSel.disabled = false;
           }
         };
-        statusCell.appendChild(stSel);
         tr.appendChild(statusCell);
 
         // 担当者（選択で即保存）
@@ -1475,7 +1501,9 @@ import '../styles/kt-components.css';
 
       if (rows.length === 0) return;
 
-      table.appendChild(headerRow(['予約日時', '状態', 'お客様名', '電話', '迎車場所', '行き先・メモ', '担当者', '済']));
+      // 電話番号は配車ボードと同様にこの一覧には出さない（編集を開けば見える）。
+      // 列を1つ減らした分、「行き先・メモ」が見えやすくなる
+      table.appendChild(headerRow(['予約日時', '状態', 'お客様名', '迎車場所', '行き先・メモ', '担当者', '済']));
 
       const tbody = document.createElement('tbody');
       for (const r of rows) {
@@ -1503,11 +1531,12 @@ import '../styles/kt-components.css';
           badge.className = `ha-badge ha-badge--${r.status}`;
           badge.textContent = STATUS_LABELS[r.status];
           stCell.appendChild(badge);
+          // 「変更あり」「キャンセル」で「新着」の文字が消えても分かるよう、小さく印を添える
+          if (isNew) stCell.appendChild(buildNewMark(r));
         }
         tr.appendChild(stCell);
 
         tr.appendChild(td(r.customerName));
-        tr.appendChild(td(r.phone));
         tr.appendChild(td(pickupText(r), 'ha-wrapcell'));
         tr.appendChild(td(r.operatorMemo, 'ha-wrapcell'));
 
@@ -2233,6 +2262,25 @@ import '../styles/kt-components.css';
     .ha-select.ha-status--cancelled { background: #f4f4f5; border-color: #6b7280; color: #6b7280; }
     /* 新着（＝状態は通常のまま、引き継ぎ以降に入った予約）。行左端の縦線と同じ青緑で揃える */
     .ha-select.ha-status--new { background: #ecfeff; border-color: #0e7490; color: #0e7490; }
+
+    /* 「変更あり」「キャンセル」で状態欄の表記が新着から差し変わっても、
+       小さな丸印で新着だと分かるようにする（状態セレクトの右肩・バッジの隣に添える） */
+    .ha-status-newmark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.3rem;
+      height: 1.3rem;
+      margin-left: 0.3rem;
+      border-radius: 50%;
+      background: #0e7490;
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 900;
+      line-height: 1;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
 
     /* ── 表の中の入力 ── */
     .ha-select {

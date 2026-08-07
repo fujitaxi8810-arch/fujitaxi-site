@@ -147,24 +147,6 @@ import '../styles/kt-components.css';
         <p class="kt-empty" id="listEmpty" hidden>該当する予約はありません。</p>
       </div>
 
-      <!-- ── 変更履歴（DBトリガーが自動記録。普段は畳んでおく） ── -->
-      <details class="kt-panel ha-details" id="historyPanel">
-        <summary class="ha-details__summary">
-          <span class="kt-title">変更履歴</span>
-          <span class="ha-details__hint">クリックで開く</span>
-        </summary>
-        <div class="ha-details__body">
-          <div class="kt-panel__tools">
-            <button type="button" class="kt-btn kt-btn--ghost" id="historyReloadBtn">更新</button>
-          </div>
-          <p class="ha-note">
-            予約の追加・変更・削除を新しい順に最大100件表示します。「元に戻す」で変更前の状態に戻せます。<br />
-            CSVの取り込みで<strong>中身が変わらなかった行は記録されません</strong>（毎回100件流れてしまうため）。
-          </p>
-          <div id="historyBody"></div>
-        </div>
-      </details>
-
       <!-- 管理者ロック（削除のみ管理者限定）。ページ下部の管理者向け機能の
            すぐ上に置く。文字サイズ切替はページ冒頭に単独で戻したので、ここには無い -->
       <div class="kt-adminbar">
@@ -185,6 +167,24 @@ import '../styles/kt-components.css';
         </p>
         <div id="staffAdminBody" class="ha-assign-grid"></div>
       </div>
+
+      <!-- ── 変更履歴（DBトリガーが自動記録。普段は畳んでおく）。ページの一番下に置く ── -->
+      <details class="kt-panel ha-details" id="historyPanel">
+        <summary class="ha-details__summary">
+          <span class="kt-title">変更履歴</span>
+          <span class="ha-details__hint">クリックで開く</span>
+        </summary>
+        <div class="ha-details__body">
+          <div class="kt-panel__tools">
+            <button type="button" class="kt-btn kt-btn--ghost" id="historyReloadBtn">更新</button>
+          </div>
+          <p class="ha-note">
+            予約の追加・変更・削除を新しい順に最大100件表示します。「元に戻す」で変更前の状態に戻せます。<br />
+            CSVの取り込みで<strong>中身が変わらなかった行は記録されません</strong>（毎回100件流れてしまうため）。
+          </p>
+          <div id="historyBody"></div>
+        </div>
+      </details>
 
     </div>
   </section>

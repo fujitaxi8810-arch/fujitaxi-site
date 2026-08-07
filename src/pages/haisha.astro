@@ -116,6 +116,7 @@ import '../styles/kt-components.css';
           <div class="kt-panel__tools">
             <button type="button" class="kt-btn" id="importBtn">CSVを取り込む</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="newBtn">＋ 新規予約</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="deletedBtn">過去履歴</button>
           </div>
         </div>
 
@@ -220,6 +221,24 @@ import '../styles/kt-components.css';
     </div>
   </div>
 
+  <!-- ── 削除済み予約の確認モーダル ── -->
+  <div class="kt-modal-overlay" id="deletedModal" hidden>
+    <div class="kt-modal ha-modal ha-modal--wide" role="dialog" aria-modal="true" aria-labelledby="deletedTitle">
+      <h2 class="kt-title" id="deletedTitle">削除された予約</h2>
+      <p class="ha-note">
+        削除しても、変更履歴の記録から消えていません。<strong>お客様名の読み（あいうえお順）</strong>で
+        並んでいます。「復元」で元に戻せます。
+      </p>
+      <div class="kt-table-wrap ha-grid-wrap">
+        <table class="kt-table ha-grid" id="deletedTable"></table>
+      </div>
+      <p class="kt-empty" id="deletedEmpty" hidden>削除された予約はありません。</p>
+      <div class="kt-modal__actions">
+        <button type="button" class="kt-btn kt-btn--ghost" id="deletedCloseBtn">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── 引き継ぎモーダル ── -->
   <div class="kt-modal-overlay" id="handoverModal" hidden>
     <div class="kt-modal ha-modal" role="dialog" aria-modal="true" aria-labelledby="handoverTitle">
@@ -307,6 +326,7 @@ import '../styles/kt-components.css';
       assignStaff, setChecked, setStatus, setStaffAssignable,
       fetchLatestHandover, recordHandover, deleteHandover, updateHandoverNote,
       fetchDispatchHistory, revertHistoryEntry,
+      fetchDeletedReservations, restoreDeletedReservation,
       buildImportPlan, applyImportPlan, fetchLatestImportLog,
       jstDateKey, jstTimeLabel, todayJst,
       hasSession, isAuthError,
@@ -1087,6 +1107,86 @@ import '../styles/kt-components.css';
         : '';
       return `${when} ${row.customer_name || '（お客様名なし）'}`.trim();
     }
+
+    // ── 削除された予約の確認 ──
+    // 「消した予約もデータとしては残しておきたい」「あいうえお順で見たい」への対応。
+    // dispatch_history の delete レコードから old_row を復元し、読み仮名順に並べる。
+    async function openDeletedModal() {
+      $('deletedModal').hidden = false;
+      const table = $('deletedTable');
+      table.innerHTML = '';
+      $('deletedEmpty').hidden = true;
+      let list: any[] = [];
+      try {
+        list = await fetchDeletedReservations();
+      } catch (e) {
+        alert(failMsg(e, '削除履歴の読み込み'));
+        return;
+      }
+      renderDeletedTable(list);
+    }
+
+    /** 読み仮名（無ければお客様名）のあいうえお順。日本語として比較する */
+    function byKanaThenName(a: any, b: any) {
+      const ka = a.row.customer_kana || a.row.customer_name || '';
+      const kb = b.row.customer_kana || b.row.customer_name || '';
+      return ka.localeCompare(kb, 'ja');
+    }
+
+    function renderDeletedTable(list: any[]) {
+      const table = $('deletedTable');
+      table.innerHTML = '';
+      $('deletedEmpty').hidden = list.length > 0;
+      if (list.length === 0) return;
+
+      table.appendChild(headerRow(['お客様名', '読み', '予約日時', '迎車場所', '削除日時', '削除者', '']));
+
+      const sorted = [...list].sort(byKanaThenName);
+      const tbody = document.createElement('tbody');
+      for (const d of sorted) {
+        const r = d.row;
+        const tr = document.createElement('tr');
+
+        tr.appendChild(td(r.customer_name || '（お客様名なし）'));
+        tr.appendChild(td(r.customer_kana || ''));
+        tr.appendChild(td(r.reserved_at
+          ? `${jstDateKey(r.reserved_at).slice(5).replace('-', '/')} ${jstTimeLabel(r.reserved_at)}`
+          : ''));
+        tr.appendChild(td([r.pickup_name, r.pickup_address].filter(Boolean).join(' / '), 'ha-wrapcell'));
+        tr.appendChild(td(`${jstDateKey(d.deletedAt).slice(5).replace('-', '/')} ${jstTimeLabel(d.deletedAt)}`));
+        tr.appendChild(td(d.deletedBy || ''));
+
+        const actionCell = document.createElement('td');
+        const restoreBtn = document.createElement('button');
+        restoreBtn.type = 'button';
+        restoreBtn.className = 'ha-linkbtn';
+        restoreBtn.textContent = '復元';
+        restoreBtn.onclick = async () => {
+          if (!confirm(`「${r.customer_name || 'この予約'}」を復元します。よろしいですか？`)) return;
+          restoreBtn.disabled = true;
+          try {
+            await restoreDeletedReservation(d);
+            list = list.filter((x) => x.historyId !== d.historyId);
+            renderDeletedTable(list);
+            await refreshCurrentTab();
+          } catch (e) {
+            alert(e?.code === '23505'
+              ? '同じ予約がすでに存在するため復元できません。'
+              : failMsg(e, '復元'));
+            restoreBtn.disabled = false;
+          }
+        };
+        actionCell.appendChild(restoreBtn);
+        tr.appendChild(actionCell);
+
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+    }
+
+    $('deletedBtn').onclick = openDeletedModal;
+    $('deletedCloseBtn').onclick = () => { $('deletedModal').hidden = true; };
+    $('deletedModal').onclick = (e) => { if (e.target === $('deletedModal')) $('deletedCloseBtn').click(); };
 
     let historyLoaded = false;
 
@@ -2382,6 +2482,8 @@ import '../styles/kt-components.css';
 
     /* ── モーダル ── */
     .ha-modal { max-width: 680px; }
+    /* 過去履歴は表形式で列数が多いので、通常のモーダルより広くする */
+    .ha-modal--wide { max-width: 960px; }
     .ha-form {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));

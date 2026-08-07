@@ -458,6 +458,24 @@ create policy dispatch_imports_insert on dispatch_imports
   （`最終取込：8/8 14:32（admin@fujitaxi.local）　新規12件・更新5件`）。
   ページ読み込み時・取り込みモーダルを開いたとき・取り込み成功後に更新する
 
+## 5.491 過去履歴（削除された予約の確認・復元）
+
+ユーザー要望：「削除した予約もデータ上で残るようにしたい。あいうえお順でも見たい。確認できる
+ボタンがほしい」。
+
+削除自体は `dispatch_reservations` から行が無くなるが、`dispatch_history`（§5.47）に
+`action='delete'` として `old_row` のスナップショットがDBトリガーで自動的に残っている。
+これを取り出して一覧表示するのが「過去履歴」ボタン（`fetchDeletedReservations`）。
+
+- 並び順は**お客様名の読み（`customer_kana`）優先、無ければお客様名**で
+  `localeCompare(x, 'ja')`。読み仮名が入っているデータは正しく五十音順になるが、
+  読み仮名が空のデータは（ひらがなとの比較で）末尾寄りになる。今のところ
+  明示的な分離はしていない
+- 各行に「復元」ボタン（`restoreDeletedReservation`。中身は `revertHistoryEntry` の
+  delete分岐と同じ）。復元後は一覧から即座に取り除き、表示中のタブも再読み込みする
+- CSVの再取り込みで同じ予約が作り直されていた場合、復元は一意制約違反（`23505`）になる。
+  その旨をエラーメッセージで示す（`dispatch_history` の削除復元と同じ扱い）
+
 ## 5.5 乗務割（shifts テーブルの参照）
 
 配車ボードの上に「乗務割」を表示する。**`shifts` テーブルを読むだけ**で、書き込みはしない

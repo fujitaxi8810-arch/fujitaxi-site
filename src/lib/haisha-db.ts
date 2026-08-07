@@ -360,6 +360,53 @@ export async function revertHistoryEntry(entry: HistoryEntry): Promise<void> {
   if (error) throw error;
 }
 
+// ── 削除された予約の確認 ──
+// 「消した予約もデータとしては残しておきたい」という要望への対応。
+// 削除自体は dispatch_reservations から行が無くなるが、
+// dispatch_history に action='delete' として old_row のスナップショットが残っている
+// （DBトリガーが自動記録。§5.47参照）ので、そこから復元して一覧表示する。
+
+export type DeletedReservation = {
+  historyId: string;
+  reservationId: string;
+  deletedAt: string;
+  deletedBy: string | null;
+  /** old_row そのまま（reserved_at, customer_name, customer_kana など） */
+  row: Record<string, any>;
+};
+
+export async function fetchDeletedReservations(limit = 500): Promise<DeletedReservation[]> {
+  const { data, error } = await supabase
+    .from('dispatch_history')
+    .select('*')
+    .eq('action', 'delete')
+    .order('changed_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data || [])
+    .filter((r: any) => r.old_row)
+    .map((r: any) => ({
+      historyId: r.id,
+      reservationId: r.reservation_id,
+      deletedAt: r.changed_at,
+      deletedBy: r.changed_by,
+      row: r.old_row,
+    }));
+}
+
+/** 削除された予約1件を復元する。中身は revertHistoryEntry の delete 分岐と同じ */
+export async function restoreDeletedReservation(d: DeletedReservation): Promise<void> {
+  await revertHistoryEntry({
+    id: d.historyId,
+    reservationId: d.reservationId,
+    action: 'delete',
+    oldRow: d.row,
+    newRow: null,
+    changedBy: d.deletedBy,
+    changedAt: d.deletedAt,
+  });
+}
+
 // ── 引き継ぎ ──
 
 /**

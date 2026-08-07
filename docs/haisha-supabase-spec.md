@@ -488,7 +488,7 @@ else removeProperty で既定の 1200px に戻す
 |---|---|
 | 普通 | `/shift` の `①`（普通番 7:00-16:00） |
 | 遅番 | `/shift` の `③`（遅番 15:30-24:30） |
-| スクール | `/shift` の `S` |
+| スクール | **併用**：`/shift` の `S` が基本＋`/haisha` で当日追加 |
 | 乗合 | `/shift` の `SH`（シャトル便） |
 | **スクール原町** | `/haisha` で日ごとに割り当て（前日に確定） |
 | **交流** | `/haisha` で日ごとに割り当て（前日に確定） |
@@ -497,14 +497,14 @@ else removeProperty で既定の 1200px に戻す
 スクール原町・交流は月次シフトでは決まらないため、`dispatch_duties` テーブルに
 日付＋区分＋スタッフで持つ（§5.6参照）。
 
-**貸切だけは両方を並べる**。基本はシフト通りだが当日変わることがある、というユーザーの運用に合わせた:
+**貸切・スクールは両方を並べる**。基本はシフト通りだが当日変わることがある、というユーザーの運用に合わせた:
 
-- `/shift` の `貸切` 由来の名前 … ×なし（変更は `/shift` 側で行う）
+- `/shift` 由来の名前 … ×なし（変更は `/shift` 側で行う）
 - `/haisha` で足した名前 … ×付きで外せる
 - 追加セレクトの候補からは、すでに出ている人（シフト由来を含む）を除外する
 
 なお**シフト由来の人をこの画面から外すことはできない**（除外レコードを持たせていないため）。
-当日その人が貸切から抜ける運用が出てきた場合は、除外の仕組みを追加する必要がある。
+当日その人が抜ける運用が出てきた場合は、除外の仕組みを追加する必要がある。
 
 ## 5.6 日次の勤務割り当て（dispatch_duties）
 
@@ -534,13 +534,18 @@ create policy dispatch_duties_delete on dispatch_duties
 ```
 
 `category` は当初 `school_haramachi` / `exchange` の2種類だったが、`貸切` を月次シフト
-（`/shift` の `貸切` コード）から日次割り当てに変更した際に `charter` を追加した:
+（`/shift` の `貸切` コード）から日次割り当てに変更した際に `charter` を追加した。
+その後「スクール」（`/shift` の `S`）も貸切と同じハイブリッド形式にし、`school` を追加した:
 
 ```sql
 alter table dispatch_duties drop constraint dispatch_duties_category_check;
 alter table dispatch_duties add constraint dispatch_duties_category_check
-  check (category in ('school_haramachi','exchange','charter'));
+  check (category in ('school_haramachi','exchange','charter','school'));
 ```
+
+`school` は「スクール原町」の `school_haramachi` とは別物（紛らわしいが、既存の命名を尊重して
+そのまま追加した）。「スクール」＝ `/shift` の `S` の当日追加分、「スクール原町」＝月次シフトに
+無い区分の日次割り当て、という違い。
 
 ---
 

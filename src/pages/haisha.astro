@@ -890,18 +890,18 @@ import '../styles/kt-components.css';
     // 配車確認シートの並び順に合わせる。
     // shiftKey … /shift のコードから引く（表示のみ。変更は /shift 側）
     // dailyKey … この画面で日ごとに足す分（×で外せる）
-    // 貸切は両方持つ：基本はシフト通りだが、当日変わることがあるため追加もできる
+    // 貸切・スクールは両方持つ：基本はシフト通りだが、当日変わることがあるため追加もできる
     const DUTY_GROUPS: { label: string; shiftKey?: string; dailyKey?: DutyCat }[] = [
       { label: '普通', shiftKey: '①' },
       { label: '遅番', shiftKey: '③' },
-      { label: 'スクール', shiftKey: 'S' },
+      { label: 'スクール', shiftKey: 'S', dailyKey: 'school' },
       { label: 'スクール原町', dailyKey: 'school_haramachi' },
       { label: '交流', dailyKey: 'exchange' },
       { label: '貸切', shiftKey: '貸切', dailyKey: 'charter' },
       { label: '乗合', shiftKey: 'SH' },
     ];
 
-    type DutyCat = 'school_haramachi' | 'exchange' | 'charter';
+    type DutyCat = 'school_haramachi' | 'exchange' | 'charter' | 'school';
 
     function dutyDateKey() {
       return $('datePick').value || todayJst();

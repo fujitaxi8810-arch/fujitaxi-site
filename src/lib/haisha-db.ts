@@ -446,11 +446,12 @@ export async function setStaffAssignable(staffId: string, assignable: boolean): 
 // ── 日次の勤務割り当て（前日に確定する区分。/shift に該当コードが無いもの） ──
 
 /**
- * スクール原町・交流・貸切は月次シフト（/shift）では決まらず、日ごとに確定するため /haisha 側で持つ。
- * 貸切は当初 /shift の 貸切 コードを読むだけだったが、予約ごとに都度決まる性質のため
- * こちらの日次割り当てに変更した（/shift 側の 貸切 コードは月次シフト表示として引き続き使える）。
+ * スクール原町・交流・貸切・スクールは月次シフト（/shift）では決まらず、日ごとに確定するため /haisha 側で持つ。
+ * 貸切・スクールは当初 /shift のコード（貸切／S）を読むだけだったが、当日追加で
+ * 人が変わることがあるため、こちらの日次割り当ても併用するようにした
+ * （/shift 側のコードは月次シフト表示として引き続き使える。基本の担当はそちらで見る）。
  */
-export type DutyCategory = 'school_haramachi' | 'exchange' | 'charter';
+export type DutyCategory = 'school_haramachi' | 'exchange' | 'charter' | 'school';
 
 export type DailyDuty = { category: DutyCategory; staffId: string };
 

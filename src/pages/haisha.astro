@@ -799,17 +799,14 @@ import '../styles/kt-components.css';
       return `登録 ${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}`;
     }
 
-    function newBadge(r: any) {
-      const b = document.createElement('span');
-      b.className = 'ha-badge ha-badge--new';
-      b.textContent = '新着';
+    /** 新着の説明文（いつ入った予約で、何を基準に新着なのか）。ツールチップに使う */
+    function newBadgeTitle(r: any) {
       // 基準は「手動の記録」か「19時の自動判定」の新しい方。実際に使われた時刻を出す
       const base = newBaselineTime();
-      b.title = base === null
-        ? addedLabel(r)
-        : `${addedLabel(r)}（${jstDateKey(new Date(base).toISOString()).slice(5).replace('-', '/')} `
-          + `${jstTimeLabel(new Date(base).toISOString())}${baselineIsAuto() ? '（自動）' : 'の引き継ぎ'}以降）`;
-      return b;
+      if (base === null) return addedLabel(r);
+      const baseIso = new Date(base).toISOString();
+      return `${addedLabel(r)}（${jstDateKey(baseIso).slice(5).replace('-', '/')} `
+        + `${jstTimeLabel(baseIso)}${baselineIsAuto() ? '（自動）' : 'の引き継ぎ'}以降）`;
     }
 
     /** 迎車場所の表示文字列（場所名＋住所を1セルにまとめる） */
@@ -824,13 +821,25 @@ import '../styles/kt-components.css';
     const STATUS_KEYS = ['normal', 'changed', 'cancelled'];
     const STATUS_LABELS = { normal: '通常', changed: '変更あり', cancelled: 'キャンセル' };
 
-    function buildStatusSelect(current: string) {
+    /**
+     * 状態のセレクト。
+     *
+     * isNew（引き継ぎ以降に入った予約）のときは「通常」を **「新着」と表記**する。
+     * 値は 'normal' のままで、新着はDBに持たない“導出値”のまま扱う
+     * （引き継ぎを記録すれば自然に消える。人が消す操作は要らない）。
+     *
+     * 新着の予約に「変更あり」「キャンセル」を付けると、この欄からは新着の
+     * 表記が消えるが、行左端の青緑の縦線（.ha-row--new）は残るので
+     * 「引き継ぎ後に入ったもの」だと分かる。
+     */
+    function buildStatusSelect(current: string, isNew = false) {
       const sel = document.createElement('select');
-      sel.className = `ha-select ha-status ha-status--${current}`;
+      const showAsNew = isNew && current === 'normal';
+      sel.className = `ha-select ha-status ha-status--${showAsNew ? 'new' : current}`;
       for (const key of STATUS_KEYS) {
         const o = document.createElement('option');
         o.value = key;
-        o.textContent = STATUS_LABELS[key];
+        o.textContent = key === 'normal' && isNew ? '新着' : STATUS_LABELS[key];
         sel.appendChild(o);
       }
       sel.value = current;
@@ -1302,16 +1311,17 @@ import '../styles/kt-components.css';
         const tr = document.createElement('tr');
         applyRowStatus(tr, r);
 
+        // 新着は状態欄にまとめて表示する（時刻の隣のバッジは廃止）。
+        // 行左端の縦線だけは、状態を変えても残るように別途付けておく
+        const isNew = isNewSinceHandover(r);
         const timeCell = td(jstTimeLabel(r.reservedAt), 'ha-sticky ha-time');
-        if (isNewSinceHandover(r)) {
-          tr.classList.add('ha-row--new');
-          timeCell.appendChild(newBadge(r));
-        }
+        if (isNew) tr.classList.add('ha-row--new');
         tr.appendChild(timeCell);
 
         // 状態（選択で即保存）
         const statusCell = document.createElement('td');
-        const stSel = buildStatusSelect(r.status);
+        const stSel = buildStatusSelect(r.status, isNew);
+        if (isNew) stSel.title = newBadgeTitle(r);
         stSel.onchange = async () => {
           const next = stSel.value as 'normal' | 'changed' | 'cancelled';
           const prev = r.status;
@@ -1319,7 +1329,8 @@ import '../styles/kt-components.css';
           try {
             await setStatus(r.id, next);
             r.status = next;
-            stSel.className = `ha-select ha-status ha-status--${next}`;
+            const showAsNew = isNew && next === 'normal';
+            stSel.className = `ha-select ha-status ha-status--${showAsNew ? 'new' : next}`;
             applyRowStatus(tr, r);
             renderBoardSummary();
           } catch (e) {
@@ -1473,16 +1484,21 @@ import '../styles/kt-components.css';
         applyRowStatus(tr, r);
         tr.onclick = () => openEdit(r);
 
+        // 配車ボードと同じく、新着は状態欄にまとめる
+        const isNew = isNewSinceHandover(r);
         const when = `${jstDateKey(r.reservedAt).slice(5).replace('-', '/')}(${weekdayOf(jstDateKey(r.reservedAt))}) ${jstTimeLabel(r.reservedAt)}`;
         const whenCell = td(when, 'ha-sticky ha-time');
-        if (isNewSinceHandover(r)) {
-          tr.classList.add('ha-row--new');
-          whenCell.appendChild(newBadge(r));
-        }
+        if (isNew) tr.classList.add('ha-row--new');
         tr.appendChild(whenCell);
 
         const stCell = td('');
-        if (r.status !== 'normal') {
+        if (isNew && r.status === 'normal') {
+          const badge = document.createElement('span');
+          badge.className = 'ha-badge ha-badge--new';
+          badge.textContent = '新着';
+          badge.title = newBadgeTitle(r);
+          stCell.appendChild(badge);
+        } else if (r.status !== 'normal') {
           const badge = document.createElement('span');
           badge.className = `ha-badge ha-badge--${r.status}`;
           badge.textContent = STATUS_LABELS[r.status];
@@ -2215,6 +2231,8 @@ import '../styles/kt-components.css';
     .ha-select.ha-status--normal { background: #fff; border-color: #bbb; color: #111; }
     .ha-select.ha-status--changed { background: #fffbeb; border-color: #92400e; color: #92400e; }
     .ha-select.ha-status--cancelled { background: #f4f4f5; border-color: #6b7280; color: #6b7280; }
+    /* 新着（＝状態は通常のまま、引き継ぎ以降に入った予約）。行左端の縦線と同じ青緑で揃える */
+    .ha-select.ha-status--new { background: #ecfeff; border-color: #0e7490; color: #0e7490; }
 
     /* ── 表の中の入力 ── */
     .ha-select {

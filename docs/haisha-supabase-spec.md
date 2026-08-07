@@ -420,6 +420,44 @@ create policy dispatch_history_select on dispatch_history
 常に `dateKey` そのものの曜日になる。`shiftDate`（日付の加減算）は
 一貫してUTCタイムスタンプとして扱っているため、このバグの対象外。
 
+## 5.49 CSV取り込みの記録（「このデータは最新版か」の確認）
+
+ユーザー要望：「CSVを貼り付けた日時を確認したい。最新版かどうか判断するため」。
+
+予約行の `updated_at` だけを基準にすると、手動編集（担当者割り当てや状態変更）でも
+更新されてしまい、「いつCSVを取り込んだか」の判断材料にならない。そこで**取り込みイベント
+そのものを別テーブルに記録**する。
+
+```sql
+create table dispatch_imports (
+  id uuid primary key default gen_random_uuid(),
+  imported_at timestamptz not null default now(),
+  imported_by text,           -- ログイン中のメールアドレス（kiosk@fujitaxi.local 等）
+  inserted_count int not null,
+  updated_count int not null,
+  date_from date,             -- 取り込んだ予約の対象期間
+  date_to date
+);
+
+create index dispatch_imports_at_idx on dispatch_imports (imported_at desc);
+
+alter table dispatch_imports enable row level security;
+
+create policy dispatch_imports_select on dispatch_imports
+  for select to authenticated using (true);
+create policy dispatch_imports_insert on dispatch_imports
+  for insert to authenticated with check (true);
+```
+
+- `applyImportPlan` の末尾で `recordImportLog` を呼んで自動記録する
+  （`importReservations` 経由の呼び出し＝将来のAPI連携でも自動的に記録される）
+- **記録自体が失敗しても、取り込み本体は失敗扱いにしない**（`try/catch` で握りつぶし、
+  コンソールにだけ出す）。ログはあくまで付随情報であり、これが原因で本来の取り込みが
+  失敗して見えるのは本末転倒なため
+- 表示は「予約一覧」タブの上部と、CSV取り込みモーダルの両方
+  （`最終取込：8/8 14:32（admin@fujitaxi.local）　新規12件・更新5件`）。
+  ページ読み込み時・取り込みモーダルを開いたとき・取り込み成功後に更新する
+
 ## 5.5 乗務割（shifts テーブルの参照）
 
 配車ボードの上に「乗務割」を表示する。**`shifts` テーブルを読むだけ**で、書き込みはしない

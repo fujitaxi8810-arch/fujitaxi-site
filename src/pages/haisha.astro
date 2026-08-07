@@ -119,6 +119,9 @@ import '../styles/kt-components.css';
           </div>
         </div>
 
+        <!-- 「このデータは最新版か」を確認するための、直近の取り込み記録 -->
+        <p class="ha-import-log" id="importLogLine">最終取込：まだ記録がありません</p>
+
         <div class="ha-filters">
           <label class="ha-field">
             <span>開始日</span>
@@ -273,6 +276,7 @@ import '../styles/kt-components.css';
         <strong>ヘッダー行ごと</strong>コピーして下の欄に貼り付けてください。<br />
         すでに取り込んだ予約は<strong>上書き更新</strong>されます。割り当て済みの担当者・チェック・申し送りは消えません。
       </p>
+      <p class="ha-import-log" id="importModalLogLine"></p>
 
       <div class="ha-field ha-field--full">
         <span>CSVファイルを選ぶ</span>
@@ -303,7 +307,7 @@ import '../styles/kt-components.css';
       assignStaff, setChecked, setStatus, setStaffAssignable,
       fetchLatestHandover, recordHandover, deleteHandover, updateHandoverNote,
       fetchDispatchHistory, revertHistoryEntry,
-      buildImportPlan, applyImportPlan,
+      buildImportPlan, applyImportPlan, fetchLatestImportLog,
       jstDateKey, jstTimeLabel, todayJst,
       hasSession, isAuthError,
     } from '../lib/haisha-db';
@@ -1692,6 +1696,27 @@ import '../styles/kt-components.css';
     }
 
     // ── CSV取り込み ──
+
+    /** 「このデータは最新版か」を確認するための、直近の取り込み記録の表示文言 */
+    function importLogText(log: any): string {
+      if (!log) return '最終取込：まだ記録がありません';
+      const when = `${jstDateKey(log.importedAt).slice(5).replace('-', '/')} ${jstTimeLabel(log.importedAt)}`;
+      const who = log.importedBy ? `（${log.importedBy}）` : '';
+      return `最終取込：${when}${who}　新規${log.insertedCount}件・更新${log.updatedCount}件`;
+    }
+
+    async function refreshImportLog() {
+      let log = null;
+      try {
+        log = await fetchLatestImportLog();
+      } catch (e) {
+        // ここで失敗しても取り込み自体には支障がないので、黙って諦める
+      }
+      const text = importLogText(log);
+      $('importLogLine').textContent = text;
+      $('importModalLogLine').textContent = text;
+    }
+
     function openImport() {
       importPlan = null;
       $('importText').value = '';
@@ -1700,6 +1725,7 @@ import '../styles/kt-components.css';
       $('importPreview').innerHTML = '';
       $('importApplyBtn').disabled = true;
       $('importModal').hidden = false;
+      refreshImportLog();
     }
 
     $('importBtn').onclick = openImport;
@@ -1801,6 +1827,7 @@ import '../styles/kt-components.css';
         }
         importPlan = null;
         await refreshCurrentTab();
+        refreshImportLog();
       } catch (e) {
         alert(failMsg(e, '取り込み'));
         $('importApplyBtn').disabled = false;
@@ -1836,6 +1863,7 @@ import '../styles/kt-components.css';
 
       renderAdminBar();
       await loadBoard();
+      refreshImportLog();
     }
 
     boot();
@@ -2195,6 +2223,13 @@ import '../styles/kt-components.css';
 
     .ha-legend { color: rgba(255,255,255,0.85); font-size: 0.9rem; margin: 0.25rem 0 0.75rem; }
     .ha-note { color: rgba(255,255,255,0.75); font-size: 0.85rem; line-height: 1.6; margin: 0; }
+    /* 「このデータは最新版か」の確認用。控えめだが常に見える位置に出す */
+    .ha-import-log {
+      color: #0e7490;
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin: 0.4rem 0 0.8rem;
+    }
 
     /* ── 絞り込み ── */
     .ha-filters {

@@ -497,6 +497,62 @@ export type ImportPlan = {
 
 export type ImportResult = { inserted: number; updated: number };
 
+// ── 取り込みの記録（いつ・どのくらい取り込んだか） ──
+// 「このデータは最新版か」を確認したい、というユーザー要望への対応。
+// 予約行のupdated_atだけを見ると手動編集と区別が付かないため、専用の記録を残す。
+
+export type ImportLogEntry = {
+  id: string;
+  importedAt: string;
+  importedBy: string | null;
+  insertedCount: number;
+  updatedCount: number;
+  dateFrom: string | null;
+  dateTo: string | null;
+};
+
+function rowToImportLog(row: any): ImportLogEntry {
+  return {
+    id: row.id,
+    importedAt: row.imported_at,
+    importedBy: row.imported_by,
+    insertedCount: row.inserted_count,
+    updatedCount: row.updated_count,
+    dateFrom: row.date_from,
+    dateTo: row.date_to,
+  };
+}
+
+/** 直近の取り込み記録。「これは最新のCSVか」の確認に使う */
+export async function fetchLatestImportLog(): Promise<ImportLogEntry | null> {
+  const { data, error } = await supabase
+    .from('dispatch_imports')
+    .select('*')
+    .order('imported_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToImportLog(data) : null;
+}
+
+async function recordImportLog(
+  insertedCount: number,
+  updatedCount: number,
+  dateFrom: string,
+  dateTo: string
+): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const by = sessionData.session?.user?.email ?? null;
+  const { error } = await supabase.from('dispatch_imports').insert({
+    imported_by: by,
+    inserted_count: insertedCount,
+    updated_count: updatedCount,
+    date_from: dateFrom,
+    date_to: dateTo,
+  });
+  if (error) throw error;
+}
+
 /** 既存行と取り込み行の照合キー。予約時刻（ミリ秒）＋電話番号の正規化値 */
 function matchKey(reservedAt: string, phone: string | null): string {
   return `${new Date(reservedAt).getTime()}|${normalizePhoneKey(phone)}`;
@@ -570,6 +626,13 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
     );
     const failed = results.find((r) => r.error);
     if (failed?.error) throw failed.error;
+  }
+
+  // 取り込み自体は成功しているので、記録の失敗で全体を失敗扱いにはしない
+  try {
+    await recordImportLog(plan.inserts.length, plan.updates.length, plan.dateFrom, plan.dateTo);
+  } catch (e) {
+    console.error('取り込み記録の保存に失敗しました', e);
   }
 
   return { inserted: plan.inserts.length, updated: plan.updates.length };

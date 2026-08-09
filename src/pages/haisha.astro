@@ -1460,7 +1460,12 @@ import '../styles/kt-components.css';
       dateSpan.textContent = dateKey.replace(/-/g, '/');
       el.appendChild(dateSpan);
 
-      el.appendChild(document.createTextNode('（'));
+      // 丸括弧も黄色（.kt-title継承）のままだと目立ちすぎるので、
+      // 日付と同じ白にする（ユーザー指摘）
+      const parenOpen = document.createElement('span');
+      parenOpen.className = 'ha-board-paren';
+      parenOpen.textContent = '（';
+      el.appendChild(parenOpen);
 
       const wd = weekdayNumOf(dateKey);
       const holidayName = HOLIDAYS[dateKey];
@@ -1471,7 +1476,10 @@ import '../styles/kt-components.css';
       if (holidayName) weekdaySpan.title = holidayName;
       el.appendChild(weekdaySpan);
 
-      el.appendChild(document.createTextNode('）'));
+      const parenClose = document.createElement('span');
+      parenClose.className = 'ha-board-paren';
+      parenClose.textContent = '）';
+      el.appendChild(parenClose);
     }
 
     function renderBoard() {
@@ -2377,6 +2385,7 @@ import '../styles/kt-components.css';
        見出し自体は.kt-titleの黄色のまま、日付だけ白にして見やすくし、
        曜日は土曜=水色／日曜・祝日=赤で一目で分かるようにする */
     .ha-board-date { color: #fff; }
+    .ha-board-paren { color: #fff; }
     .ha-board-weekday--sat { color: #67e8f9; }
     .ha-board-weekday--red { color: #f87171; }
 

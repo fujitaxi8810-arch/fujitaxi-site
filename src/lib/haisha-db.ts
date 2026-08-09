@@ -625,6 +625,20 @@ function matchKey(reservedAt: string, phone: string | null): string {
   return `${new Date(reservedAt).getTime()}|${normalizePhoneKey(phone)}`;
 }
 
+/** 表記ゆれ（前後・間の空白）を無視した比較用のお客様名 */
+function normalizeCustomerName(name: string | null): string {
+  return (name || '').replace(/[\s　]/g, '');
+}
+
+/**
+ * 行き先メモの比較用正規化（オペレーター用メモ＋場所メモを結合）。
+ * マッチの必須条件ではなく、電話番号・名前が一致する候補が複数ある場合に
+ * どちらが「同じ予約」らしいかを判断する材料として使う。
+ */
+function normalizeMemoKey(r: { operatorMemo?: string | null; pickupMemo?: string | null }): string {
+  return [r.operatorMemo, r.pickupMemo].filter(Boolean).join('').replace(/[\s　]/g, '');
+}
+
 /**
  * 取り込み前の差分計算。実際には書き込まない。
  * UIで「新規◯件・更新◯件」を見せてから確定させるために分けてある。
@@ -678,11 +692,55 @@ export async function buildImportPlan(rows: NormalizedRow[]): Promise<ImportPlan
     if (matchedKeys.has(k)) continue;
     if (e.source !== 'csv' || e.status !== 'normal') continue;
 
-    // 同じ電話番号を持つ、まだ使われていない新規予約があれば「時刻変更」候補として紐付ける
+    /*
+     * 「時刻変更」候補として紐付けるのは、電話番号だけでなく
+     * **お客様名も一致**する新規予約に限る。
+     *
+     * 電話番号だけで判定すると、施設の代表番号を複数のお客様が
+     * 共有しているようなケースで、無関係な別人の予約同士を
+     * 「同じ人の時刻変更」と誤って結び付けてしまう
+     * （ユーザーから懸念の指摘があり追加した安全策）。
+     * 名前まで一致すれば、その誤結合はほぼ起きない。
+     *
+     * 代わりに、電話番号は一致するが名前が違う（≒別人）場合は
+     * 紐付けを諦め、単なる「キャンセル」として扱う。取りこぼしになるが、
+     * 誤って他人の予約を変更あり扱いにするより安全な方に倒している。
+     */
     const phoneKeyOfMissing = normalizePhoneKey(e.phone);
-    const candidate = phoneKeyOfMissing
-      ? inserts.find((r) => !usedInsertTempIds.has(r.tempId) && normalizePhoneKey(r.phone) === phoneKeyOfMissing)
-      : undefined;
+    const nameKeyOfMissing = normalizeCustomerName(e.customerName);
+    const sameKeyCandidates = phoneKeyOfMissing
+      ? inserts.filter((r) =>
+          !usedInsertTempIds.has(r.tempId)
+          && normalizePhoneKey(r.phone) === phoneKeyOfMissing
+          && normalizeCustomerName(r.customerName) === nameKeyOfMissing
+        )
+      : [];
+
+    let candidate: (typeof sameKeyCandidates)[number] | undefined;
+    if (sameKeyCandidates.length === 1) {
+      candidate = sameKeyCandidates[0];
+    } else if (sameKeyCandidates.length > 1) {
+      /*
+       * 電話番号・名前が一致する候補が複数ある（同じ人が同日に複数件
+       * 予約している等）。この場合はさらに判断材料を追加して絞り込む：
+       *   1. 行き先メモ（オペレーター用メモ＋場所メモ）が一致するものを優先
+       *   2. それでも決め手が無ければ、予約時刻が最も近いものを選ぶ
+       *      （無関係な予約より、時刻が近い予約の方が「変更された」と
+       *      考える方が自然なため）
+       */
+      const memoKeyOfMissing = normalizeMemoKey(e);
+      candidate = memoKeyOfMissing
+        ? sameKeyCandidates.find((r) => normalizeMemoKey(r) === memoKeyOfMissing)
+        : undefined;
+      if (!candidate) {
+        const missingTime = new Date(e.reservedAt).getTime();
+        candidate = [...sameKeyCandidates].sort(
+          (a, b) =>
+            Math.abs(new Date(a.reservedAt).getTime() - missingTime) -
+            Math.abs(new Date(b.reservedAt).getTime() - missingTime)
+        )[0];
+      }
+    }
     if (candidate) usedInsertTempIds.add(candidate.tempId);
 
     missing.push({

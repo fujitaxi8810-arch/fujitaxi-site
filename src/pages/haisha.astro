@@ -1201,13 +1201,22 @@ import '../styles/kt-components.css';
     // その分だけ配車ボードの表示領域が圧迫されて見づらくなる（ユーザー指摘）。
     // スクロールで貼り付いた瞬間、開いていれば自動的に閉じて場所を空ける。
     // 見出しはそのまま残るので、必要ならもう一度クリックして開ける。
+    //
+    // ただし <details><summary> はクリックされるとブラウザがフォーカスを当てる。
+    // フォーカスされた要素が画面端に近いと、ブラウザが自動的に数px
+    // スクロールして表示しようとすることがあり（scrollIntoViewを明示的に
+    // 呼ばなくても起きるネイティブ挙動）、それだけでセンチネルの可視性が
+    // 揺れてstuck誤判定→即座に自動クローズ、という「開いてもすぐ閉じる」
+    // 動きにつながる。開いた直後の短い間は自動クローズを見送る猶予を設ける。
     const dutySentinel = document.getElementById('dutyStickySentinel');
+    let dutyOpenedAt = 0;
     if (dutySentinel && 'IntersectionObserver' in window) {
       new IntersectionObserver(
         ([entry]) => {
           const stuck = !entry.isIntersecting;
           $('dutyPanel').classList.toggle('is-stuck', stuck);
-          if (stuck && $('dutyPanel').open) $('dutyPanel').open = false;
+          const justOpened = Date.now() - dutyOpenedAt < 500;
+          if (stuck && $('dutyPanel').open && !justOpened) $('dutyPanel').open = false;
         },
         { threshold: 0 }
       ).observe(dutySentinel);
@@ -1244,19 +1253,22 @@ import '../styles/kt-components.css';
 
     // 開閉の状態は端末に覚えさせる（閉じた人が毎回開き直さずに済むように）。
     // 既定は閉じている（HTML側）。前回「開いた」を選んだ端末だけ開いた状態にする。
+    //
+    // 以前は開いた瞬間に scrollIntoView で貼り付き位置まで自動スクロールしていたが、
+    // それ自体が「貼り付いた（stuck）」判定を引き起こし、直後にIntersectionObserverの
+    // stuck時自動クローズ（上の観測）が発動して即座に閉じる、という自己矛盾した
+    // 動きになっていた（「開いてもすぐ閉じる」不具合の原因。ユーザー指摘で発覚）。
+    // 既定が閉じている今は、開いたまま画面を占有するリスクは小さいため、
+    // 自動スクロールはやめて「開いたら開いたまま」に徹する。
+    //
+    // それでもブラウザ自身のフォーカス補正で同じ症状が再発したため、
+    // 開いた時刻を記録し、上のIntersectionObserverが「開いた直後」を
+    // 見分けられるようにしている（justOpenedガード）。
     const DUTY_OPEN_KEY = 'fuji-haisha-duty-open';
     if (localStorage.getItem(DUTY_OPEN_KEY) === 'open') $('dutyPanel').open = true;
     $('dutyPanel').addEventListener('toggle', () => {
       localStorage.setItem(DUTY_OPEN_KEY, $('dutyPanel').open ? 'open' : 'closed');
-      if ($('dutyPanel').open) {
-        // 開いた直後は、ページ最上部にいるとその手前の見出し・タブ等だけで
-        // 画面の大半を使ってしまい「乗務割しか見えない」状態になる。
-        // sticky位置（ヘッダー直下）まで運んで、乗務割と配車ボードが
-        // 両方見える状態にする。
-        requestAnimationFrame(() => {
-          $('dutyPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-      }
+      if ($('dutyPanel').open) dutyOpenedAt = Date.now();
     });
 
     // 開いたときに初めて読み込む（普段は畳んでいるので、毎回取りに行かない）

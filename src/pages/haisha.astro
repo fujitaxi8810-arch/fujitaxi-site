@@ -2128,13 +2128,15 @@ import '../styles/kt-components.css';
       /* 貼り付いた状態への変化を分かりやすくする */
       transition: max-width 0.15s ease, margin 0.15s ease;
     }
-    /* summary（見出し）は常に見えるように、中の折りたたみ本体だけをスクロール対象にする */
-    .ha-duty-panel > .ha-details__summary {
-      position: sticky;
-      top: 0;
-      background: inherit;
-      z-index: 1;
-    }
+    /*
+     * 以前は summary を position:sticky; top:0 にして、内部スクロール中も
+     * 見出しだけ常に見えるようにしていた。しかし .ha-duty-panel 自体が
+     * ページに対して sticky（貼り付き表示）でもあるため、「ページに対して
+     * sticky」「内部スクロールに対してもsticky」という二重構造になり、
+     * 見出しと1行目（普通）が重なって表示される不具合になっていた
+     * （ユーザー指摘のスクリーンショットで確認）。見出し固定はやめ、
+     * 中身と同じ通常のフローに戻す。
+     */
     /* 画面上部に貼り付いている間、他のパネルと同じ幅のまま
        枠だけ強調して「浮いている」ことが分かるようにする
        （幅を狭くする案は不採用。IntersectionObserver自体は他の用途にも使えるので残す） */

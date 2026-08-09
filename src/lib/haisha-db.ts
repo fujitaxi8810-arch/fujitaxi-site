@@ -533,16 +533,36 @@ export async function removeDailyDuty(dateKey: string, category: DutyCategory, s
 
 // ── CSV取り込み ──
 
+/**
+ * CSVの対象期間にあった既存予約（CSV由来・まだ人が状態を変えていないもの）のうち、
+ * 今回のCSVに見当たらなくなったもの。
+ *
+ * matchedInsertId が付いていれば「同じ電話番号の新規予約」が今回のCSVに
+ * あったということなので、時刻変更の可能性が高い（→ changed）。
+ * 付いていなければ、単に無くなった＝キャンセルの可能性が高い（→ cancelled）。
+ *
+ * どちらも確定ではなく「可能性」なので、取り込み前にプレビューで件数を見せ、
+ * ユーザーが実行を選ぶ形にする（自動で確定させると、同じ電話番号を複数人・
+ * 施設で共有しているケースなどで誤判定しうるため）。
+ */
+export type MissingReservation = {
+  id: string;
+  customerName: string;
+  reservedAt: string;
+  matchedInsertId: string | null; // inserts[].tempId と対応
+};
+
 export type ImportPlan = {
-  inserts: NormalizedRow[];
+  inserts: (NormalizedRow & { tempId: string })[];
   updates: { id: string; row: NormalizedRow; hasStaff: boolean }[];
+  missing: MissingReservation[];
   /** ファイル内で重複していて後勝ちで捨てた件数 */
   duplicatesInFile: number;
   dateFrom: string;
   dateTo: string;
 };
 
-export type ImportResult = { inserted: number; updated: number };
+export type ImportResult = { inserted: number; updated: number; changed: number; cancelled: number };
 
 // ── 取り込みの記録（いつ・どのくらい取り込んだか） ──
 // 「このデータは最新版か」を確認したい、というユーザー要望への対応。
@@ -612,7 +632,7 @@ function matchKey(reservedAt: string, phone: string | null): string {
 export async function buildImportPlan(rows: NormalizedRow[]): Promise<ImportPlan> {
   if (rows.length === 0) {
     const today = todayJst();
-    return { inserts: [], updates: [], duplicatesInFile: 0, dateFrom: today, dateTo: today };
+    return { inserts: [], updates: [], missing: [], duplicatesInFile: 0, dateFrom: today, dateTo: today };
   }
 
   // ファイル内の重複は後勝ちで1件に寄せる
@@ -633,15 +653,47 @@ export async function buildImportPlan(rows: NormalizedRow[]): Promise<ImportPlan
   const existingByKey = new Map<string, Reservation>();
   for (const e of existing) existingByKey.set(matchKey(e.reservedAt, e.phone), e);
 
-  const inserts: NormalizedRow[] = [];
+  const inserts: ImportPlan['inserts'] = [];
   const updates: ImportPlan['updates'] = [];
+  const matchedKeys = new Set<string>();
   for (const [k, row] of byKey) {
     const hit = existingByKey.get(k);
-    if (hit) updates.push({ id: hit.id, row, hasStaff: hit.staffId !== null });
-    else inserts.push(row);
+    if (hit) {
+      updates.push({ id: hit.id, row, hasStaff: hit.staffId !== null });
+      matchedKeys.add(k);
+    } else {
+      inserts.push({ ...row, tempId: `tmp-${inserts.length}` });
+    }
   }
 
-  return { inserts, updates, duplicatesInFile, dateFrom, dateTo };
+  /*
+   * 消えた予約の検出：既存（CSV由来・まだ人がstatusを変えていないもの）のうち、
+   * 今回のCSVのどのキーにもマッチしなかったもの。
+   * すでに changed / cancelled になっている行は対象外
+   * （二重処理を避け、既に人が判定したものを上書きしないため）。
+   */
+  const missing: MissingReservation[] = [];
+  const usedInsertTempIds = new Set<string>();
+  for (const [k, e] of existingByKey) {
+    if (matchedKeys.has(k)) continue;
+    if (e.source !== 'csv' || e.status !== 'normal') continue;
+
+    // 同じ電話番号を持つ、まだ使われていない新規予約があれば「時刻変更」候補として紐付ける
+    const phoneKeyOfMissing = normalizePhoneKey(e.phone);
+    const candidate = phoneKeyOfMissing
+      ? inserts.find((r) => !usedInsertTempIds.has(r.tempId) && normalizePhoneKey(r.phone) === phoneKeyOfMissing)
+      : undefined;
+    if (candidate) usedInsertTempIds.add(candidate.tempId);
+
+    missing.push({
+      id: e.id,
+      customerName: e.customerName,
+      reservedAt: e.reservedAt,
+      matchedInsertId: candidate ? candidate.tempId : null,
+    });
+  }
+
+  return { inserts, updates, missing, duplicatesInFile, dateFrom, dateTo };
 }
 
 /**
@@ -675,6 +727,22 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
     if (failed?.error) throw failed.error;
   }
 
+  /*
+   * 消えた予約の反映：同じ電話番号の新規予約と紐付いたもの（時刻変更の可能性）は
+   * 「変更あり」、紐付かなかったもの（キャンセルの可能性）は「キャンセル」にする。
+   * status列だけを更新し、DS由来のカラムには一切触れない。
+   */
+  const changedIds = plan.missing.filter((m) => m.matchedInsertId !== null).map((m) => m.id);
+  const cancelledIds = plan.missing.filter((m) => m.matchedInsertId === null).map((m) => m.id);
+  if (changedIds.length > 0) {
+    const { error } = await supabase.from(TABLE).update({ status: 'changed' }).in('id', changedIds);
+    if (error) throw error;
+  }
+  if (cancelledIds.length > 0) {
+    const { error } = await supabase.from(TABLE).update({ status: 'cancelled' }).in('id', cancelledIds);
+    if (error) throw error;
+  }
+
   // 取り込み自体は成功しているので、記録の失敗で全体を失敗扱いにはしない
   try {
     await recordImportLog(plan.inserts.length, plan.updates.length, plan.dateFrom, plan.dateTo);
@@ -682,7 +750,12 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
     console.error('取り込み記録の保存に失敗しました', e);
   }
 
-  return { inserted: plan.inserts.length, updated: plan.updates.length };
+  return {
+    inserted: plan.inserts.length,
+    updated: plan.updates.length,
+    changed: changedIds.length,
+    cancelled: cancelledIds.length,
+  };
 }
 
 /** パーサ非依存の取り込み入口。将来DSコネクトのAPI連携に差し替える際はここを呼ぶ */

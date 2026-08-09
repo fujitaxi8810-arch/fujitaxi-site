@@ -13,7 +13,7 @@ import '../styles/kt-components.css';
   <section class="page-hero bg-black">
     <div class="container">
       <p class="eyebrow">Staff Only</p>
-      <h1>配車<span class="text-yellow">管理</span></h1>
+      <h1><span class="text-yellow">配車管理</span></h1>
       <p class="page-hero__lead">予約を取り込んで担当者を割り当て、日別の配車表を確認できます。このページは社内用です。</p>
     </div>
   </section>
@@ -363,6 +363,31 @@ import '../styles/kt-components.css';
     // ── 日付ユーティリティ ──
     const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
+    // 内閣府発表の国民の祝日（2025〜2027年）。/shift の HOLIDAYS と同じ内容
+    // （年をまたぐ場合は両方に追記が必要。共有ファイルに切り出すのが理想だが、
+    // Astroはページ間でJSも共有しないため、現状は複製している）
+    const HOLIDAYS: Record<string, string> = {
+      '2025-01-01': '元日', '2025-01-13': '成人の日', '2025-02-11': '建国記念の日',
+      '2025-02-23': '天皇誕生日', '2025-02-24': '振替休日', '2025-03-20': '春分の日',
+      '2025-04-29': '昭和の日', '2025-05-03': '憲法記念日', '2025-05-04': 'みどりの日',
+      '2025-05-05': 'こどもの日', '2025-05-06': '振替休日', '2025-07-21': '海の日',
+      '2025-08-11': '山の日', '2025-09-15': '敬老の日', '2025-09-23': '秋分の日',
+      '2025-10-13': 'スポーツの日', '2025-11-03': '文化の日', '2025-11-23': '勤労感謝の日',
+      '2025-11-24': '振替休日',
+      '2026-01-01': '元日', '2026-01-12': '成人の日', '2026-02-11': '建国記念の日',
+      '2026-02-23': '天皇誕生日', '2026-03-20': '春分の日', '2026-04-29': '昭和の日',
+      '2026-05-03': '憲法記念日', '2026-05-04': 'みどりの日', '2026-05-05': 'こどもの日',
+      '2026-05-06': '振替休日', '2026-07-20': '海の日', '2026-08-11': '山の日',
+      '2026-09-21': '敬老の日', '2026-09-22': '国民の休日', '2026-09-23': '秋分の日',
+      '2026-10-12': 'スポーツの日', '2026-11-03': '文化の日', '2026-11-23': '勤労感謝の日',
+      '2027-01-01': '元日', '2027-01-11': '成人の日', '2027-02-11': '建国記念の日',
+      '2027-02-23': '天皇誕生日', '2027-03-21': '春分の日', '2027-03-22': '振替休日',
+      '2027-04-29': '昭和の日', '2027-05-03': '憲法記念日', '2027-05-04': 'みどりの日',
+      '2027-05-05': 'こどもの日', '2027-07-19': '海の日', '2027-08-11': '山の日',
+      '2027-09-20': '敬老の日', '2027-09-23': '秋分の日', '2027-10-11': 'スポーツの日',
+      '2027-11-03': '文化の日', '2027-11-23': '勤労感謝の日',
+    };
+
     function shiftDate(dateKey: string, days: number) {
       const d = new Date(`${dateKey}T00:00:00+09:00`);
       d.setUTCDate(d.getUTCDate() + days);
@@ -370,7 +395,7 @@ import '../styles/kt-components.css';
     }
 
     /**
-     * dateKey（'YYYY-MM-DD'）そのものの曜日を返す。
+     * dateKey（'YYYY-MM-DD'）そのものの曜日番号（0=日〜6=土）を返す。
      *
      * 以前は `new Date(dateKey+'T00:00:00+09:00').getUTCDay()` としていたが、
      * これは「JST午前0時」をUTCのタイムスタンプに変換した上でUTC基準の曜日を
@@ -379,9 +404,12 @@ import '../styles/kt-components.css';
      * dateKeyの年月日をそのままUTCの日付として組み立て、その曜日を取れば、
      * 実行環境やブラウザのタイムゾーン設定に関係なく常に正しい。
      */
-    function weekdayOf(dateKey: string) {
+    function weekdayNumOf(dateKey: string): number {
       const [y, m, d] = dateKey.split('-').map(Number);
-      return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+      return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+    }
+    function weekdayOf(dateKey: string) {
+      return WEEKDAYS[weekdayNumOf(dateKey)];
     }
 
     /** ISO → datetime-localの値（JST） */
@@ -1417,9 +1445,38 @@ import '../styles/kt-components.css';
       renderBoard();
     }
 
+    /**
+     * 配車ボードの見出し「配車ボード 2026/08/09（日）」を色分けして組み立てる。
+     * 「配車ボード」ラベルは.kt-titleの黄色のまま、日付は白、
+     * 曜日は土曜=水色／日曜・祝日=赤（ユーザー要望）で分ける。
+     */
+    function renderBoardTitle(dateKey: string) {
+      const el = $('boardTitle');
+      el.innerHTML = '';
+      el.appendChild(document.createTextNode('配車ボード　'));
+
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'ha-board-date';
+      dateSpan.textContent = dateKey.replace(/-/g, '/');
+      el.appendChild(dateSpan);
+
+      el.appendChild(document.createTextNode('（'));
+
+      const wd = weekdayNumOf(dateKey);
+      const holidayName = HOLIDAYS[dateKey];
+      const weekdaySpan = document.createElement('span');
+      weekdaySpan.className = 'ha-board-weekday'
+        + (wd === 0 || holidayName ? ' ha-board-weekday--red' : wd === 6 ? ' ha-board-weekday--sat' : '');
+      weekdaySpan.textContent = holidayName ? `${weekdayOf(dateKey)}・祝` : weekdayOf(dateKey);
+      if (holidayName) weekdaySpan.title = holidayName;
+      el.appendChild(weekdaySpan);
+
+      el.appendChild(document.createTextNode('）'));
+    }
+
     function renderBoard() {
       const dateKey = $('datePick').value || todayJst();
-      $('boardTitle').textContent = `配車ボード　${dateKey.replace(/-/g, '/')}（${weekdayOf(dateKey)}）`;
+      renderBoardTitle(dateKey);
 
       const rows = visibleBoardRows();
       const hidden = hiddenRows().length;
@@ -2315,6 +2372,13 @@ import '../styles/kt-components.css';
       padding: 0.1rem 0.5rem;
       white-space: nowrap;
     }
+
+    /* 配車ボード見出しの日付・曜日の色分け（ユーザー要望）。
+       見出し自体は.kt-titleの黄色のまま、日付だけ白にして見やすくし、
+       曜日は土曜=水色／日曜・祝日=赤で一目で分かるようにする */
+    .ha-board-date { color: #fff; }
+    .ha-board-weekday--sat { color: #67e8f9; }
+    .ha-board-weekday--red { color: #f87171; }
 
     .ha-legend { color: rgba(255,255,255,0.85); font-size: 0.9rem; margin: 0.25rem 0 0.75rem; }
     .ha-note { color: rgba(255,255,255,0.75); font-size: 0.85rem; line-height: 1.6; margin: 0; }

@@ -2419,10 +2419,13 @@ import '../styles/kt-components.css';
     }
 
     /* 配車ボード見出しの日付・曜日の色分け（ユーザー要望）。
-       見出し自体は.kt-titleの黄色のまま、日付だけ白にして見やすくし、
-       曜日は土曜=水色／日曜・祝日=赤で一目で分かるようにする */
+       見出し自体は.kt-titleの黄色のまま、日付・曜日（平日）は白にして見やすくし、
+       土曜=水色／日曜・祝日=赤で一目で分かるようにする。
+       .ha-board-weekday--sat/--red は .ha-board-weekday と同じ詳細度なので、
+       打ち消されないよう平日用の色は必ず先に書く（後勝ち） */
     .ha-board-date { color: #fff; }
     .ha-board-paren { color: #fff; }
+    .ha-board-weekday { color: #fff; }
     .ha-board-weekday--sat { color: #67e8f9; }
     .ha-board-weekday--red { color: #f87171; }
 

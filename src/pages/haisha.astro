@@ -2142,6 +2142,16 @@ import '../styles/kt-components.css';
 
   <style is:global>
     /*
+     * .page-hero は全ページ共通（グローバルCSS側でpadding-block: 4rem 3rem=
+     * 64px/48pxの余白）。/haishaは毎日何度も開く実務画面で、他ページのような
+     * 読ませるヒーロー見出しの余白は不要。配車ボードが画面の858px目からしか
+     * 始まらず「見える予約件数が少ない」という指摘があったため、この
+     * ページに限って余白を詰める（is:globalだが、このCSSバンドル自体が
+     * /haishaのHTMLからしか読み込まれないため、他ページには影響しない）。
+     */
+    .page-hero { padding-block: 1.5rem 1rem; }
+
+    /*
      * .kintai-wrap（kt-components.css）が max-width:1280px を固定で持っているため、
      * 元々それを打ち消して .container の可変幅を使わせる意図でここに max-width:100%
      * を置いていた。だがこれは文字通り「100%」であって --container-max 変数を

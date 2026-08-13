@@ -1644,12 +1644,20 @@ import '../styles/kt-components.css';
         checkCell.appendChild(cb);
         tr.appendChild(checkCell);
 
+        // 「編集」列の幅を詰める要望。配車ボードは状態・担当者の選択や
+        // 済チェックボックスがすでに行内にあるため、行全体をクリックで
+        // 編集を開く方式（予約一覧タブで採用）にすると、選択操作と
+        // クリックが競合する（選択を開こうとして編集モーダルも同時に
+        // 開いてしまう）。そのため行クリック化はせず、ボタンを文字
+        // 「編集」からアイコン（✎）だけに縮めて幅を詰める、安全な方で対応
         const editCell = document.createElement('td');
         editCell.className = 'ha-noprint';
         const editBtn = document.createElement('button');
         editBtn.type = 'button';
-        editBtn.className = 'ha-linkbtn';
-        editBtn.textContent = '編集';
+        editBtn.className = 'ha-linkbtn ha-linkbtn--icon';
+        editBtn.textContent = '✎';
+        editBtn.title = '編集';
+        editBtn.setAttribute('aria-label', '編集');
         editBtn.onclick = () => openEdit(r);
         editCell.appendChild(editBtn);
         tr.appendChild(editCell);
@@ -2627,8 +2635,21 @@ import '../styles/kt-components.css';
     .ha-grid thead th.ha-sticky { z-index: 2; }
     .ha-time { font-weight: 900; font-size: 1.1rem; }
 
-    /* 長文セルは折り返す */
-    .ha-wrapcell { white-space: normal; min-width: 14rem; max-width: 24rem; line-height: 1.5; }
+    /*
+     * 迎車場所・行き先メモは折り返し表示にしていたが、長い住所・メモだと
+     * 2〜3行になり、1行が最大477pxまで膨らんでいた（特大ズーム時に実測）。
+     * 標準ズームでも1行99pxあり、画面に見える予約の件数が少なくなって
+     * しまうという指摘があった。行は元々クリックで編集モーダルが開き
+     * 全文を確認できるため、一覧では1行に収めて省略表示にする
+     * （スマホ幅では既にこの方式。ここでは画面幅を問わず適用する）。
+     */
+    .ha-wrapcell {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 12rem;
+      max-width: 20rem;
+    }
 
     .ha-row--unassigned td.ha-sticky, .ha-row--unassigned { background: #fffaf0; }
     .ha-row--click { cursor: pointer; }
@@ -2729,6 +2750,14 @@ import '../styles/kt-components.css';
       cursor: pointer;
     }
     .ha-linkbtn:hover { border-color: #111; color: #111; }
+    /* 配車ボードの「編集」列を詰めるための正方形アイコンボタン。
+       タッチ操作なので min-height はそのまま残し、横だけ詰める */
+    .ha-linkbtn--icon {
+      padding: 0.35rem 0.5rem;
+      min-width: 2.5rem;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
 
     /* ── モーダル ── */
     .ha-modal { max-width: 680px; }
@@ -2819,7 +2848,9 @@ import '../styles/kt-components.css';
       .ha-grid th, .ha-grid td { color: #000; font-size: 0.9rem; }
       .ha-row--unassigned, .ha-row--unassigned td.ha-sticky { background: #f5f5f5 !important; }
       .ha-select { border: none; background: transparent; font-size: 0.95rem; padding: 0; min-height: 0; }
-      .ha-wrapcell { max-width: none; }
+      /* 画面上は1行省略表示にしたが、印刷では紙面の幅に合わせて折り返し、
+         省略せず全文を出す（紙は横スクロールできないため） */
+      .ha-wrapcell { max-width: none; white-space: normal; overflow: visible; text-overflow: clip; }
     }
   </style>
 </Layout>

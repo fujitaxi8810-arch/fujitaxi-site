@@ -50,19 +50,29 @@ import '../styles/kt-components.css';
         <button type="button" class="ha-tab" id="tabListBtn">予約一覧</button>
       </div>
 
-      <!-- ── 引き継ぎ（「新着」判定の基準時刻。交代した人が最初に見る想定で一番上に置く） ── -->
-      <div class="ha-handover" id="handoverBar">
-        <div class="ha-handover__info">
-          <span class="ha-handover__label">前回の引き継ぎ</span>
-          <span class="ha-handover__when" id="handoverWhen">—</span>
-          <p class="ha-handover__note" id="handoverNote" hidden></p>
-          <button type="button" class="ha-handover__noteedit" id="noteEditBtn">✎ 申し送りを書く</button>
+      <!-- ── 引き継ぎ（「新着」判定の基準時刻。交代した人が最初に見る想定で一番上に置く） ──
+           他のパネル同様、折りたたみにして高さを詰める。ただし申し送りがあるときに
+           畳まれたままだと見落とされてしまうため、申し送りがある間は自動で開き、
+           畳んだままでも summary の badge で「申し送りあり」が分かるようにする
+           （renderHandover 参照） -->
+      <details class="kt-panel ha-details ha-handover" id="handoverBar">
+        <summary class="ha-details__summary">
+          <span class="kt-title">前回の引き継ぎ</span>
+          <span class="ha-details__hint">クリックで開く</span>
+          <span class="ha-badge ha-badge--new" id="handoverNoteBadge" hidden>✎ 申し送りあり</span>
+          <button type="button" class="kt-btn ha-handover__recordbtn" id="handoverBtn">引き継ぎ・申し送りを記録</button>
+        </summary>
+        <div class="ha-details__body">
+          <div class="ha-handover__info">
+            <span class="ha-handover__when" id="handoverWhen">—</span>
+            <p class="ha-handover__note" id="handoverNote" hidden></p>
+            <button type="button" class="ha-handover__noteedit" id="noteEditBtn">✎ 申し送りを書く</button>
+          </div>
+          <div class="ha-handover__actions">
+            <button type="button" class="kt-btn kt-btn--ghost" id="handoverUndoBtn" hidden>1つ前に戻す</button>
+          </div>
         </div>
-        <div class="ha-handover__actions">
-          <button type="button" class="kt-btn" id="handoverBtn">引き継ぎ・申し送りを記録</button>
-          <button type="button" class="kt-btn kt-btn--ghost" id="handoverUndoBtn" hidden>1つ前に戻す</button>
-        </div>
-      </div>
+      </details>
 
       <!-- 乗務割が画面上部に貼り付いた（stuck）状態を検知するための目印。
            これが画面外に出た＝乗務割が本来の位置を離れてヘッダー直下に固定された、
@@ -770,6 +780,8 @@ import '../styles/kt-components.css';
     function renderHandover() {
       const when = $('handoverWhen');
       const noteEl = $('handoverNote');
+      const badge = $('handoverNoteBadge');
+      const panel = $('handoverBar');
 
       const auto = autoHandoverTime();
 
@@ -784,6 +796,8 @@ import '../styles/kt-components.css';
         noteEl.textContent = '申し送りはまだありません。';
         $('noteEditBtn').textContent = '✎ 申し送りを書く';
         $('handoverUndoBtn').hidden = true;
+        badge.hidden = true;
+        panel.open = false;
         return;
       }
 
@@ -796,7 +810,8 @@ import '../styles/kt-components.css';
         : `${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}${who} 以降が新着`;
 
       noteEl.hidden = false;
-      if (latestHandover.note) {
+      const hasNote = !!latestHandover.note;
+      if (hasNote) {
         noteEl.className = 'ha-handover__note';
         noteEl.textContent = `申し送り：${latestHandover.note}`;
         $('noteEditBtn').textContent = '✎ 申し送りを編集';
@@ -806,6 +821,14 @@ import '../styles/kt-components.css';
         $('noteEditBtn').textContent = '✎ 申し送りを書く';
       }
       $('handoverUndoBtn').hidden = false;
+
+      // 申し送りがある間は、畳んでいても見落とさないよう自動で開く
+      // （summaryのbadgeでも畳んだままでも分かるようにしている）。
+      // renderHandover は操作直後（記録・編集・取り消し）にしか呼ばれず
+      // 定期的には再描画されないため、ここで毎回状態を決めても、
+      // ただ眺めているだけの利用者が畳んだ操作を横から覆すことはない。
+      badge.hidden = !hasNote;
+      panel.open = hasNote;
     }
 
     // 申し送りだけを書き換える。引き継ぎの記録時刻は触らないので新着は消えない
@@ -839,6 +862,9 @@ import '../styles/kt-components.css';
       }
     };
 
+    // duty panel の「シフトを編集」と同じ理由（<summary>内のボタンなので、
+    // そのままだとクリックが親の<details>まで伝わって開閉してしまう）
+    $('handoverBtn').addEventListener('click', (e: Event) => e.stopPropagation());
     $('handoverBtn').onclick = () => {
       $('hoBy').value = localStorage.getItem(HANDOVER_NAME_KEY) || '';
       $('hoNote').value = '';
@@ -2241,20 +2267,18 @@ import '../styles/kt-components.css';
     }
     .ha-authbanner .kt-btn:hover { background: #92400e; }
 
-    /* ── 引き継ぎ ── */
+    /* ── 引き継ぎ ──
+       他のパネル同様 <details> に変えたので、色付きの見た目は
+       .kt-panel/.ha-details の既定（黒背景・黄色見出し）を this だけ上書きして、
+       元からの水色系デザイン（他の状態色と衝突しない色）を保つ */
     .ha-handover {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-      flex-wrap: wrap;
       background: #ecfeff;
       border: 1px solid #0e7490;
-      border-radius: var(--radius-lg);
-      padding: 0.75rem 1.15rem;
     }
+    .ha-handover > .ha-details__summary .kt-title { color: #0e7490; }
+    .ha-handover > .ha-details__summary::before { border-left-color: #0e7490; }
+    .ha-handover .ha-details__hint { color: rgba(14,116,144,0.55); }
     .ha-handover__info { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; flex: 1; }
-    .ha-handover__label { color: #0e7490; font-size: 0.8rem; font-weight: 900; }
     .ha-handover__when { color: #0c4a6e; font-size: 1rem; font-weight: 700; }
     .ha-handover__note {
       flex-basis: 100%;
@@ -2523,6 +2547,20 @@ import '../styles/kt-components.css';
       font-size: 0.85rem;
       white-space: nowrap;
     }
+
+    /* 見出しの行に同居させる「引き継ぎ・申し送りを記録」。考え方はシフトを編集と同じ。
+       badge（申し送りあり）が付くこともあるので、それより後ろ＝一番右に置く */
+    .ha-handover__recordbtn {
+      margin-left: auto;
+      min-height: 0;
+      padding: 0.3rem 0.85rem;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      background: #0e7490;
+      border-color: #0e7490;
+      color: #fff;
+    }
+    .ha-handover__recordbtn:hover { background: #155e75; }
 
     /* ── 変更履歴 ── */
     .ha-hist {

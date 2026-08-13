@@ -1295,8 +1295,16 @@ import '../styles/kt-components.css';
       // 一緒に緩める。--container-max はヘッダーの nav__inner や
       // page-hero も使っている変数なので、これを上書きすればページ全体が
       // 連動して広がる（.ha-wrap 個別に広げても、ヘッダーは変わらないため）。
-      if (pct >= 165) document.documentElement.style.setProperty('--container-max', 'min(96vw, 2200px)');
-      else if (pct >= 130) document.documentElement.style.setProperty('--container-max', 'min(92vw, 1600px)');
+      //
+      // 以前は min(96vw, 2200px) のように px の上限も付けていたが、これが
+      // 実質的な頭打ちになっていた（ユーザー指摘で発覚）。2560px幅の画面で
+      // 実測したところ、特大でも 2200px で止まり、画面の86%しか使えていなかった。
+      // 65型の実機はさらに広い解像度の可能性があり、その場合は使用率がもっと
+      // 下がる。このページは文章を読ませるページではなく表・パネルが中心なので、
+      // 横に広がりすぎて読みにくくなる心配もない。px の上限を撤廃し、
+      // 画面幅に対する割合（vw）だけで決めるようにする。
+      if (pct >= 165) document.documentElement.style.setProperty('--container-max', '96vw');
+      else if (pct >= 130) document.documentElement.style.setProperty('--container-max', '92vw');
       else document.documentElement.style.removeProperty('--container-max');
       localStorage.setItem(ZOOM_KEY, String(pct));
       // ヘッダーの高さも一緒に変わるので、乗務割の貼り付き位置を取り直す

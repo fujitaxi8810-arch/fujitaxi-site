@@ -1241,30 +1241,22 @@ import '../styles/kt-components.css';
     syncStickyOffset();
     window.addEventListener('resize', syncStickyOffset);
 
-    // 貼り付いている（stuck）間だけ幅を狭くする。
+    // 貼り付いている（stuck）間、枠を強調するためのクラスだけ付け替える。
     // 直前に置いたセンチネルが画面外に出た＝乗務割が本来の位置を離れて
     // ヘッダー直下に固定された、という合図として使う。
     //
-    // 開いたまま貼り付くと、乗務割（最大46vh/420px）がヘッダー下に居座り続け、
-    // その分だけ配車ボードの表示領域が圧迫されて見づらくなる（ユーザー指摘）。
-    // スクロールで貼り付いた瞬間、開いていれば自動的に閉じて場所を空ける。
-    // 見出しはそのまま残るので、必要ならもう一度クリックして開ける。
-    //
-    // ただし <details><summary> はクリックされるとブラウザがフォーカスを当てる。
-    // フォーカスされた要素が画面端に近いと、ブラウザが自動的に数px
-    // スクロールして表示しようとすることがあり（scrollIntoViewを明示的に
-    // 呼ばなくても起きるネイティブ挙動）、それだけでセンチネルの可視性が
-    // 揺れてstuck誤判定→即座に自動クローズ、という「開いてもすぐ閉じる」
-    // 動きにつながる。開いた直後の短い間は自動クローズを見送る猶予を設ける。
+    // 以前は「貼り付いた瞬間、開いていれば自動的に閉じる」処理があった
+    // （配車ボードの表示領域が圧迫される対策として実装）。しかしこれだと、
+    // 乗務割を開いたままスクロールした瞬間に中身が消えてしまい、「スクロール
+    // すると乗務割が途中で消える」というユーザー指摘の原因になっていた。
+    // 貼り付く目的が「スクロールしても見えるように」なのに、貼り付いた瞬間
+    // 閉じては本末転倒なので、自動クローズはやめた。画面占有については
+    // 既存の高さ上限（画面の46%まで、超えた分は内部スクロール）で足りる。
     const dutySentinel = document.getElementById('dutyStickySentinel');
-    let dutyOpenedAt = 0;
     if (dutySentinel && 'IntersectionObserver' in window) {
       new IntersectionObserver(
         ([entry]) => {
-          const stuck = !entry.isIntersecting;
-          $('dutyPanel').classList.toggle('is-stuck', stuck);
-          const justOpened = Date.now() - dutyOpenedAt < 500;
-          if (stuck && $('dutyPanel').open && !justOpened) $('dutyPanel').open = false;
+          $('dutyPanel').classList.toggle('is-stuck', !entry.isIntersecting);
         },
         { threshold: 0 }
       ).observe(dutySentinel);
@@ -1301,22 +1293,13 @@ import '../styles/kt-components.css';
 
     // 開閉の状態は端末に覚えさせる（閉じた人が毎回開き直さずに済むように）。
     // 既定は閉じている（HTML側）。前回「開いた」を選んだ端末だけ開いた状態にする。
-    //
     // 以前は開いた瞬間に scrollIntoView で貼り付き位置まで自動スクロールしていたが、
-    // それ自体が「貼り付いた（stuck）」判定を引き起こし、直後にIntersectionObserverの
-    // stuck時自動クローズ（上の観測）が発動して即座に閉じる、という自己矛盾した
-    // 動きになっていた（「開いてもすぐ閉じる」不具合の原因。ユーザー指摘で発覚）。
-    // 既定が閉じている今は、開いたまま画面を占有するリスクは小さいため、
-    // 自動スクロールはやめて「開いたら開いたまま」に徹する。
-    //
-    // それでもブラウザ自身のフォーカス補正で同じ症状が再発したため、
-    // 開いた時刻を記録し、上のIntersectionObserverが「開いた直後」を
-    // 見分けられるようにしている（justOpenedガード）。
+    // それ自体が「貼り付いた（stuck）」判定の揺れを引き起こしていたため廃止し、
+    // 「開いたら開いたまま」に徹している（自動クローズ自体も別途廃止済み）。
     const DUTY_OPEN_KEY = 'fuji-haisha-duty-open';
     if (localStorage.getItem(DUTY_OPEN_KEY) === 'open') $('dutyPanel').open = true;
     $('dutyPanel').addEventListener('toggle', () => {
       localStorage.setItem(DUTY_OPEN_KEY, $('dutyPanel').open ? 'open' : 'closed');
-      if ($('dutyPanel').open) dutyOpenedAt = Date.now();
     });
 
     // 開いたときに初めて読み込む（普段は畳んでいるので、毎回取りに行かない）

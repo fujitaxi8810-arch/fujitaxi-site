@@ -148,8 +148,11 @@ import '../styles/kt-components.css';
       </div>
 
       <!-- 管理者ロック（削除のみ管理者限定）。ページ下部の管理者向け機能の
-           すぐ上に置く。文字サイズ切替はページ冒頭に単独で戻したので、ここには無い -->
-      <div class="kt-adminbar">
+           すぐ上に置く。文字サイズ切替はページ冒頭に単独で戻したので、ここには無い。
+           一般スタッフには存在自体を見せないよう、既定では非表示にし、
+           URLに ?admin が付いているとき（または既に管理者ログイン済みのとき）だけ出す
+           （applyAdminUiVisibility 参照。本当の鍵はURLではなくSupabase側の認証） -->
+      <div class="kt-adminbar" id="adminBar" hidden>
         <span class="kt-adminbar__label" id="adminState">🔒 閲覧・編集は可能／削除は管理者のみ</span>
         <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
       </div>
@@ -549,7 +552,19 @@ import '../styles/kt-components.css';
     };
 
     // ── 管理者バー ──
+    // 一般スタッフには「管理者ロック解除」の存在自体を見せない。
+    // URLに ?admin が付いているとき、または既に管理者としてログイン済みのとき
+    // （URLを付け直さなくても「ロックする」操作ができるように）だけ表示する。
+    // これはあくまでUIをスタッフから隠すためのもので、本当の権限はこれまで通り
+    // Supabase側（is_admin()）が判定する。URLを知っていてもパスワードが無ければ
+    // 削除や設定変更はできない。
+    function applyAdminUiVisibility() {
+      const wantsAdminUi = new URLSearchParams(location.search).has('admin') || isAdmin();
+      $('adminBar').hidden = !wantsAdminUi;
+    }
+
     function renderAdminBar() {
+      applyAdminUiVisibility();
       const unlocked = isAdmin();
       $('adminState').textContent = unlocked
         ? '🔓 管理者：削除もできます'

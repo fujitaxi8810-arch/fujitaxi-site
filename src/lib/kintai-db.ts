@@ -5,6 +5,13 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+/** 'YYYY-MM' の翌月の 'YYYY-MM' を返す。月次データ取得の範囲指定（排他的上限）に使う。 */
+function nextMonthStr(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(y, m, 1); // m は1-indexedなのでこれで翌月1日になる
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export type EmpType = 'fulltime' | 'fulltime-base' | 'fulltime-hourly' | 'part' | 'monthly';
 
 export type BreakMode = 'punch' | 'fixed' | 'manual';
@@ -359,7 +366,7 @@ export async function fetchMonth(month: string): Promise<Attendance[]> {
     .from('attendance')
     .select('*')
     .gte('work_date', `${month}-01`)
-    .lte('work_date', `${month}-31`)
+    .lt('work_date', `${nextMonthStr(month)}-01`)
     .order('work_date', { ascending: true });
   if (error) throw error;
   return (data || []).map(rowToAttendance);
@@ -505,7 +512,7 @@ export async function fetchShiftMonth(month: string): Promise<Shift[]> {
     .from('shifts')
     .select('*')
     .gte('work_date', `${month}-01`)
-    .lte('work_date', `${month}-31`);
+    .lt('work_date', `${nextMonthStr(month)}-01`);
   if (error) throw error;
   return (data || []).map(rowToShift);
 }
@@ -592,7 +599,7 @@ export async function fetchShiftHistory(month: string): Promise<ShiftHistoryEntr
     .from('shift_history')
     .select('*')
     .gte('work_date', `${month}-01`)
-    .lte('work_date', `${month}-31`)
+    .lt('work_date', `${nextMonthStr(month)}-01`)
     .order('changed_at', { ascending: false })
     .limit(200);
   if (error) throw error;

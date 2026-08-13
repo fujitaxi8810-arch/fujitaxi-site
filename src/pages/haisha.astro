@@ -669,9 +669,12 @@ import '../styles/kt-components.css';
     $('tabListBtn').onclick = () => showTab('list');
 
     // ── 共通のセル生成 ──
-    function td(text: string | null | undefined, className = '') {
+    // label はスマホ幅でカード表示に切り替えたときの見出し（td::beforeで使う）。
+    // 省略した場合はそのセルにラベルを付けない（編集ボタンなど、無くても分かるもの用）
+    function td(text: string | null | undefined, className = '', label?: string) {
       const cell = document.createElement('td');
       if (className) cell.className = className;
+      if (label) cell.dataset.label = label;
       cell.textContent = text ?? '';
       return cell;
     }
@@ -1196,14 +1199,14 @@ import '../styles/kt-components.css';
         const r = d.row;
         const tr = document.createElement('tr');
 
-        tr.appendChild(td(r.customer_name || '（お客様名なし）'));
-        tr.appendChild(td(r.customer_kana || ''));
+        tr.appendChild(td(r.customer_name || '（お客様名なし）', '', 'お客様名'));
+        tr.appendChild(td(r.customer_kana || '', '', '読み'));
         tr.appendChild(td(r.reserved_at
           ? `${jstDateKey(r.reserved_at).slice(5).replace('-', '/')} ${jstTimeLabel(r.reserved_at)}`
-          : ''));
-        tr.appendChild(td([r.pickup_name, r.pickup_address].filter(Boolean).join(' / '), 'ha-wrapcell'));
-        tr.appendChild(td(`${jstDateKey(d.deletedAt).slice(5).replace('-', '/')} ${jstTimeLabel(d.deletedAt)}`));
-        tr.appendChild(td(d.deletedBy || ''));
+          : '', '', '予約日時'));
+        tr.appendChild(td([r.pickup_name, r.pickup_address].filter(Boolean).join(' / '), 'ha-wrapcell', '迎車場所'));
+        tr.appendChild(td(`${jstDateKey(d.deletedAt).slice(5).replace('-', '/')} ${jstTimeLabel(d.deletedAt)}`, '', '削除日時'));
+        tr.appendChild(td(d.deletedBy || '', '', '削除者'));
 
         tbody.appendChild(tr);
       }
@@ -1533,12 +1536,13 @@ import '../styles/kt-components.css';
         // 新着は状態欄にまとめて表示する（時刻の隣のバッジは廃止）。
         // 行左端の縦線だけは、状態を変えても残るように別途付けておく
         const isNew = isNewSinceHandover(r);
-        const timeCell = td(jstTimeLabel(r.reservedAt), 'ha-sticky ha-time');
+        const timeCell = td(jstTimeLabel(r.reservedAt), 'ha-sticky ha-time', '時刻');
         if (isNew) tr.classList.add('ha-row--new');
         tr.appendChild(timeCell);
 
         // 状態（選択で即保存）
         const statusCell = document.createElement('td');
+        statusCell.dataset.label = '状態';
         const stSel = buildStatusSelect(r.status, isNew);
         if (isNew) stSel.title = newBadgeTitle(r);
         statusCell.appendChild(stSel);
@@ -1577,6 +1581,7 @@ import '../styles/kt-components.css';
 
         // 担当者（選択で即保存）
         const staffCell = document.createElement('td');
+        staffCell.dataset.label = '担当者';
         const sel = buildStaffSelect(r.staffId);
         sel.onchange = async () => {
           const next = sel.value || null;
@@ -1598,12 +1603,13 @@ import '../styles/kt-components.css';
         staffCell.appendChild(sel);
         tr.appendChild(staffCell);
 
-        tr.appendChild(td(r.customerName));
-        tr.appendChild(td(pickupText(r), 'ha-wrapcell'));
-        tr.appendChild(td(destinationText(r), 'ha-wrapcell'));
+        tr.appendChild(td(r.customerName, '', 'お客様名'));
+        tr.appendChild(td(pickupText(r), 'ha-wrapcell', '迎車場所'));
+        tr.appendChild(td(destinationText(r), 'ha-wrapcell', '行き先・メモ'));
 
         // 確認チェック（即保存）
         const checkCell = document.createElement('td');
+        checkCell.dataset.label = '済';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.className = 'ha-check';
@@ -1748,11 +1754,11 @@ import '../styles/kt-components.css';
         // 配車ボードと同じく、新着は状態欄にまとめる
         const isNew = isNewSinceHandover(r);
         const when = `${jstDateKey(r.reservedAt).slice(5).replace('-', '/')}(${weekdayOf(jstDateKey(r.reservedAt))}) ${jstTimeLabel(r.reservedAt)}`;
-        const whenCell = td(when, 'ha-sticky ha-time');
+        const whenCell = td(when, 'ha-sticky ha-time', '予約日時');
         if (isNew) tr.classList.add('ha-row--new');
         tr.appendChild(whenCell);
 
-        const stCell = td('');
+        const stCell = td('', '', '状態');
         if (isNew && r.status === 'normal') {
           const badge = document.createElement('span');
           badge.className = 'ha-badge ha-badge--new';
@@ -1769,11 +1775,11 @@ import '../styles/kt-components.css';
         }
         tr.appendChild(stCell);
 
-        tr.appendChild(td(r.customerName));
-        tr.appendChild(td(pickupText(r), 'ha-wrapcell'));
-        tr.appendChild(td(destinationText(r), 'ha-wrapcell'));
+        tr.appendChild(td(r.customerName, '', 'お客様名'));
+        tr.appendChild(td(pickupText(r), 'ha-wrapcell', '迎車場所'));
+        tr.appendChild(td(destinationText(r), 'ha-wrapcell', '行き先・メモ'));
 
-        const staffCell = td('');
+        const staffCell = td('', '', '担当者');
         if (r.staffId) {
           const badge = document.createElement('span');
           badge.className = 'ha-badge ha-badge--assigned';
@@ -1788,7 +1794,7 @@ import '../styles/kt-components.css';
         }
         tr.appendChild(staffCell);
 
-        tr.appendChild(td(r.checked ? '✓' : ''));
+        tr.appendChild(td(r.checked ? '✓' : '', '', '済'));
         tbody.appendChild(tr);
       }
       table.appendChild(tbody);
@@ -2679,28 +2685,49 @@ import '../styles/kt-components.css';
     .ha-preview ul { margin: 0.35rem 0 0 1.2rem; font-size: 0.82rem; color: rgba(255,255,255,0.75); }
 
     /* ── スマホ幅（配車ボード・予約一覧の表）──
-     * 8列（時刻・状態・担当者・お客様名・迎車場所・行き先メモ・済・空）ある表を
-     * そのままの余白で組むと941px前後になり、375px幅の画面では表の1/3程度しか
-     * 一度に見えず「見にくい」という指摘があった（ユーザーの実機で確認・再現）。
-     * .ha-grid-wrap の overflow-x: auto で横スクロール自体は元から画面内に収まって
-     * いた（ページ全体が崩れているわけではない）が、それでも実用上スクロール量が
-     * 多すぎた。行き先メモ・迎車場所（.ha-wrapcell）が主な原因（1列 min 14rem=224px
-     * を2列分）なので、まずここを詰める。行タップで詳細（編集モーダル）が見られる
-     * ため、はみ出した文字は省略して構わない。
+     * 最初は列幅を詰めるだけの対応をしたが（表941px→614px）、8列ある表を
+     * 横スクロールさせる形自体がスマホでは根本的に見にくいとの指摘があり、
+     * 表→カード形式に作り替えた。各セルに data-label 属性を持たせておき
+     * （td()ヘルパー・各render関数側で付与）、::before でラベルを出す
+     * 典型的な「レスポンシブテーブル」の手法。横スクロールが無くなるので
+     * 行き先メモ等の省略（ellipsis）は不要になり、素直に折り返す。
      */
     @media (max-width: 600px) {
-      .ha-wrapcell {
-        min-width: 6rem;
-        max-width: 9rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        line-height: 1.4;
+      .ha-grid-wrap { overflow-x: visible; }
+      .ha-grid thead { display: none; }
+      .ha-grid, .ha-grid tbody, .ha-grid tr { display: block; width: 100%; }
+      .ha-grid tr {
+        border: 1px solid #e5e5e5;
+        border-radius: var(--radius-md);
+        margin-bottom: 0.6rem;
+        padding: 0.3rem 0.7rem;
       }
-      .ha-select { min-width: 6rem; font-size: 0.9rem; padding: 0.3rem 0.35rem; }
-      .ha-select.ha-status { min-width: 4.4rem; font-size: 0.78rem; }
-      .ha-grid th, .ha-grid td { padding: 0.4rem 0.35rem; font-size: 0.88rem; }
-      .ha-time { font-size: 1rem; }
+      .ha-grid td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.7rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #f2f2f2;
+        white-space: normal;
+        min-width: 0;
+        max-width: none;
+        text-align: right;
+      }
+      .ha-grid tr > td:last-child { border-bottom: none; }
+      .ha-grid td[data-label]::before {
+        content: attr(data-label);
+        font-weight: 700;
+        color: #888;
+        font-size: 0.78rem;
+        flex: none;
+        text-align: left;
+      }
+      /* ラベルの無いセル（編集ボタン等）は左右中央寄せのままでよい */
+      .ha-grid td:not([data-label]) { justify-content: flex-end; }
+      .ha-grid td.ha-sticky { position: static; background: none; }
+      .ha-time { font-size: 1.05rem; }
+      .ha-select { max-width: 65%; }
     }
 
     /* ── 印刷 ── */

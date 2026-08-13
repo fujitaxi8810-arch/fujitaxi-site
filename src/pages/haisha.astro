@@ -973,14 +973,18 @@ import '../styles/kt-components.css';
     //   最大人数はユーザー申告：普通6／遅番6／スクール4／スクール原町1／交流2／貸切6／乗合1。
     //   満員状態を再現して実測した結果、全区分を2〜3列に詰めると名前が折り返して
     //   かえって高くなった（3列=336px）ため、人数で出し分けている（混在案=249px）。
+    // 並び順は配車確認シートに合わせていたが、乗合（最大1名）を
+    // スクール原町・交流と同じ行にまとめたいというユーザー要望により、
+    // 乗合を貸切の前に移動している。narrow の3区分を隣り合わせにしないと、
+    // 間に wide の貸切が挟まって別の行に落ちてしまうため。
     const DUTY_GROUPS: { label: string; shiftKey?: string; dailyKey?: DutyCat; wide?: boolean }[] = [
       { label: '普通', shiftKey: '①', wide: true },
       { label: '遅番', shiftKey: '③', wide: true },
       { label: 'スクール', shiftKey: 'S', dailyKey: 'school', wide: true },
       { label: 'スクール原町', dailyKey: 'school_haramachi' },
       { label: '交流', dailyKey: 'exchange' },
-      { label: '貸切', shiftKey: '貸切', dailyKey: 'charter', wide: true },
       { label: '乗合', shiftKey: 'SH' },
+      { label: '貸切', shiftKey: '貸切', dailyKey: 'charter', wide: true },
     ];
 
     type DutyCat = 'school_haramachi' | 'exchange' | 'charter' | 'school';
@@ -2336,32 +2340,52 @@ import '../styles/kt-components.css';
     /*
      * 区切り線は「下」ではなく「上」に付け、1行目だけ消す。
      * 下線＋最終行を消す方式だと、最終行が何番目の子要素になるかが
-     * 区分の数と列数の組み合わせで変わるため（下の2区分横並びでは
-     * 区分数が偶数か奇数かで最終行の要素数が変わる）、CSSで安定して
-     * 指定できない。上線方式なら1行目の位置は列数だけで決まる。
+     * 区分の数と列数の組み合わせで変わるため、CSSで安定して指定できない。
+     *
+     * DUTY_GROUPS の先頭（普通）は wide＝1区分で1行なので、
+     * 1行目は必ず最初の2要素（ラベル＋名前）になる。
+     * 先頭を narrow に変える場合はこの指定も見直すこと。
      */
     .ha-duty > :nth-child(-n+2) { border-top: none; }
 
     /*
      * 乗務割が縦に長く、貼り付いた状態で下の配車ボードが見えにくいという
-     * 指摘への対応。画面が広いときだけ、人数の少ない区分を2つ横に並べる。
+     * 指摘への対応。画面が広いときだけ、人数の少ない区分を横に並べる。
      *
      * 満員状態（普通6/遅番6/スクール4/スクール原町1/交流2/貸切6/乗合1）を
      * 再現して実測した結果：
-     *   現状（全区分1行ずつ）      295px・折り返しなし
-     *   全区分を3列               336px・折り返しあり（かえって高い）
-     *   人数が多い区分だけ横幅いっぱい 249px・折り返しなし  ← これを採用
+     *   全区分1行ずつ（元）        295px・折り返しなし
+     *   全区分を一律3列            336px・折り返しあり（かえって高い）
+     *   人数で出し分け             223px・折り返しなし  ← これを採用
      * 一律に列を増やすと、6人いる区分（普通・遅番・貸切）で名前が
      * 折り返して行が2〜3段になり、行数が減った分を相殺してしまう。
+     *
+     * 6列にしてあるのは、人数が1〜2名の3区分
+     * （スクール原町・交流・乗合）を1行にまとめるため。
+     * 名前列を 1fr ではなく auto にしているのは、3等分すると交流（2名＋追加）が
+     * 収まらず折り返すため。auto なら中身の量に応じて配分される。
+     *
+     * ラベル列を max-content ではなく固定幅にしているのが要点。
+     * max-content にすると、2〜6列目にまたがる wide の名前（普通は6名で約600px）
+     * がその幅を「またいだ列すべて」に配分するため、本来50px程度でよい
+     * 交流・乗合のラベル列まで106pxに膨らみ、その分を削られた交流が
+     * 折り返していた（実測で確認：227px・交流が2行）。固定幅にすると
+     * またぎの影響を受けず 189px・折り返しなしに収まる。
+     * 幅の根拠：1列目はスクール原町（実測96px）が入る 6.5rem、
+     * 3・5列目は交流・乗合（2文字・約50px）が入る 3.5rem。
+     * rem なので文字サイズ切替にも追従する。
      */
     @media (min-width: 901px) {
-      .ha-duty { grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr); }
-      .ha-duty > :nth-child(-n+4) { border-top: none; }
+      .ha-duty {
+        grid-template-columns: 6.5rem auto 3.5rem auto 3.5rem auto;
+      }
       /* 人数が多い区分は1区分で1行を使い、名前を1行に収める */
       .ha-duty-label--wide { grid-column: 1; }
       .ha-duty-names--wide { grid-column: 2 / -1; }
-      /* 右側に並んだ区分は、左側の名前と続けて読まれないよう間隔を空ける */
-      .ha-duty > .ha-duty-label:nth-child(4n+3) { padding-left: 1.6rem; }
+      /* 隣の区分と続けて読まれないよう、名前のうしろに余白を置く。
+         nth-child で「2つ目以降の列」を狙うと、wide/narrow が混ざる行構成では
+         位置がずれるため、全ての名前に一律で付けている */
+      .ha-duty-names { padding-right: 1.4rem; }
     }
 
     .ha-duty-none { color: rgba(255,255,255,0.3); font-size: 0.95rem; }

@@ -966,13 +966,20 @@ import '../styles/kt-components.css';
     // shiftKey … /shift のコードから引く（表示のみ。変更は /shift 側）
     // dailyKey … この画面で日ごとに足す分（×で外せる）
     // 貸切・スクールは両方持つ：基本はシフト通りだが、当日変わることがあるため追加もできる
-    const DUTY_GROUPS: { label: string; shiftKey?: string; dailyKey?: DutyCat }[] = [
-      { label: '普通', shiftKey: '①' },
-      { label: '遅番', shiftKey: '③' },
-      { label: 'スクール', shiftKey: 'S', dailyKey: 'school' },
+    //
+    // wide … 人数が多く、名前を1行に収めるのに横幅いっぱい必要な区分。
+    //   画面が広いとき、wide は1区分で1行を使い、それ以外は2区分ずつ横に並べる
+    //   （下の .ha-duty-*--wide のCSS参照）。
+    //   最大人数はユーザー申告：普通6／遅番6／スクール4／スクール原町1／交流2／貸切6／乗合1。
+    //   満員状態を再現して実測した結果、全区分を2〜3列に詰めると名前が折り返して
+    //   かえって高くなった（3列=336px）ため、人数で出し分けている（混在案=249px）。
+    const DUTY_GROUPS: { label: string; shiftKey?: string; dailyKey?: DutyCat; wide?: boolean }[] = [
+      { label: '普通', shiftKey: '①', wide: true },
+      { label: '遅番', shiftKey: '③', wide: true },
+      { label: 'スクール', shiftKey: 'S', dailyKey: 'school', wide: true },
       { label: 'スクール原町', dailyKey: 'school_haramachi' },
       { label: '交流', dailyKey: 'exchange' },
-      { label: '貸切', shiftKey: '貸切', dailyKey: 'charter' },
+      { label: '貸切', shiftKey: '貸切', dailyKey: 'charter', wide: true },
       { label: '乗合', shiftKey: 'SH' },
     ];
 
@@ -1028,12 +1035,12 @@ import '../styles/kt-components.css';
       let shiftShown = 0;
       for (const g of DUTY_GROUPS) {
         const label = document.createElement('span');
-        label.className = 'ha-duty-label';
+        label.className = g.wide ? 'ha-duty-label ha-duty-label--wide' : 'ha-duty-label';
         label.textContent = g.label;
         body.appendChild(label);
 
         const names = document.createElement('span');
-        names.className = 'ha-duty-names';
+        names.className = g.wide ? 'ha-duty-names ha-duty-names--wide' : 'ha-duty-names';
 
         // /shift 由来（表示のみ。変更は /shift 側で行う）。
         // 配車に関わらない人（事務など）はシフトに入っていても乗務割には出さない。
@@ -2310,7 +2317,7 @@ import '../styles/kt-components.css';
       text-align: right;
       align-self: center;
       padding: 0.08rem 0;
-      border-bottom: 1px solid rgba(255,255,255,0.07);
+      border-top: 1px solid rgba(255,255,255,0.07);
       height: 100%;
       display: flex;
       align-items: center;
@@ -2322,12 +2329,41 @@ import '../styles/kt-components.css';
       align-items: center;
       gap: 0.4rem;
       padding: 0.08rem 0;
-      min-height: 1.9rem;
-      border-bottom: 1px solid rgba(255,255,255,0.07);
+      /* 高さを詰めるため 1.9rem から下げた（下の .ha-duty-name の縮小と併せて） */
+      min-height: 1.7rem;
+      border-top: 1px solid rgba(255,255,255,0.07);
     }
-    /* 最終行の下線は消す */
-    .ha-duty > .ha-duty-label:nth-last-child(2),
-    .ha-duty > .ha-duty-names:last-child { border-bottom: none; }
+    /*
+     * 区切り線は「下」ではなく「上」に付け、1行目だけ消す。
+     * 下線＋最終行を消す方式だと、最終行が何番目の子要素になるかが
+     * 区分の数と列数の組み合わせで変わるため（下の2区分横並びでは
+     * 区分数が偶数か奇数かで最終行の要素数が変わる）、CSSで安定して
+     * 指定できない。上線方式なら1行目の位置は列数だけで決まる。
+     */
+    .ha-duty > :nth-child(-n+2) { border-top: none; }
+
+    /*
+     * 乗務割が縦に長く、貼り付いた状態で下の配車ボードが見えにくいという
+     * 指摘への対応。画面が広いときだけ、人数の少ない区分を2つ横に並べる。
+     *
+     * 満員状態（普通6/遅番6/スクール4/スクール原町1/交流2/貸切6/乗合1）を
+     * 再現して実測した結果：
+     *   現状（全区分1行ずつ）      295px・折り返しなし
+     *   全区分を3列               336px・折り返しあり（かえって高い）
+     *   人数が多い区分だけ横幅いっぱい 249px・折り返しなし  ← これを採用
+     * 一律に列を増やすと、6人いる区分（普通・遅番・貸切）で名前が
+     * 折り返して行が2〜3段になり、行数が減った分を相殺してしまう。
+     */
+    @media (min-width: 901px) {
+      .ha-duty { grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr); }
+      .ha-duty > :nth-child(-n+4) { border-top: none; }
+      /* 人数が多い区分は1区分で1行を使い、名前を1行に収める */
+      .ha-duty-label--wide { grid-column: 1; }
+      .ha-duty-names--wide { grid-column: 2 / -1; }
+      /* 右側に並んだ区分は、左側の名前と続けて読まれないよう間隔を空ける */
+      .ha-duty > .ha-duty-label:nth-child(4n+3) { padding-left: 1.6rem; }
+    }
+
     .ha-duty-none { color: rgba(255,255,255,0.3); font-size: 0.95rem; }
     .ha-duty-legend { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid rgba(255,255,255,0.1); }
     /* .ha-badge が後ろで定義されているので、クラス2つ分の詳細度で上書きする */
@@ -2336,9 +2372,11 @@ import '../styles/kt-components.css';
          color と同色になる。淡い地＋濃い文字＋同色の枠で揃える */
       background: #eef2ff;
       color: #312e81;
-      font-size: 1.15rem;
+      /* 乗務割の高さを詰めるため 1.15rem から下げた。65型でも読めるよう
+         下げ幅は控えめにし、太字(900)は維持している */
+      font-size: 1.05rem;
       font-weight: 900;
-      padding: 0.08rem 0.75rem;
+      padding: 0.05rem 0.6rem;
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
@@ -2367,12 +2405,14 @@ import '../styles/kt-components.css';
     .ha-duty-remove:hover { opacity: 1; color: #b91c1c; }
     /* 追加用セレクトは名前バッジと同じ丸い形にして、並んでも浮かないようにする */
     .ha-select.ha-duty-add {
-      min-height: 2.625rem;
+      /* 名前バッジと同じく、乗務割の高さを詰めるため 2.625rem から下げた。
+         指で押す想定なので、下げすぎないようにしている */
+      min-height: 2.3rem;
       min-width: 0;
       width: auto;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-weight: 700;
-      padding: 0.2rem 0.7rem;
+      padding: 0.15rem 0.7rem;
       border-radius: var(--radius-full);
       background: rgba(255,255,255,0.07);
       border: 1px solid rgba(255,255,255,0.22);

@@ -78,11 +78,17 @@ import '../styles/kt-components.css';
         <summary class="ha-details__summary">
           <span class="kt-title" id="dutyTitle">乗務割</span>
           <span class="ha-details__hint">クリックで開く</span>
+          <!-- 「シフトを編集」は見出しの行に置く。専用の行を作ると、ボタン1つのために
+               約49px使ってしまい、その分だけ配車ボードが下に押し下げられるため -->
+          <a
+            href="/shift"
+            class="kt-btn kt-btn--ghost ha-duty-shiftlink"
+            id="dutyShiftLink"
+            target="_blank"
+            rel="noopener"
+          >シフトを編集</a>
         </summary>
         <div class="ha-details__body">
-          <div class="kt-panel__tools">
-            <a href="/shift" class="kt-btn kt-btn--ghost" target="_blank" rel="noopener">シフトを編集</a>
-          </div>
           <div id="dutyBody" class="ha-duty"></div>
           <p class="ha-note ha-duty-legend" id="dutyNote"></p>
         </div>
@@ -1313,6 +1319,11 @@ import '../styles/kt-components.css';
       localStorage.setItem(DUTY_OPEN_KEY, $('dutyPanel').open ? 'open' : 'closed');
     });
 
+    // 「シフトを編集」は <summary> の中に置いているため、そのままだと
+    // リンクを押したときに乗務割まで開閉してしまう。リンクの用は別タブを開くことなので、
+    // ここで伝播を止めて開閉させない
+    $('dutyShiftLink').addEventListener('click', (e: Event) => e.stopPropagation());
+
     // 開いたときに初めて読み込む（普段は畳んでいるので、毎回取りに行かない）
     $('historyPanel').addEventListener('toggle', () => {
       if ($('historyPanel').open && !historyLoaded) loadHistory();
@@ -2475,6 +2486,17 @@ import '../styles/kt-components.css';
     .ha-details[open] .ha-details__hint { display: none; }
     .ha-details__body { padding: 0 1.1rem 0.5rem; }
     .ha-details__body .kt-panel__tools { justify-content: flex-end; margin-bottom: 0.3rem; }
+
+    /* 見出しの行に同居させる「シフトを編集」。
+       右端に寄せ、見出しの高さ（2.75rem）を超えないよう .kt-btn より小さくする
+       ―― ここで大きいままだと、専用行を廃した分の節約が相殺されてしまう */
+    .ha-duty-shiftlink {
+      margin-left: auto;
+      min-height: 0;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
 
     /* ── 変更履歴 ── */
     .ha-hist {

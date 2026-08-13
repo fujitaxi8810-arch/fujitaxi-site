@@ -2041,7 +2041,9 @@ import '../styles/kt-components.css';
       // （ログインに失敗したときに日付が空のまま残ると、壊れて見えるため）
       const today = todayJst();
       $('datePick').value = today;
-      $('fromPick').value = shiftDate(today, -7);
+      // 予約一覧の初期表示は「当日〜1か月後」（ユーザー要望で過去分をデフォルトから外した。
+      // 過去の予約は消えるわけではなく、開始日を過去に広げれば引き続き検索できる）
+      $('fromPick').value = today;
       $('toPick').value = shiftDate(today, 30);
 
       const authResult = await initAuth();

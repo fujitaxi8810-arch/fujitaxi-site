@@ -2635,6 +2635,31 @@ import '../styles/kt-components.css';
     .ha-preview summary { cursor: pointer; color: var(--fuji-yellow); }
     .ha-preview ul { margin: 0.35rem 0 0 1.2rem; font-size: 0.82rem; color: rgba(255,255,255,0.75); }
 
+    /* ── スマホ幅（配車ボード・予約一覧の表）──
+     * 8列（時刻・状態・担当者・お客様名・迎車場所・行き先メモ・済・空）ある表を
+     * そのままの余白で組むと941px前後になり、375px幅の画面では表の1/3程度しか
+     * 一度に見えず「見にくい」という指摘があった（ユーザーの実機で確認・再現）。
+     * .ha-grid-wrap の overflow-x: auto で横スクロール自体は元から画面内に収まって
+     * いた（ページ全体が崩れているわけではない）が、それでも実用上スクロール量が
+     * 多すぎた。行き先メモ・迎車場所（.ha-wrapcell）が主な原因（1列 min 14rem=224px
+     * を2列分）なので、まずここを詰める。行タップで詳細（編集モーダル）が見られる
+     * ため、はみ出した文字は省略して構わない。
+     */
+    @media (max-width: 600px) {
+      .ha-wrapcell {
+        min-width: 6rem;
+        max-width: 9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.4;
+      }
+      .ha-select { min-width: 6rem; font-size: 0.9rem; padding: 0.3rem 0.35rem; }
+      .ha-select.ha-status { min-width: 4.4rem; font-size: 0.78rem; }
+      .ha-grid th, .ha-grid td { padding: 0.4rem 0.35rem; font-size: 0.88rem; }
+      .ha-time { font-size: 1rem; }
+    }
+
     /* ── 印刷 ── */
     @media print {
       .nav, .footer, .page-hero, .kt-adminbar, .ha-zoombar, .ha-tabs,

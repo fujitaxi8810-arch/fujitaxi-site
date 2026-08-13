@@ -138,6 +138,7 @@ import '../styles/kt-components.css';
             <input type="search" id="searchInput" class="kt-input" placeholder="例：菅野 / 9067 / 病院" />
           </label>
           <button type="button" class="kt-btn kt-btn--ghost" id="reloadBtn">再読み込み</button>
+          <button type="button" class="kt-btn kt-btn--ghost" id="showPastListBtn" hidden>経過分も表示</button>
         </div>
 
         <p class="ha-legend" id="listSummary"></p>
@@ -1688,21 +1689,48 @@ import '../styles/kt-components.css';
       renderList();
     }
 
-    function renderList() {
+    // 予約一覧も、配車ボードと同じく「時刻を過ぎた予約」を既定で隠す
+    // （ユーザー指摘：一覧タブだけ過ぎた予定が残ったままだった）。
+    // ボードは「今日を見ているときだけ」対象にする特別扱いが要るが、
+    // 一覧はもともと複数日をまたいで表示するので、日付を問わず
+    // isPastReservation（時刻＋1時間の猶予）だけで判定すればよい。
+    let showPastList = false;
+
+    /** 検索窓の文字列で listRows を絞り込むだけ（過ぎた分の表示・非表示は含まない） */
+    function searchedListRows() {
       const q = ($('searchInput').value || '').trim().toLowerCase();
       const digits = q.replace(/\D/g, '');
-      const rows = listRows.filter((r) => {
+      return listRows.filter((r) => {
         if (!q) return true;
         const hay = [r.customerName, r.customerKana, r.pickupName, r.pickupAddress, r.operatorMemo, r.pickupMemo]
           .filter(Boolean).join(' ').toLowerCase();
         if (hay.includes(q)) return true;
         return digits !== '' && (r.phone || '').replace(/\D/g, '').includes(digits);
       });
+    }
+
+    function visibleListRows(rows: any[]) {
+      return showPastList ? rows : rows.filter((r) => !isPastReservation(r));
+    }
+
+    $('showPastListBtn').onclick = () => {
+      showPastList = !showPastList;
+      $('showPastListBtn').textContent = showPastList ? '経過分を隠す' : '経過分も表示';
+      renderList();
+    };
+
+    function renderList() {
+      const searched = searchedListRows();
+      const rows = visibleListRows(searched);
+      const hiddenCount = searched.length - rows.length;
 
       const table = $('listTable');
       table.innerHTML = '';
       $('listEmpty').hidden = rows.length > 0;
-      $('listSummary').textContent = `${rows.length}件を表示（期間内 ${listRows.length}件）　行をクリックすると編集できます。`;
+      $('listSummary').textContent = `${rows.length}件を表示（期間内 ${listRows.length}件）`
+        + (hiddenCount > 0 ? `　※時刻を過ぎた${hiddenCount}件は非表示` : '')
+        + '　行をクリックすると編集できます。';
+      $('showPastListBtn').hidden = hiddenCount === 0 && !showPastList;
 
       if (rows.length === 0) return;
 
@@ -1770,6 +1798,19 @@ import '../styles/kt-components.css';
     $('fromPick').onchange = loadList;
     $('toPick').onchange = loadList;
     $('reloadBtn').onclick = loadList;
+
+    // 一覧タブも、開いたままにしていると時刻を過ぎた予約が残り続けるので、
+    // ボードと同じく1分おきに隠れる件数を見て、変わっていたら描き直す
+    let lastHiddenListCount = -1;
+    setInterval(() => {
+      if ($('listPanel').hidden) return;
+      const searched = searchedListRows();
+      const hiddenCount = searched.length - visibleListRows(searched).length;
+      if (hiddenCount !== lastHiddenListCount) {
+        lastHiddenListCount = hiddenCount;
+        renderList();
+      }
+    }, 60 * 1000);
 
     // ── 編集モーダル ──
     function openEdit(rec: any) {

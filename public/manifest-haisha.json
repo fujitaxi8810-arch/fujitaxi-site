@@ -1,0 +1,15 @@
+{
+  "name": "配車管理 - 富士タクシー",
+  "short_name": "配車管理",
+  "description": "富士タクシー社内用の配車管理アプリ",
+  "start_url": "/haisha",
+  "scope": "/haisha",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#111111",
+  "lang": "ja",
+  "icons": [
+    { "src": "/icons/haisha-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/haisha-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

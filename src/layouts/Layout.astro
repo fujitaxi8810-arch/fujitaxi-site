@@ -14,6 +14,12 @@ export interface Props {
   noindex?: boolean;
   /** 画面下部のCTA（電話で予約／Webお問い合わせ／LINE）を隠す。社内用の作業画面で邪魔になるため */
   hideFloatCta?: boolean;
+  /**
+   * 社内アプリ（/haisha・/kintai・/shift）専用のアイコン・ホーム画面追加設定。
+   * 指定しなければ会社ロゴのfaviconのまま（通常の公開ページはこちら）。
+   * key はアイコンファイル名の接頭辞（public/icons/{key}.svg 等）と一致させる。
+   */
+  appIcon?: { key: string; name: string };
 }
 
 const {
@@ -26,6 +32,7 @@ const {
   localBusinessExtra,
   noindex = false,
   hideFloatCta = false,
+  appIcon,
 } = Astro.props;
 
 const siteUrl = 'https://fujitaxi-minamisoma.com';
@@ -94,9 +101,30 @@ const navItems = [
   <meta name="twitter:description" content={description} />
   <meta name="twitter:image"       content={ogImageUrl} />
 
-  <!-- ── Favicon ── -->
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <!-- ── Favicon ──
+       会社ロゴ（丸バッジ）から生成。以前は /favicon.svg・/apple-touch-icon.png を
+       参照していたが、どちらも実体が存在しないリンク切れだった（ユーザー指摘で発覚）。
+       社内アプリ（appIcon指定あり）はアプリごとの専用アイコン＋ホーム画面追加設定に差し替える -->
+  {appIcon ? (
+    <>
+      <link rel="icon" type="image/svg+xml" href={`/icons/${appIcon.key}.svg`} />
+      <link rel="icon" type="image/png" sizes="32x32" href={`/icons/${appIcon.key}-32.png`} />
+      <link rel="icon" type="image/png" sizes="16x16" href={`/icons/${appIcon.key}-16.png`} />
+      <link rel="apple-touch-icon" href={`/icons/${appIcon.key}-180.png`} />
+      <link rel="manifest" href={`/manifest-${appIcon.key}.json`} />
+      <meta name="theme-color" content="#111111" />
+      <!-- iOSでホーム画面に追加したとき、ブラウザのアドレスバー無しでアプリのように開く -->
+      <meta name="apple-mobile-web-app-capable" content="yes" />
+      <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      <meta name="apple-mobile-web-app-title" content={appIcon.name} />
+    </>
+  ) : (
+    <>
+      <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+      <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+      <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    </>
+  )}
 
   <!-- ── Fonts: Noto Sans JP + Inter + Great Vibes（非同期） ── -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />

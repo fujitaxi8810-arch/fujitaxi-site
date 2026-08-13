@@ -1,0 +1,15 @@
+{
+  "name": "シフト作成 - 富士タクシー",
+  "short_name": "シフト作成",
+  "description": "富士タクシー社内用の月次シフト作成アプリ",
+  "start_url": "/shift",
+  "scope": "/shift",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#111111",
+  "lang": "ja",
+  "icons": [
+    { "src": "/icons/shift-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/shift-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

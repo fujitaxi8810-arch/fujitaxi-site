@@ -688,6 +688,33 @@ function applyAdminUiVisibility() {
 
 ---
 
+## 5.8 社内アプリ専用アイコン・ホーム画面追加
+
+実証を前に「アプリのアイコンみたいなのを作れるか」と要望があり対応。`/haisha`・`/kintai`・`/shift`
+それぞれに専用アイコンを用意し、スマホ・タブレットの「ホーム画面に追加」でアプリらしく開けるようにした。
+
+- 共通デザイン：黒の角丸バッジ＋黄色の絵柄（配車＝タクシー、勤怠＝時計、シフト＝カレンダー）、
+  下に富士タクシーの丸ロゴを小さく配置（「アイコンにFUJITAXIと分かるように」という要望への対応）。
+  時計の絵柄は最初「く」の字の2本線で作ったところ、レビューで「チェックマークに見える」と
+  分かったため、12時・3時方向の直角ポーズに描き直した
+- 元データは `public/icons/{haisha,kintai,shift}.svg`。512x512で作り、`sharp`で16/32/180/192/512pxの
+  PNGに書き出している（`public/icons/{key}-{size}.png`）
+- 各アプリに `public/manifest-{key}.json`（Web App Manifest）を用意。`Layout.astro` の新しい
+  `appIcon` プロップ（`{ key, name }`）を渡すと、faviconをアプリ専用アイコンに差し替え、
+  `<link rel="manifest">` と `apple-mobile-web-app-*` メタタグを追加する
+  （iOSでホーム画面に追加した際、ブラウザのアドレスバー無しで開くようになる）
+- `appIcon` を渡さないページ（通常の公開サイト）は、これまで通り会社ロゴのfaviconのまま
+- **副産物の修正**：調査の過程で、サイト全体のfavicon設定（`/favicon.svg`・`/apple-touch-icon.png`）が
+  実体の無いファイルへのリンク切れだと判明（`Layout.astro` に前から書かれていたが、対応する
+  ファイルが一度も `public/` に置かれていなかった）。実在する会社ロゴ（`public/images/logo-fuji-taxi.webp`）
+  から円形に切り抜いた透過PNG（`public/images/logo-fuji-taxi-round.png`）を作り、
+  `public/favicon-{16,32,180,192,512}.png` として書き出して差し替えた
+- 管理者用の `/haisha?admin` は同じ `/haisha` ページなのでマニフェストも1つ（`start_url` は `/haisha`）。
+  Androidの「アプリをインストール」はマニフェストの `start_url` を使うため、`?admin` 付きでインストールしても
+  起動後は付かない。管理者はブラウザの通常のブックマーク（URLをそのまま保持する）を使う想定
+
+---
+
 ## 6. 想定していないこと（将来の課題）
 
 - **DSコネクトによるAPI直結**。実現すればCSVの手作業が消える。電脳交通への問い合わせが前提

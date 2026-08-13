@@ -86,12 +86,19 @@ function getStoredKioskCred(): { email: string; password: string } | null {
 }
 
 /**
- * 端末にkioskセッションが無ければ、初回のみメール/パスワードを入力してもらいログイン。
- * 以降はSupabaseのセッション永続化により自動ログイン状態を維持する。
+ * 従業員は何も入力せずに使えるようにする（Supabaseの匿名ログイン機能）。
+ * 「従業員はパスワード・メールアドレス入力が不要、管理者だけがログインすればいい」という
+ * ユーザー要望への対応。匿名ユーザーもRLS上は authenticated 扱いになるため、
+ * 既存のポリシー（`to authenticated`）はそのまま変更なしで動く。
+ *
+ * Supabaseダッシュボードで「Anonymous Sign-Ins」を有効化する必要がある
+ * （Authentication → Sign In / Providers）。無効なままだとエラーになるので、
+ * その場合だけ旧来の共有ログイン（メール/パスワードを一度だけ入力）にフォールバックする
+ * ―― 設定前でも従業員が完全に使えなくなることは無いようにするため。
  */
-export async function ensureKioskSession(): Promise<{ ok: boolean; error?: string }> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (sessionData.session) return { ok: true };
+async function signInAnonymousOrFallback(): Promise<{ ok: boolean; error?: string }> {
+  const { error: anonError } = await supabase.auth.signInAnonymously();
+  if (!anonError) return { ok: true };
 
   let cred = getStoredKioskCred();
   if (!cred) {
@@ -114,6 +121,17 @@ export async function ensureKioskSession(): Promise<{ ok: boolean; error?: strin
   }
   localStorage.setItem(KIOSK_CRED_KEY, JSON.stringify(cred));
   return { ok: true };
+}
+
+/**
+ * 端末にセッションが無ければ、従業員として（無ければ管理者以外の誰でも）使える状態にする。
+ * 既に管理者としてログイン済みのセッションがあれば、それをそのまま使う
+ * （＝管理者は一度ログインすればSupabaseのセッション永続化で覚えたままになる）。
+ */
+export async function ensureKioskSession(): Promise<{ ok: boolean; error?: string }> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (sessionData.session) return { ok: true };
+  return signInAnonymousOrFallback();
 }
 
 let cachedIsAdmin = false;

@@ -153,6 +153,19 @@ totalPay = base + extra
   - `kiosk`（端末常用）: 打刻の読み書きのみ。端末に一度ログインすればセッション永続
   - `admin`（管理者）: 全操作。現在の「管理者ロック解除」ボタンを **adminへのログイン** に置き換える（パスワード prompt → Supabase Auth サインイン）。「ロックする」で kiosk セッションに戻す
   - 権限判定は `app_metadata.role = 'admin'`（JWT内）を RLS で参照
+
+  > **更新（実証実験前）**：「従業員はパスワード・メールアドレス入力が不要にしてほしい。
+  > ログインが要るのは管理者だけでいい」という要望があり、`kiosk` の**共有パスワード入力を
+  > 廃止**。`ensureKioskSession()` はまず Supabase の**匿名ログイン**（`signInAnonymously()`）
+  > を試す。匿名ユーザーもRLS上は `authenticated` 扱いになるため、既存ポリシー
+  > （`to authenticated`）は変更不要。**Supabaseダッシュボードで
+  > Authentication → Sign In / Providers → Anonymous Sign-Ins を有効化する必要がある**
+  > （2026年時点で未設定。設定するまでは自動的に旧来のkioskパスワード入力にフォールバックする
+  > ため、設定前でも従業員が使えなくなることはない）。管理者ログインは変更なし
+  > （一度ログインすればSupabaseのセッション永続化で覚えたまま、明示的に「ロックする」を
+  > 押すまで再ログイン不要）。実装は `src/lib/kintai-db.ts` の `ensureKioskSession()` /
+  > `signInAnonymousOrFallback()`。`/haisha`・`/shift` もこのモジュールを共有しているため
+  > 同時に適用される。
 - 金額の閲覧マスク（`••••`）は現行同様**クライアント側**で行う（列レベルのDB秘匿は将来課題として第6章に記載。現行パリティ優先）
 - localStorage の `fuji-kintai-*` および全マイグレーションコードは**削除**（DBが正となるため不要）。ただし書き込み失敗時のエラー通知は必須（第5.4）
 

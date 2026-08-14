@@ -22,18 +22,6 @@ import '../styles/kt-components.css';
   <section class="section bg-black" style="padding-top: 1rem;">
     <div class="container kintai-wrap ha-wrap">
 
-      <!-- 文字サイズ切替。65型のタッチ表示と手元のPCでは適切な文字サイズが違う。
-           端末側からは視距離が分からないので、見る人が選べるようにする。
-           全ユーザー向けの機能なので、ページの一番初めに単独で置く -->
-      <div class="ha-zoombar">
-        <div class="ha-zoom" role="group" aria-label="文字サイズ">
-          <span class="ha-zoom__label">文字サイズ</span>
-          <button type="button" class="ha-zoom__btn" data-zoom="100">標準</button>
-          <button type="button" class="ha-zoom__btn" data-zoom="130">大</button>
-          <button type="button" class="ha-zoom__btn" data-zoom="165">特大</button>
-        </div>
-      </div>
-
       <!-- ログインしていないときの警告（未ログインだと参照は0件で返り、書き込みだけが失敗するため明示する） -->
       <div class="ha-authbanner" id="authBanner" hidden>
         <div>
@@ -209,6 +197,20 @@ import '../styles/kt-components.css';
           <div id="staffAdminBody" class="ha-assign-grid"></div>
         </div>
       </details>
+
+      <!-- 文字サイズ切替。65型のタッチ表示と手元のPCでは適切な文字サイズが違う。
+           端末側からは視距離が分からないので、見る人が選べるようにする。
+           以前はページの一番上に単独で置いていたが、端末ごとに一度選べば
+           あとは記憶される設定（localStorage）で毎回目に入る必要は無いため、
+           配車ボードの表示領域を優先してページの一番下に移動した -->
+      <div class="ha-zoombar">
+        <div class="ha-zoom" role="group" aria-label="文字サイズ">
+          <span class="ha-zoom__label">文字サイズ</span>
+          <button type="button" class="ha-zoom__btn" data-zoom="100">標準</button>
+          <button type="button" class="ha-zoom__btn" data-zoom="130">大</button>
+          <button type="button" class="ha-zoom__btn" data-zoom="165">特大</button>
+        </div>
+      </div>
 
     </div>
   </section>
@@ -2200,7 +2202,7 @@ import '../styles/kt-components.css';
      */
     .ha-wrap { max-width: var(--container-max); }
 
-    /* ── 文字サイズの切替（単独でページ冒頭に置く） ── */
+    /* ── 文字サイズの切替（端末ごとに記憶される設定なのでページの一番下に置く） ── */
     .ha-zoombar {
       display: flex;
       justify-content: flex-end;

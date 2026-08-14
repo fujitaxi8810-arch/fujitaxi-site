@@ -1791,12 +1791,23 @@ import '../styles/kt-components.css';
       // 列を1つ減らした分、「行き先・メモ」が見えやすくなる
       table.appendChild(headerRow(['予約日時', '状態', 'お客様名', '迎車場所', '行き先・メモ', '担当者', '済']));
 
+      // 複数日にまたがる一覧で、どこで日付が変わったか分かりにくいという
+      // 指摘があったため、日付が変わる行の上にだけ区切り線を入れる
+      // （毎行に線を引くと逆に見づらくなるため、変わり目だけの控えめな線）
+      let prevDateKey: string | null = null;
+
       const tbody = document.createElement('tbody');
       for (const r of rows) {
         const tr = document.createElement('tr');
         tr.className = 'ha-row--click';
         applyRowStatus(tr, r);
         tr.onclick = () => openEdit(r);
+
+        const rowDateKey = jstDateKey(r.reservedAt);
+        if (prevDateKey !== null && rowDateKey !== prevDateKey) {
+          tr.classList.add('ha-row--datestart');
+        }
+        prevDateKey = rowDateKey;
 
         // 配車ボードと同じく、新着は状態欄にまとめる
         const isNew = isNewSinceHandover(r);
@@ -2672,6 +2683,11 @@ import '../styles/kt-components.css';
     .ha-grid td { border-bottom: 1px solid #e5e5e5; }
     .ha-grid tbody tr:hover { background: #fafafa; }
 
+    /* 予約一覧で日付が変わる行の上に区切り線。毎行の薄い線(#e5e5e5)より
+       少しだけ濃く・太くする程度に留め、派手にしすぎない
+       （「極端にはしなくて大丈夫」というユーザー要望） */
+    .ha-row--datestart td { border-top: 2px solid #ccc; }
+
     /* 1列目（時刻）はスクロールしても残す */
     .ha-grid th.ha-sticky, .ha-grid td.ha-sticky {
       position: sticky;
@@ -2882,6 +2898,13 @@ import '../styles/kt-components.css';
       .ha-grid td.ha-sticky { position: static; background: none; }
       .ha-time { font-size: 1.05rem; }
       .ha-select { max-width: 65%; }
+
+      /* カード表示では、日付の変わり目セルごとに線を引くと不自然になるので、
+         カード（tr）自体の上に間隔＋線を付ける形に変える。
+         .ha-grid tr の border（全辺一括指定）の方が詳細度で勝ってしまう
+         （tr要素セレクタが1つ多い分）ため、同じ形で.ha-gridを付けて上書きする */
+      .ha-row--datestart td { border-top: none; }
+      .ha-grid .ha-row--datestart { margin-top: 1.1rem; border-top: 2px solid #ccc; }
     }
 
     /* ── 印刷 ── */

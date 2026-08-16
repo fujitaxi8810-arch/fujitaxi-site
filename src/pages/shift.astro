@@ -263,6 +263,15 @@ import Layout from '../layouts/Layout.astro';
       loadHistory();
     };
 
+    // 見出し2行目（曜日）の貼り付け位置は、1行目（日付）の実測の高さに合わせる。
+    // フォントサイズ変更等で高さが変わっても崩れないよう、決め打ちせず毎回測る。
+    function syncStickyOffset() {
+      const row1 = document.querySelector('#shiftTable thead tr:first-child th');
+      const h = row1 ? Math.round(row1.getBoundingClientRect().height) : 40;
+      document.documentElement.style.setProperty('--sf-sticky-top2', `${h}px`);
+    }
+    window.addEventListener('resize', syncStickyOffset);
+
     function renderGrid() {
       const month = currentMonth();
       const days = daysInMonth(month);
@@ -393,6 +402,7 @@ import Layout from '../layouts/Layout.astro';
         renderDiscrepancies(month, days, staff);
         renderBindingChecks(month, days, staff);
       }
+      syncStickyOffset();
     }
 
     function shiftTypeLabel(t) {
@@ -1005,6 +1015,8 @@ import Layout from '../layouts/Layout.astro';
     .sf-admintools { margin-bottom: 0.75rem; }
     .sf-grid-wrap {
       overflow-x: auto;
+      overflow-y: auto;
+      max-height: 70vh;
       background: #fff;
       border-radius: var(--radius-md);
       padding: 0.5rem;
@@ -1023,14 +1035,28 @@ import Layout from '../layouts/Layout.astro';
       background: #fff;
       z-index: 1;
     }
-    .sf-grid thead th:first-child {
+    /* 日付・曜日の見出し行は、縦スクロールしても常に見えるよう貼り付ける（2行あるので行ごとにtopをずらす。
+       2行目のtopは1行目の実測の高さをJSがCSS変数に入れる） */
+    .sf-grid thead tr:first-child th {
       position: sticky;
+      top: 0;
+      z-index: 3;
+    }
+    .sf-grid thead tr:last-child th {
+      position: sticky;
+      top: var(--sf-sticky-top2, 40px);
+      z-index: 3;
+    }
+    /* 左上の角セル（氏名列の見出し）は縦横どちらにスクロールしても残す必要があるため、
+       通常の見出し行より詳細度の高いセレクタでz-indexを確実に上書きする */
+    .sf-grid thead tr:first-child th:first-child,
+    .sf-grid thead tr:last-child th:first-child {
       left: 0;
       background: #fff;
-      z-index: 2;
+      z-index: 5;
     }
-    .sf-weekday { font-size: 0.95rem; color: #888; }
-    .sf-daynum { font-size: 1.35rem; font-weight: 900; }
+    .sf-weekday { font-size: 0.95rem; color: #888; background: #fff; }
+    .sf-daynum { font-size: 1.35rem; font-weight: 900; background: #fff; }
     .sf-weekend { background: #fbeaea; }
     .sf-saturday { background: #e8f1fc; }
     .sf-today { box-shadow: inset 0 0 0 2px var(--fuji-yellow); position: relative; z-index: 1; }
@@ -1145,6 +1171,9 @@ import Layout from '../layouts/Layout.astro';
       .sf-legend { color: #000; }
       .sf-grid th, .sf-grid td { color: #000; }
       th.sf-name, .sf-grid thead th:first-child { background: #fff; }
+      /* 内部スクロール用の高さ制限・貼り付き固定は印刷では不要（表全体を印刷したい） */
+      .sf-grid-wrap { max-height: none; overflow: visible; }
+      .sf-grid thead th { position: static; }
       .sf-code { background: #fff; border-color: #000; color: #000; }
       .sf-code--filled { background: #eee; border-color: #000; color: #000; }
       .sf-code--off { background: #fbdcdc; }

@@ -39,7 +39,7 @@ import Layout from '../layouts/Layout.astro';
         </div>
 
         <p class="sf-legend">
-          公＝公休　①＝普通番(7:00-16:00・森田　愛美莉さんのみ8:00-17:00)　③＝遅番(15:30-24:30)　SH＝シャトル便　S　貸切　有給<br />
+          公＝公休　①＝普通番(7:00-16:00・森田　愛美莉さんのみ8:00-17:00)　①S＝スクール　①H＝スクール原町　③＝遅番(15:30-24:30)　SH＝シャトル便　S　貸切　有給<br />
           セルをクリックで順番に切り替わります。右クリックで一覧から直接選べます（電話番の設定もここから）。右上の赤丸は電話番担当を表します。
         </p>
 
@@ -133,7 +133,7 @@ import Layout from '../layouts/Layout.astro';
     } from '../lib/kintai-db';
     // シフト選択なしの単一出勤ボタンを使う区分（kintai.astroのusesSimplePunchと同じ判定）
     function usesSimplePunch(t) { return t === 'part' || t === 'fulltime-hourly' || t === 'monthly'; }
-    const WORK_CODES = ['①', '③', 'SH', 'S', '貸切'];
+    const WORK_CODES = ['①', '①S', '①H', '③', 'SH', 'S', '貸切'];
 
     const $ = (id) => document.getElementById(id);
     const SAVE_FAIL_MSG = '通信エラーで保存できませんでした。電波状況を確認してもう一度お試しください。';
@@ -163,6 +163,8 @@ import Layout from '../layouts/Layout.astro';
     const CODE_LABELS = {
       '公': '公休',
       '①': '①普通番 7:00-16:00',
+      '①S': '①S（スクール）',
+      '①H': '①H（スクール原町）',
       '③': '③遅番 15:30-24:30',
       'SH': 'SH（シャトル便）',
       'S': 'S',
@@ -180,6 +182,8 @@ import Layout from '../layouts/Layout.astro';
     const CODE_CLASS = {
       '公': 'sf-code--off',
       '①': 'sf-code--normal',
+      '①S': 'sf-code--school',
+      '①H': 'sf-code--school-h',
       '③': 'sf-code--late',
       'SH': 'sf-code--shuttle',
       'S': 'sf-code--special',
@@ -466,8 +470,8 @@ import Layout from '../layouts/Layout.astro';
             list.push({ date: workDate, name: s.name, planned, actual: '未出勤', note: '予定があるのに打刻がありません' });
           } else if (expectOff && hasPunch) {
             list.push({ date: workDate, name: s.name, planned, actual: '出勤あり', note: '公休／有給の予定日に打刻があります' });
-          } else if (expectWork && hasPunch && !usesSimplePunch(s.type) && (planned === '①' || planned === '③')) {
-            const expectedType = planned === '①' ? 'normal' : 'late';
+          } else if (expectWork && hasPunch && !usesSimplePunch(s.type) && (planned === '①' || planned === '①S' || planned === '①H' || planned === '③')) {
+            const expectedType = planned === '③' ? 'late' : 'normal';
             if (att.shiftType && att.shiftType !== expectedType) {
               list.push({ date: workDate, name: s.name, planned, actual: shiftTypeLabel(att.shiftType), note: '普通番／遅番が予定と異なります' });
             }
@@ -671,7 +675,7 @@ import Layout from '../layouts/Layout.astro';
     }
 
     function summaryFor(s, month, days) {
-      const counts = { 公: 0, '①': 0, '③': 0, SH: 0, S: 0, 貸切: 0, 有給: 0 };
+      const counts = { 公: 0, '①': 0, '①S': 0, '①H': 0, '③': 0, SH: 0, S: 0, 貸切: 0, 有給: 0 };
       let phoneDutyCount = 0;
       for (let d = 1; d <= days; d++) {
         const workDate = `${month}-${String(d).padStart(2, '0')}`;
@@ -679,7 +683,7 @@ import Layout from '../layouts/Layout.astro';
         if (cell && cell.code in counts) counts[cell.code]++;
         if (cell && cell.phoneDuty) phoneDutyCount++;
       }
-      const workCount = counts['①'] + counts['③'] + counts.SH + counts.S + counts.貸切;
+      const workCount = counts['①'] + counts['①S'] + counts['①H'] + counts['③'] + counts.SH + counts.S + counts.貸切;
       return { ...counts, workCount, phoneDutyCount };
     }
 
@@ -688,7 +692,7 @@ import Layout from '../layouts/Layout.astro';
       table.innerHTML = '';
       const thead = document.createElement('thead');
       const headRow = document.createElement('tr');
-      ['氏名', '稼働日数', '①普通番', '③遅番', 'SH', 'S', '貸切', '有給', '公休', '電話番'].forEach((label) => {
+      ['氏名', '稼働日数', '①普通番', '①S', '①H', '③遅番', 'SH', 'S', '貸切', '有給', '公休', '電話番'].forEach((label) => {
         const th = document.createElement('th');
         th.textContent = label;
         headRow.appendChild(th);
@@ -703,7 +707,7 @@ import Layout from '../layouts/Layout.astro';
           const tr = document.createElement('tr');
           const th = document.createElement('th');
           th.textContent = label;
-          th.colSpan = 10;
+          th.colSpan = 12;
           th.className = 'sf-group-header';
           tr.appendChild(th);
           tbody.appendChild(tr);
@@ -715,7 +719,7 @@ import Layout from '../layouts/Layout.astro';
           nameTd.textContent = s.name;
           nameTd.style.textAlign = 'left';
           tr.appendChild(nameTd);
-          [sum.workCount, sum['①'], sum['③'], sum.SH, sum.S, sum.貸切, sum.有給, sum.公, sum.phoneDutyCount].forEach((v) => {
+          [sum.workCount, sum['①'], sum['①S'], sum['①H'], sum['③'], sum.SH, sum.S, sum.貸切, sum.有給, sum.公, sum.phoneDutyCount].forEach((v) => {
             const td = document.createElement('td');
             td.textContent = String(v);
             tr.appendChild(td);
@@ -731,7 +735,10 @@ import Layout from '../layouts/Layout.astro';
     }
 
     function codesFor(s) {
-      const codes = ['公', '①', '③'];
+      const codes = ['公', '①'];
+      if (s.shiftSchool) codes.push('①S');
+      if (s.shiftSchoolHaramachi) codes.push('①H');
+      codes.push('③');
       if (s.shiftShuttle) codes.push('SH');
       if (s.shiftSpecial) codes.push('S');
       codes.push('貸切');
@@ -1150,6 +1157,16 @@ import Layout from '../layouts/Layout.astro';
       border-color: #1d4ed8;
       color: #1d4ed8;
     }
+    .sf-code--school {
+      background: #ecfdf5;
+      border-color: #047857;
+      color: #047857;
+    }
+    .sf-code--school-h {
+      background: #fff7ed;
+      border-color: #c2410c;
+      color: #c2410c;
+    }
     .sf-code--late {
       background: #fffbeb;
       border-color: #92400e;
@@ -1237,6 +1254,8 @@ import Layout from '../layouts/Layout.astro';
       .sf-code--filled { background: #eee; border-color: #000; color: #000; }
       .sf-code--off { background: #fbdcdc; }
       .sf-code--normal { background: #dcf3e6; }
+      .sf-code--school { background: #e0f0c8; }
+      .sf-code--school-h { background: #fbe8c8; }
       .sf-code--late { background: #dcebfb; }
       .sf-code--shuttle { background: #ecdcfb; }
       .sf-code--special { background: #dcf7f4; }

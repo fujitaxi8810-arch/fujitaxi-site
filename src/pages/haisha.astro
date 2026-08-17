@@ -1744,6 +1744,36 @@ import '../styles/kt-components.css';
       renderList();
     }
 
+    // 検索窓は表示中の期間（開始日〜終了日）の中でしか一致しない仕様だったため、
+    // 「先月のあの人の予約」のように期間外を探したいとき、まず開始日を
+    // 手で広げないと検索に引っかからなかった（ユーザー指摘）。
+    // 検索窓に文字が入っている間だけ全期間を読み込んで探し、
+    // 空にしたら元の期間（開始日〜終了日ピッカーの値）に戻す。
+    let searchAllMode = false;
+
+    async function loadListAllDates() {
+      try {
+        listRows = await fetchReservationsRange('2000-01-01', shiftDate(todayJst(), 3650));
+      } catch (e) {
+        alert(failMsg(e, 'データの読み込み'));
+        return;
+      }
+      renderList();
+    }
+
+    async function handleSearchInput() {
+      const hasQuery = ($('searchInput').value || '').trim() !== '';
+      if (hasQuery && !searchAllMode) {
+        searchAllMode = true;
+        await loadListAllDates();
+      } else if (!hasQuery && searchAllMode) {
+        searchAllMode = false;
+        await loadList();
+      } else {
+        renderList();
+      }
+    }
+
     // 予約一覧も、配車ボードと同じく「時刻を過ぎた予約」を既定で隠す
     // （ユーザー指摘：一覧タブだけ過ぎた予定が残ったままだった）。
     // ボードは「今日を見ているときだけ」対象にする特別扱いが要るが、
@@ -1782,7 +1812,8 @@ import '../styles/kt-components.css';
       const table = $('listTable');
       table.innerHTML = '';
       $('listEmpty').hidden = rows.length > 0;
-      $('listSummary').textContent = `${rows.length}件を表示（期間内 ${listRows.length}件）`
+      $('listSummary').textContent = `${rows.length}件を表示`
+        + (searchAllMode ? `（検索中は全期間が対象）` : `（期間内 ${listRows.length}件）`)
         + (hiddenCount > 0 ? `　※時刻を過ぎた${hiddenCount}件は非表示` : '')
         + '　行をクリックすると編集できます。';
       $('showPastListBtn').hidden = hiddenCount === 0 && !showPastList;
@@ -1860,7 +1891,7 @@ import '../styles/kt-components.css';
       table.appendChild(tbody);
     }
 
-    $('searchInput').oninput = renderList;
+    $('searchInput').oninput = handleSearchInput;
     $('fromPick').onchange = loadList;
     $('toPick').onchange = loadList;
     $('reloadBtn').onclick = loadList;

@@ -75,10 +75,16 @@ create index dispatch_reservations_date_idx  on dispatch_reservations (reserved_
 create index dispatch_reservations_staff_idx on dispatch_reservations (staff_id);
 
 -- 再取り込み時の重複防止（安全網）。
--- 同一時刻・同一電話番号のCSV行は同じ予約とみなす。
--- phone が null の行同士は衝突しないため coalesce で空文字に寄せる。
+-- 同一時刻・同一電話番号・同一登録日時のCSV行は同じ予約とみなす。
+-- phone/registered_at が null の行同士は衝突しないよう coalesce で寄せる。
+-- ⚠️ 2026-08-17に (reserved_at, phone) だけのキーが原因のデータ消失事故が発覚し、
+--    registered_at を追加する形に変更した。詳細は §5.9 を参照。
 create unique index dispatch_reservations_csv_key
-  on dispatch_reservations (reserved_at, coalesce(phone, ''))
+  on dispatch_reservations (
+    reserved_at,
+    coalesce(phone, ''),
+    coalesce(registered_at, 'epoch'::timestamptz)
+  )
   where source = 'csv';
 ```
 
@@ -712,6 +718,73 @@ function applyAdminUiVisibility() {
 - 管理者用の `/haisha?admin` は同じ `/haisha` ページなのでマニフェストも1つ（`start_url` は `/haisha`）。
   Androidの「アプリをインストール」はマニフェストの `start_url` を使うため、`?admin` 付きでインストールしても
   起動後は付かない。管理者はブラウザの通常のブックマーク（URLをそのまま保持する）を使う想定
+
+---
+
+## 5.9 データ消失事故と修正（同時刻・同電話番号の複数予約が1件に潰れる）
+
+**発覚:** 2026-08-17。ユーザーから「8/17 13:10予約が3件のはずが1件にまとまっている。17:30予約も同じ」と報告。
+ユーザー提供のDS書き出しCSV（`reserve (4).csv`）を確認したところ、東北送配電サービス様の
+17:30予約が3行あり、**予約日時・電話番号・お客様名・行き先メモなど全項目が完全に同一で、
+唯一「登録日時」だけが1分ずつ違う**（13:45→13:46→13:47）ことを確認した
+（車1台ずつ、DS側で1分おきに登録されたとみられる＝法人が同時刻に複数台を依頼したケース）。
+
+### 原因
+
+`matchKey(reservedAt, phone)`（`src/lib/haisha-db.ts`）が予約時刻＋電話番号だけで
+「同じ予約」を判定していたため、以下の2箇所で正しく別々の予約と扱われなかった：
+
+1. **`buildImportPlan` のファイル内重複排除**（`byKey` Map）。取り込むCSVの中で同じキーの行が
+   来ると「後勝ちで1件に寄せる」ため、3行のうち2行がDBに書き込まれる前に静かに消えていた
+   （画面上は「重複していた行」件数として一応出るが、これが正常なCSVの重複除去なのか、
+   実は別々の正当な予約を握りつぶしているのか区別できない見た目だった）
+2. **DB側のユニークインデックス `dispatch_reservations_csv_key`**（`reserved_at, coalesce(phone,'')`）。
+   仮に1の重複除去を素通りしても、2件目以降の insert がユニーク制約違反になっていた
+
+### 修正内容
+
+`matchKey` に **登録日時（`registered_at`）** を第三の要素として追加した
+（`src/lib/haisha-db.ts` の `matchKey` 関数、および `buildImportPlan` 内の2箇所の呼び出し）。
+
+```ts
+function matchKey(reservedAt: string, phone: string | null, registeredAt: string | null): string {
+  const registeredKey = registeredAt ? new Date(registeredAt).getTime() : '';
+  return `${new Date(reservedAt).getTime()}|${normalizePhoneKey(phone)}|${registeredKey}`;
+}
+```
+
+DB側のユニークインデックスも `registered_at` を含む形に**再作成が必要**（§2のDDLブロックを更新済み。
+既存のSupabaseプロジェクトには反映されていないため、下記SQLを**ユーザーがSQL Editorで実行**する）：
+
+```sql
+drop index if exists dispatch_reservations_csv_key;
+
+create unique index dispatch_reservations_csv_key
+  on dispatch_reservations (
+    reserved_at,
+    coalesce(phone, ''),
+    coalesce(registered_at, 'epoch'::timestamptz)
+  )
+  where source = 'csv';
+```
+
+### 影響範囲の確認
+
+- **CSV再取り込み時の「変更あり」「キャンセル」自動検出**（§5.45にある `buildImportPlan` の missing 検出ロジック）は
+  `matchKey` を直接使っておらず、電話番号・お客様名・行き先メモ・時刻の近さで独自に候補を絞る作りのため、
+  今回の変更による影響は無い
+- 既存の同一(reserved_at, phone)で登録日時も同じ行（true duplicate、CSVの二重貼り付け等）は
+  引き続き正しく1件に統合される
+- **失われた4件（8/17 13:10 × 2件、17:30 × 2件）はDBに戻らないため、手作業での再登録が必要**
+  （「＋新規予約」から、電話番号・お客様名等をCSVの内容通りに手入力する想定。ユーザーへの案内は別途行う）
+
+### 教訓・積み残し
+
+DSのCSV出力には「予約ID」のような一意キーが無く、`reserved_at + phone` は人間には自明でも
+システム上は同一予約の保証にならない。`registered_at` は分単位までしか無いため、
+理論上は「同時刻・同電話番号・同分に登録された複数の別予約」がまだ衝突しうる
+（今回のケースは1分ずつずれていたため助かった）。DSコネクトAPI連携が実現すれば
+本来の予約IDが取れる可能性があり、その際はこの仮のキーから置き換えるのが望ましい。
 
 ---
 

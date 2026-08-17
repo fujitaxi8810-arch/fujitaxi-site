@@ -620,9 +620,18 @@ async function recordImportLog(
   if (error) throw error;
 }
 
-/** 既存行と取り込み行の照合キー。予約時刻（ミリ秒）＋電話番号の正規化値 */
-function matchKey(reservedAt: string, phone: string | null): string {
-  return `${new Date(reservedAt).getTime()}|${normalizePhoneKey(phone)}`;
+/**
+ * 既存行と取り込み行の照合キー。予約時刻（ミリ秒）＋電話番号の正規化値＋登録日時（ミリ秒）。
+ *
+ * 登録日時まで含めるのは、同じ時刻・同じ電話番号で複数台を別々に予約登録する
+ * ケース（法人が同時刻に複数台を頼み、DS側で1台ずつ登録される等）があり、
+ * 時刻・電話番号だけでは別々の予約を同じキーとみなして1件に潰してしまうため。
+ * （2026-08-17に実際に発生：東北送配電サービス様の17:30予約3件が、登録日時が
+ * 1分ずつ違うだけの別予約だったにもかかわらず1件に統合され、2件が消えた）
+ */
+function matchKey(reservedAt: string, phone: string | null, registeredAt: string | null): string {
+  const registeredKey = registeredAt ? new Date(registeredAt).getTime() : '';
+  return `${new Date(reservedAt).getTime()}|${normalizePhoneKey(phone)}|${registeredKey}`;
 }
 
 /** 表記ゆれ（前後・間の空白）を無視した比較用のお客様名 */
@@ -653,7 +662,7 @@ export async function buildImportPlan(rows: NormalizedRow[]): Promise<ImportPlan
   const byKey = new Map<string, NormalizedRow>();
   let duplicatesInFile = 0;
   for (const r of rows) {
-    const k = matchKey(r.reservedAt, r.phone);
+    const k = matchKey(r.reservedAt, r.phone, r.registeredAt);
     if (byKey.has(k)) duplicatesInFile++;
     byKey.set(k, r);
   }
@@ -665,7 +674,7 @@ export async function buildImportPlan(rows: NormalizedRow[]): Promise<ImportPlan
 
   const existing = await fetchReservationsRange(dateFrom, dateTo);
   const existingByKey = new Map<string, Reservation>();
-  for (const e of existing) existingByKey.set(matchKey(e.reservedAt, e.phone), e);
+  for (const e of existing) existingByKey.set(matchKey(e.reservedAt, e.phone, e.registeredAt), e);
 
   const inserts: ImportPlan['inserts'] = [];
   const updates: ImportPlan['updates'] = [];

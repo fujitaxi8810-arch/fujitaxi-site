@@ -39,7 +39,7 @@ import Layout from '../layouts/Layout.astro';
         </div>
 
         <p class="sf-legend">
-          公＝公休　①＝普通番(7:00-16:00)　③＝遅番(15:30-24:30)　SH＝シャトル便　S　貸切　有給<br />
+          公＝公休　①＝普通番(7:00-16:00・森田　愛美莉さんのみ8:00-17:00)　③＝遅番(15:30-24:30)　SH＝シャトル便　S　貸切　有給<br />
           セルをクリックで順番に切り替わります。右クリックで一覧から直接選べます（電話番の設定もここから）。右上の赤丸は電話番担当を表します。
         </p>
 
@@ -169,6 +169,14 @@ import Layout from '../layouts/Layout.astro';
       '貸切': '貸切',
       '有給': '有給',
     };
+    // 森田　愛美莉さんだけ①の勤務時間が例外（8:00-17:00）。他のスタッフは7:00-16:00のまま（2026-08-17指示）
+    const NORMAL_HOURS_OVERRIDE = { '森田　愛美莉': '8:00-17:00' };
+    function codeLabelFor(s, code) {
+      if (code === '①' && s && NORMAL_HOURS_OVERRIDE[s.name]) {
+        return `①普通番 ${NORMAL_HOURS_OVERRIDE[s.name]}`;
+      }
+      return CODE_LABELS[code] || code;
+    }
     const CODE_CLASS = {
       '公': 'sf-code--off',
       '①': 'sf-code--normal',
@@ -765,7 +773,7 @@ import Layout from '../layouts/Layout.astro';
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'kt-staff' + (code === currentCode ? ' is-active' : '');
-        b.textContent = CODE_LABELS[code] || code;
+        b.textContent = codeLabelFor(s, code);
         b.onclick = async () => {
           const target = modalTarget;
           if (!target) return;

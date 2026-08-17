@@ -45,6 +45,13 @@ import Layout from '../layouts/Layout.astro';
 
         <div class="kt-panel__tools sf-admintools" id="adminTools" hidden>
           <button type="button" class="kt-btn kt-btn--ghost" id="copyPrevBtn">前月の内容をコピー</button>
+          <select class="kt-input" id="printScope">
+            <option value="all">印刷範囲：全員</option>
+            <option value="main">印刷範囲：乗務員（部門なし）のみ</option>
+            <option value="office">印刷範囲：経理・配車業務担当のみ</option>
+            <option value="maintenance">印刷範囲：整備部門のみ</option>
+            <option value="jumbo">印刷範囲：ジャンボタクシー受付担当のみ</option>
+          </select>
           <button type="button" class="kt-btn" id="printBtn">印刷</button>
         </div>
 
@@ -182,6 +189,19 @@ import Layout from '../layouts/Layout.astro';
     let modalTarget = null; // { staffId, workDate }
     let historyList = [];
 
+    // 経理・配車業務担当／整備部門／ジャンボタクシー受付担当の折りたたみ状態。
+    // 端末ごとに記憶する（既定は開いた状態＝今までの見え方のまま）。
+    const GROUP_COLLAPSE_KEY = 'fuji-shift-group-collapsed';
+    let collapsedGroups = {};
+    try {
+      collapsedGroups = JSON.parse(localStorage.getItem(GROUP_COLLAPSE_KEY) || '{}');
+    } catch (e) {
+      collapsedGroups = {};
+    }
+    function saveCollapsedGroups() {
+      localStorage.setItem(GROUP_COLLAPSE_KEY, JSON.stringify(collapsedGroups));
+    }
+
     function shiftKey(staffId, workDate) {
       return `${staffId}|${workDate}`;
     }
@@ -263,15 +283,6 @@ import Layout from '../layouts/Layout.astro';
       loadHistory();
     };
 
-    // 見出し2行目（曜日）の貼り付け位置は、1行目（日付）の実測の高さに合わせる。
-    // フォントサイズ変更等で高さが変わっても崩れないよう、決め打ちせず毎回測る。
-    function syncStickyOffset() {
-      const row1 = document.querySelector('#shiftTable thead tr:first-child th');
-      const h = row1 ? Math.round(row1.getBoundingClientRect().height) : 40;
-      document.documentElement.style.setProperty('--sf-sticky-top2', `${h}px`);
-    }
-    window.addEventListener('resize', syncStickyOffset);
-
     function renderGrid() {
       const month = currentMonth();
       const days = daysInMonth(month);
@@ -316,17 +327,41 @@ import Layout from '../layouts/Layout.astro';
 
       const tbody = document.createElement('tbody');
 
-      function addGroupHeader(label) {
+      function addGroupHeader(label, groupKey) {
         const tr = document.createElement('tr');
+        tr.dataset.group = groupKey;
         const th = document.createElement('th');
-        th.textContent = label;
+        const collapsed = !!collapsedGroups[groupKey];
         th.colSpan = days + 1;
-        th.className = 'sf-group-header';
+        th.className = 'sf-group-header sf-group-toggle' + (collapsed ? ' is-collapsed' : '');
+        th.tabIndex = 0;
+        th.setAttribute('role', 'button');
+        th.setAttribute('aria-expanded', String(!collapsed));
+        const chevron = document.createElement('span');
+        chevron.className = 'sf-group-chevron';
+        chevron.textContent = '▼';
+        chevron.setAttribute('aria-hidden', 'true');
+        th.appendChild(chevron);
+        th.appendChild(document.createTextNode(label));
+        const toggleGroup = () => {
+          collapsedGroups[groupKey] = !collapsedGroups[groupKey];
+          saveCollapsedGroups();
+          renderGrid();
+        };
+        th.onclick = toggleGroup;
+        th.onkeydown = (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleGroup();
+          }
+        };
         tr.appendChild(th);
         tbody.appendChild(tr);
       }
-      function addStaffRow(s) {
+      function addStaffRow(s, groupKey = null) {
         const tr = document.createElement('tr');
+        tr.dataset.group = groupKey || 'main';
+        if (groupKey && collapsedGroups[groupKey]) tr.hidden = true;
         const nameTh = document.createElement('th');
         nameTh.textContent = s.name;
         nameTh.classList.add('sf-name');
@@ -375,18 +410,18 @@ import Layout from '../layouts/Layout.astro';
       const maintenanceStaff = staff.filter((s) => s.shiftGroup === 'maintenance');
       const jumboStaff = staff.filter((s) => s.shiftGroup === 'jumbo');
 
-      mainStaff.forEach(addStaffRow);
+      mainStaff.forEach((s) => addStaffRow(s));
       if (officeStaff.length) {
-        addGroupHeader('経理・配車業務担当');
-        officeStaff.forEach(addStaffRow);
+        addGroupHeader('経理・配車業務担当', 'office');
+        officeStaff.forEach((s) => addStaffRow(s, 'office'));
       }
       if (maintenanceStaff.length) {
-        addGroupHeader('整備部門');
-        maintenanceStaff.forEach(addStaffRow);
+        addGroupHeader('整備部門', 'maintenance');
+        maintenanceStaff.forEach((s) => addStaffRow(s, 'maintenance'));
       }
       if (jumboStaff.length) {
-        addGroupHeader('ジャンボタクシー受付担当');
-        jumboStaff.forEach(addStaffRow);
+        addGroupHeader('ジャンボタクシー受付担当', 'jumbo');
+        jumboStaff.forEach((s) => addStaffRow(s, 'jumbo'));
       }
       table.appendChild(tbody);
 
@@ -402,7 +437,6 @@ import Layout from '../layouts/Layout.astro';
         renderDiscrepancies(month, days, staff);
         renderBindingChecks(month, days, staff);
       }
-      syncStickyOffset();
     }
 
     function shiftTypeLabel(t) {
@@ -858,6 +892,14 @@ import Layout from '../layouts/Layout.astro';
       }
     };
 
+    // 印刷範囲の選択を印刷CSSから参照できるよう、body の data 属性に反映しておく
+    // （印刷ボタン以外にブラウザの印刷機能（Ctrl+P等）から呼ばれても選択が効くように、
+    //   クリック時ではなく選択が変わるたびに同期する）
+    function syncPrintScope() {
+      document.body.dataset.printScope = $('printScope').value;
+    }
+    $('printScope').onchange = syncPrintScope;
+    syncPrintScope();
     $('printBtn').onclick = () => window.print();
 
     async function boot() {
@@ -1015,8 +1057,6 @@ import Layout from '../layouts/Layout.astro';
     .sf-admintools { margin-bottom: 0.75rem; }
     .sf-grid-wrap {
       overflow-x: auto;
-      overflow-y: auto;
-      max-height: 70vh;
       background: #fff;
       border-radius: var(--radius-md);
       padding: 0.5rem;
@@ -1035,28 +1075,14 @@ import Layout from '../layouts/Layout.astro';
       background: #fff;
       z-index: 1;
     }
-    /* 日付・曜日の見出し行は、縦スクロールしても常に見えるよう貼り付ける（2行あるので行ごとにtopをずらす。
-       2行目のtopは1行目の実測の高さをJSがCSS変数に入れる） */
-    .sf-grid thead tr:first-child th {
+    .sf-grid thead th:first-child {
       position: sticky;
-      top: 0;
-      z-index: 3;
-    }
-    .sf-grid thead tr:last-child th {
-      position: sticky;
-      top: var(--sf-sticky-top2, 40px);
-      z-index: 3;
-    }
-    /* 左上の角セル（氏名列の見出し）は縦横どちらにスクロールしても残す必要があるため、
-       通常の見出し行より詳細度の高いセレクタでz-indexを確実に上書きする */
-    .sf-grid thead tr:first-child th:first-child,
-    .sf-grid thead tr:last-child th:first-child {
       left: 0;
       background: #fff;
-      z-index: 5;
+      z-index: 2;
     }
-    .sf-weekday { font-size: 0.95rem; color: #888; background: #fff; }
-    .sf-daynum { font-size: 1.35rem; font-weight: 900; background: #fff; }
+    .sf-weekday { font-size: 0.95rem; color: #888; }
+    .sf-daynum { font-size: 1.35rem; font-weight: 900; }
     .sf-weekend { background: #fbeaea; }
     .sf-saturday { background: #e8f1fc; }
     .sf-today { box-shadow: inset 0 0 0 2px var(--fuji-yellow); position: relative; z-index: 1; }
@@ -1068,6 +1094,26 @@ import Layout from '../layouts/Layout.astro';
       font-size: 1.05rem;
       padding: 0.4rem 0.6rem;
     }
+    .sf-group-toggle {
+      cursor: pointer;
+      user-select: none;
+    }
+    .sf-group-toggle:hover, .sf-group-toggle:focus-visible {
+      background: #ffdb4d;
+    }
+    .sf-group-toggle:focus-visible {
+      outline: 2px solid var(--fuji-black);
+      outline-offset: -2px;
+    }
+    .sf-group-chevron {
+      display: inline-block;
+      margin-right: 0.4rem;
+      transition: transform 0.15s ease;
+    }
+    .sf-group-toggle.is-collapsed .sf-group-chevron {
+      transform: rotate(-90deg);
+    }
+    .sf-grid tbody tr[hidden] { display: none; }
     .sf-code {
       background: #fff;
       border: 1px solid #ccc;
@@ -1171,9 +1217,14 @@ import Layout from '../layouts/Layout.astro';
       .sf-legend { color: #000; }
       .sf-grid th, .sf-grid td { color: #000; }
       th.sf-name, .sf-grid thead th:first-child { background: #fff; }
-      /* 内部スクロール用の高さ制限・貼り付き固定は印刷では不要（表全体を印刷したい） */
-      .sf-grid-wrap { max-height: none; overflow: visible; }
-      .sf-grid thead th { position: static; }
+      /* 折りたたんでいても印刷では全員分を出す（印刷範囲を絞っていない場合） */
+      .sf-grid tbody tr[hidden] { display: table-row !important; }
+      .sf-group-chevron { display: none; }
+      /* 印刷範囲の絞り込み（#printScopeの選択をbodyのdata属性に反映し、該当しない行を隠す） */
+      body[data-print-scope="main"] .sf-grid tbody tr:not([data-group="main"]) { display: none !important; }
+      body[data-print-scope="office"] .sf-grid tbody tr:not([data-group="office"]) { display: none !important; }
+      body[data-print-scope="maintenance"] .sf-grid tbody tr:not([data-group="maintenance"]) { display: none !important; }
+      body[data-print-scope="jumbo"] .sf-grid tbody tr:not([data-group="jumbo"]) { display: none !important; }
       .sf-code { background: #fff; border-color: #000; color: #000; }
       .sf-code--filled { background: #eee; border-color: #000; color: #000; }
       .sf-code--off { background: #fbdcdc; }

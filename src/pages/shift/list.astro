@@ -1,0 +1,547 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout
+  title="シフト一覧 – 富士タクシー（社内用）"
+  description="富士タクシー社内用のシフト一覧。スクロールせずに全体・個人ごとの月間シフトを確認できます。"
+  noindex
+  hideFloatCta
+  appIcon={{ key: 'shift', name: 'シフト一覧' }}
+>
+  <div class="sl-page">
+    <div class="sl-bar">
+      <h1 class="sl-title">シフト<span class="sl-title-accent">一覧</span></h1>
+      <div class="sl-controls">
+        <div class="sl-tabs" role="tablist">
+          <button type="button" class="sl-tab is-active" id="tabAll" role="tab" aria-selected="true">全体</button>
+          <button type="button" class="sl-tab" id="tabMine" role="tab" aria-selected="false">個別</button>
+        </div>
+        <button type="button" class="sl-navbtn" id="prevMonthBtn" aria-label="前の月">◀</button>
+        <input type="month" id="monthPick" class="sl-input" />
+        <button type="button" class="sl-navbtn" id="nextMonthBtn" aria-label="次の月">▶</button>
+        <select class="sl-input" id="staffPick" hidden></select>
+        <a href="/shift" class="sl-editlink">編集画面へ</a>
+      </div>
+    </div>
+
+    <p class="sl-status" id="statusMsg" hidden></p>
+
+    <div id="allView">
+      <div class="sl-grid-wrap">
+        <table class="sl-grid" id="allTable"></table>
+      </div>
+      <p class="sl-empty" id="allEmpty" hidden>スタッフが登録されていません。</p>
+    </div>
+
+    <div id="mineView" hidden>
+      <p class="sl-mine-name" id="mineName"></p>
+      <div class="sl-cal" id="mineCal"></div>
+      <p class="sl-empty" id="mineEmpty" hidden>スタッフが登録されていません。</p>
+    </div>
+  </div>
+
+  <script>
+    import { fetchStaff, fetchShiftMonth, type Staff, type Shift } from '../../lib/kintai-db';
+
+    const $ = (id: string) => document.getElementById(id) as HTMLElement;
+    const WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
+    // 内閣府発表の国民の祝日（2025〜2027年）。shift.astroと同じデータ（ページ間でJSは共有されないため複製）
+    const HOLIDAYS: Record<string, string> = {
+      '2025-01-01': '元日', '2025-01-13': '成人の日', '2025-02-11': '建国記念の日',
+      '2025-02-23': '天皇誕生日', '2025-02-24': '振替休日', '2025-03-20': '春分の日',
+      '2025-04-29': '昭和の日', '2025-05-03': '憲法記念日', '2025-05-04': 'みどりの日',
+      '2025-05-05': 'こどもの日', '2025-05-06': '振替休日', '2025-07-21': '海の日',
+      '2025-08-11': '山の日', '2025-09-15': '敬老の日', '2025-09-23': '秋分の日',
+      '2025-10-13': 'スポーツの日', '2025-11-03': '文化の日', '2025-11-23': '勤労感謝の日',
+      '2025-11-24': '振替休日',
+      '2026-01-01': '元日', '2026-01-12': '成人の日', '2026-02-11': '建国記念の日',
+      '2026-02-23': '天皇誕生日', '2026-03-20': '春分の日', '2026-04-29': '昭和の日',
+      '2026-05-03': '憲法記念日', '2026-05-04': 'みどりの日', '2026-05-05': 'こどもの日',
+      '2026-05-06': '振替休日', '2026-07-20': '海の日', '2026-08-11': '山の日',
+      '2026-09-21': '敬老の日', '2026-09-22': '国民の休日', '2026-09-23': '秋分の日',
+      '2026-10-12': 'スポーツの日', '2026-11-03': '文化の日', '2026-11-23': '勤労感謝の日',
+      '2027-01-01': '元日', '2027-01-11': '成人の日', '2027-02-11': '建国記念の日',
+      '2027-02-23': '天皇誕生日', '2027-03-21': '春分の日', '2027-03-22': '振替休日',
+      '2027-04-29': '昭和の日', '2027-05-03': '憲法記念日', '2027-05-04': 'みどりの日',
+      '2027-05-05': 'こどもの日', '2027-07-19': '海の日', '2027-08-11': '山の日',
+      '2027-09-20': '敬老の日', '2027-09-23': '秋分の日', '2027-10-11': 'スポーツの日',
+      '2027-11-03': '文化の日', '2027-11-23': '勤労感謝の日',
+    };
+    const CODE_CLASS: Record<string, string> = {
+      '公': 'sl-code--off',
+      '①': 'sl-code--normal',
+      '③': 'sl-code--late',
+      'SH': 'sl-code--shuttle',
+      'S': 'sl-code--special',
+      '貸切': 'sl-code--charter',
+      '有給': 'sl-code--paid',
+    };
+    const GROUP_LABEL: Record<string, string> = {
+      office: '経理・配車業務担当',
+      maintenance: '整備部門',
+      jumbo: 'ジャンボタクシー受付担当',
+    };
+
+    let staffList: Staff[] = [];
+    let shiftMap = new Map<string, Shift>();
+    let mode: 'all' | 'mine' = 'all';
+
+    function shiftKey(staffId: string, workDate: string) {
+      return `${staffId}|${workDate}`;
+    }
+    function dateKey(d?: Date) {
+      const dt = d ? d : new Date();
+      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    }
+    function currentMonth() {
+      return ($('monthPick') as HTMLInputElement).value || dateKey().slice(0, 7);
+    }
+    function daysInMonth(month: string) {
+      const [y, m] = month.split('-').map(Number);
+      return new Date(y, m, 0).getDate();
+    }
+    function prevMonthOf(month: string) {
+      const [y, m] = month.split('-').map(Number);
+      const d = new Date(y, m - 2, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+    function nextMonthOf(month: string) {
+      const [y, m] = month.split('-').map(Number);
+      const d = new Date(y, m, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+    function monthLabel(month: string) {
+      const [y, m] = month.split('-').map(Number);
+      return `${y}年${m}月`;
+    }
+
+    ($('monthPick') as HTMLInputElement).value = dateKey().slice(0, 7);
+
+    function setStatus(msg: string) {
+      const el = $('statusMsg');
+      if (!msg) { el.hidden = true; return; }
+      el.hidden = false;
+      el.textContent = msg;
+    }
+
+    async function loadMonth() {
+      const month = currentMonth();
+      try {
+        const [sList, shifts] = await Promise.all([fetchStaff(), fetchShiftMonth(month)]);
+        staffList = sList;
+        shiftMap = new Map(shifts.map((r) => [shiftKey(r.staffId, r.workDate), r]));
+        setStatus('');
+      } catch (e) {
+        setStatus('データの取得に失敗しました。電波状況を確認してもう一度お試しください。');
+      }
+    }
+
+    function orderedStaff(): { label: string | null; list: Staff[] }[] {
+      const GROUPED = ['office', 'maintenance', 'jumbo'];
+      const mainStaff = staffList
+        .filter((s) => !GROUPED.includes(s.shiftGroup || ''))
+        .sort((a, b) => (a.shiftDisplayOrder ?? 9999) - (b.shiftDisplayOrder ?? 9999));
+      const groups: { label: string | null; list: Staff[] }[] = [{ label: null, list: mainStaff }];
+      (['office', 'maintenance', 'jumbo'] as const).forEach((g) => {
+        const list = staffList.filter((s) => s.shiftGroup === g);
+        if (list.length) groups.push({ label: GROUP_LABEL[g], list });
+      });
+      return groups;
+    }
+
+    function renderAllView() {
+      const month = currentMonth();
+      const days = daysInMonth(month);
+      const [y, m] = month.split('-').map(Number);
+      const todayStr = dateKey();
+      const table = $('allTable');
+      table.innerHTML = '';
+
+      const thead = document.createElement('thead');
+      const rowDate = document.createElement('tr');
+      const rowWeek = document.createElement('tr');
+      rowDate.appendChild(document.createElement('th')).textContent = '';
+      rowWeek.appendChild(document.createElement('th')).textContent = '氏名';
+      for (let d = 1; d <= days; d++) {
+        const dateStr = `${month}-${String(d).padStart(2, '0')}`;
+        const wd = new Date(y, m - 1, d).getDay();
+        const holidayName = HOLIDAYS[dateStr];
+        const isSaturday = wd === 6;
+        const isSunOrHoliday = wd === 0 || !!holidayName;
+        const isToday = dateStr === todayStr;
+        const thD = document.createElement('th');
+        thD.textContent = String(d);
+        thD.className = 'sl-daynum';
+        if (isSaturday) thD.classList.add('sl-saturday');
+        if (isSunOrHoliday) thD.classList.add('sl-weekend');
+        if (isToday) thD.classList.add('sl-today');
+        rowDate.appendChild(thD);
+        const thW = document.createElement('th');
+        thW.textContent = WEEKDAY_JA[wd];
+        thW.className = 'sl-weekday';
+        if (isSaturday) thW.classList.add('sl-saturday');
+        if (isSunOrHoliday) thW.classList.add('sl-weekend');
+        if (isToday) thW.classList.add('sl-today');
+        rowWeek.appendChild(thW);
+      }
+      thead.appendChild(rowDate);
+      thead.appendChild(rowWeek);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      orderedStaff().forEach(({ label, list }) => {
+        if (!list.length) return;
+        if (label) {
+          const tr = document.createElement('tr');
+          const th = document.createElement('th');
+          th.textContent = label;
+          th.colSpan = days + 1;
+          th.className = 'sl-group-header';
+          tr.appendChild(th);
+          tbody.appendChild(tr);
+        }
+        list.forEach((s) => {
+          const tr = document.createElement('tr');
+          const nameTh = document.createElement('th');
+          nameTh.textContent = s.name;
+          nameTh.className = 'sl-name';
+          tr.appendChild(nameTh);
+          for (let d = 1; d <= days; d++) {
+            const workDate = `${month}-${String(d).padStart(2, '0')}`;
+            const cell = shiftMap.get(shiftKey(s.id, workDate));
+            const wd = new Date(y, m - 1, d).getDay();
+            const td = document.createElement('td');
+            td.className = 'sl-cell';
+            if (wd === 6) td.classList.add('sl-saturday');
+            if (wd === 0 || HOLIDAYS[workDate]) td.classList.add('sl-weekend');
+            if (workDate === todayStr) td.classList.add('sl-today');
+            if (cell && cell.code) {
+              td.classList.add('sl-code', CODE_CLASS[cell.code] || '');
+              td.textContent = cell.code;
+              if (!s.phoneDutyDisabled && cell.phoneDuty) td.classList.add('sl-phone');
+            }
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        });
+      });
+      table.appendChild(tbody);
+      $('allEmpty').hidden = staffList.length > 0;
+    }
+
+    function populateStaffPick() {
+      const sel = $('staffPick') as HTMLSelectElement;
+      const prev = sel.value;
+      sel.innerHTML = '';
+      orderedStaff().forEach(({ label, list }) => {
+        list.forEach((s) => {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = label ? `${s.name}（${label}）` : s.name;
+          sel.appendChild(opt);
+        });
+      });
+      if (prev && staffList.some((s) => s.id === prev)) sel.value = prev;
+    }
+
+    function renderMineView() {
+      populateStaffPick();
+      $('mineEmpty').hidden = staffList.length > 0;
+      const sel = $('staffPick') as HTMLSelectElement;
+      const s = staffList.find((x) => x.id === sel.value);
+      const cal = $('mineCal');
+      cal.innerHTML = '';
+      if (!s) { $('mineName').textContent = ''; return; }
+      $('mineName').textContent = s.name;
+
+      const month = currentMonth();
+      const days = daysInMonth(month);
+      const [y, m] = month.split('-').map(Number);
+      const todayStr = dateKey();
+      const firstWd = new Date(y, m - 1, 1).getDay();
+
+      WEEKDAY_JA.forEach((w, i) => {
+        const head = document.createElement('div');
+        head.className = 'sl-cal-head';
+        if (i === 0) head.classList.add('sl-weekend');
+        if (i === 6) head.classList.add('sl-saturday');
+        head.textContent = w;
+        cal.appendChild(head);
+      });
+      for (let i = 0; i < firstWd; i++) {
+        const blank = document.createElement('div');
+        blank.className = 'sl-cal-cell sl-cal-cell--blank';
+        cal.appendChild(blank);
+      }
+      for (let d = 1; d <= days; d++) {
+        const workDate = `${month}-${String(d).padStart(2, '0')}`;
+        const wd = new Date(y, m - 1, d).getDay();
+        const holidayName = HOLIDAYS[workDate];
+        const cell = shiftMap.get(shiftKey(s.id, workDate));
+        const div = document.createElement('div');
+        div.className = 'sl-cal-cell';
+        if (wd === 6) div.classList.add('sl-saturday');
+        if (wd === 0 || holidayName) div.classList.add('sl-weekend');
+        if (workDate === todayStr) div.classList.add('sl-today');
+        const num = document.createElement('span');
+        num.className = 'sl-cal-daynum';
+        num.textContent = String(d);
+        div.appendChild(num);
+        if (cell && cell.code) {
+          const code = document.createElement('span');
+          code.className = 'sl-cal-code ' + (CODE_CLASS[cell.code] || '');
+          code.textContent = cell.code;
+          div.appendChild(code);
+          if (!s.phoneDutyDisabled && cell.phoneDuty) div.classList.add('sl-phone');
+        }
+        cal.appendChild(div);
+      }
+    }
+
+    function renderCurrentView() {
+      $('monthPick').setAttribute('aria-label', monthLabel(currentMonth()));
+      if (mode === 'all') renderAllView();
+      else renderMineView();
+    }
+
+    function setMode(next: 'all' | 'mine') {
+      mode = next;
+      $('tabAll').classList.toggle('is-active', next === 'all');
+      $('tabAll').setAttribute('aria-selected', String(next === 'all'));
+      $('tabMine').classList.toggle('is-active', next === 'mine');
+      $('tabMine').setAttribute('aria-selected', String(next === 'mine'));
+      $('allView').hidden = next !== 'all';
+      $('mineView').hidden = next !== 'mine';
+      $('staffPick').hidden = next !== 'mine';
+      renderCurrentView();
+    }
+    $('tabAll').onclick = () => setMode('all');
+    $('tabMine').onclick = () => setMode('mine');
+    $('staffPick').onchange = () => renderMineView();
+
+    async function reload() {
+      await loadMonth();
+      renderCurrentView();
+    }
+    $('prevMonthBtn').onclick = async () => {
+      ($('monthPick') as HTMLInputElement).value = prevMonthOf(currentMonth());
+      await reload();
+    };
+    $('nextMonthBtn').onclick = async () => {
+      ($('monthPick') as HTMLInputElement).value = nextMonthOf(currentMonth());
+      await reload();
+    };
+    ($('monthPick') as HTMLElement).addEventListener('change', reload);
+
+    // 事務所のモニター等に常時表示する用途を想定し、5分ごとに自動で最新化する
+    setInterval(reload, 5 * 60 * 1000);
+
+    reload();
+  </script>
+
+  <style is:global>
+  /* 全画面表示にするため、サイト共通のヘッダー・ニュースティッカー・フッター・フローティングCTAを隠す
+     （Astroはページ間でCSSを共有しないので、この上書きはこのページ内でのみ有効） */
+  .nav, .news-ticker, .footer, .float-cta { display: none !important; }
+  html, body { background: #f4f4f4; padding-bottom: 0 !important; }
+  main#main-content { min-height: 100vh; }
+
+  .sl-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0.75rem 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .sl-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .sl-title {
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: #111;
+    margin: 0;
+  }
+  .sl-title-accent { color: #b8860b; }
+  .sl-controls { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .sl-tabs { display: flex; border: 1px solid #ccc; border-radius: 999px; overflow: hidden; }
+  .sl-tab {
+    border: none;
+    background: #fff;
+    color: #444;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.9rem;
+    cursor: pointer;
+  }
+  .sl-tab.is-active { background: #111; color: #fff; }
+  .sl-navbtn {
+    border: 1px solid #ccc;
+    background: #fff;
+    color: #111;
+    border-radius: var(--radius-md, 8px);
+    font-size: 0.9rem;
+    padding: 0.35rem 0.6rem;
+    cursor: pointer;
+  }
+  .sl-input {
+    border: 1px solid #ccc;
+    border-radius: var(--radius-md, 8px);
+    background: #fff;
+    color: #111;
+    font-size: 0.85rem;
+    padding: 0.35rem 0.5rem;
+  }
+  .sl-editlink {
+    font-size: 0.8rem;
+    color: #555;
+    text-decoration: underline;
+    margin-left: 0.25rem;
+  }
+  .sl-status {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+    border-radius: var(--radius-md, 8px);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  .sl-empty { color: #666; font-size: 0.9rem; }
+
+  /* ── 全体表示（できる限りスクロール無しで収まるよう詰めたレイアウト） ── */
+  .sl-grid-wrap {
+    overflow-x: auto;
+    background: #fff;
+    border-radius: var(--radius-md, 8px);
+    border: 1px solid #e0e0e0;
+  }
+  .sl-grid { border-collapse: collapse; width: 100%; }
+  .sl-grid th, .sl-grid td {
+    text-align: center;
+    padding: 0.12rem 0.15rem;
+    font-size: 0.68rem;
+    line-height: 1.1;
+    border: 1px solid #eee;
+  }
+  .sl-name {
+    text-align: left !important;
+    white-space: nowrap;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #111;
+    padding-left: 0.5rem !important;
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 1;
+  }
+  .sl-grid thead th:first-child, .sl-grid thead th:nth-child(2) {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 2;
+  }
+  .sl-daynum { font-weight: 900; color: #111; min-width: 22px; }
+  .sl-weekday { color: #888; font-size: 0.6rem; }
+  .sl-weekend { background: #fdeaea; }
+  .sl-saturday { background: #eaf2fb; }
+  .sl-today { box-shadow: inset 0 0 0 2px #f5c800; }
+  .sl-group-header {
+    text-align: left !important;
+    background: #fff9e0;
+    color: #7a5c00;
+    font-weight: 900;
+    font-size: 0.68rem;
+    padding: 0.15rem 0.5rem !important;
+  }
+  .sl-cell.sl-code { font-weight: 900; }
+  .sl-cell.sl-phone { position: relative; }
+  .sl-cell.sl-phone::after {
+    content: '';
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #dc2626;
+  }
+  .sl-code--off { background: #fbdcdc !important; color: #b91c1c; }
+  .sl-code--normal { background: #dcf3e6 !important; color: #15803d; }
+  .sl-code--late { background: #dcebfb !important; color: #1d4ed8; }
+  .sl-code--shuttle { background: #ecdcfb !important; color: #6d28d9; }
+  .sl-code--special { background: #dcf7f4 !important; color: #115e59; }
+  .sl-code--charter { background: #fbe1ea !important; color: #be185d; }
+  .sl-code--paid { background: #e5e5fb !important; color: #4338ca; }
+
+  /* ── 個別表示（カレンダー形式） ── */
+  .sl-mine-name { font-size: 1.05rem; font-weight: 900; color: #111; margin: 0; }
+  .sl-cal {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    max-width: 560px;
+  }
+  .sl-cal-head {
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #888;
+    padding: 0.2rem 0;
+  }
+  .sl-cal-cell {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    min-height: 56px;
+    padding: 0.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.2rem;
+  }
+  .sl-cal-cell--blank { background: transparent; border-color: transparent; }
+  .sl-cal-daynum { font-size: 0.75rem; font-weight: 700; color: #333; }
+  .sl-cal-code {
+    font-size: 0.95rem;
+    font-weight: 900;
+    border-radius: 5px;
+    padding: 0.1rem 0.4rem;
+  }
+  .sl-cal-cell.sl-weekend { background: #fdeaea; }
+  .sl-cal-cell.sl-saturday { background: #eaf2fb; }
+  .sl-cal-cell.sl-today { box-shadow: inset 0 0 0 2px #f5c800; }
+  .sl-cal-head.sl-weekend { color: #b91c1c; }
+  .sl-cal-head.sl-saturday { color: #1d4ed8; }
+  .sl-cal-cell.sl-phone { position: relative; }
+  .sl-cal-cell.sl-phone::after {
+    content: '電';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 0.55rem;
+    font-weight: 900;
+    color: #fff;
+    background: #dc2626;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  @media (max-width: 640px) {
+    .sl-grid th, .sl-grid td { font-size: 0.62rem; padding: 0.08rem 0.1rem; }
+    .sl-cal { max-width: 100%; }
+    .sl-cal-cell { min-height: 44px; }
+  }
+  </style>
+</Layout>

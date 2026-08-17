@@ -1023,6 +1023,16 @@ import '../styles/kt-components.css';
 
     type DutyCat = 'school_haramachi' | 'exchange' | 'charter' | 'school';
 
+    // 小林　清美さんはシフト上はSH（乗合）だが、平日（土日・祝日を除く）はスクール送迎も
+    // 兼ねているため、「乗合」に加えて「スクール」区分にも重複して出す（ユーザー指示、2026-08-17）。
+    // 土日祝日に臨時でスクールが発生する場合は、この自動反映ではなく
+    // 「スクール」区分の「＋追加」でその日だけ手動追加する運用（ユーザー確認済み）。
+    const SH_ALSO_SCHOOL_ON_WEEKDAY = ['小林　清美'];
+    function isSchoolWeekday(dateKey: string) {
+      const wd = weekdayNumOf(dateKey);
+      return wd !== 0 && wd !== 6 && !HOLIDAYS[dateKey];
+    }
+
     function dutyDateKey() {
       return $('datePick').value || todayJst();
     }
@@ -1083,13 +1093,22 @@ import '../styles/kt-components.css';
         // /shift 由来（表示のみ。変更は /shift 側で行う）。
         // 配車に関わらない人（事務など）はシフトに入っていても乗務割には出さない。
         // 出す・出さないは「配車担当者の設定」の チェックボックス（staff.haisha_assignable）で決まる。
-        const fromShift = g.shiftKey
+        let fromShift = g.shiftKey
           ? sortByShiftOrder(
               (byCode.get(g.shiftKey) || [])
                 .map((d) => ({ ...d, staff: staff.find((s) => s.id === d.staffId) }))
                 .filter((d) => d.staff && d.staff.haishaAssignable !== false)
             )
           : [];
+        // 小林清美さんのSH→スクール重複表示（平日のみ）
+        if (g.dailyKey === 'school' && isSchoolWeekday(dateKey)) {
+          const extra = (byCode.get('SH') || [])
+            .map((d) => ({ ...d, staff: staff.find((s) => s.id === d.staffId) }))
+            .filter((d) => d.staff
+              && d.staff.haishaAssignable !== false
+              && SH_ALSO_SCHOOL_ON_WEEKDAY.includes(d.staff.name));
+          if (extra.length) fromShift = sortByShiftOrder([...fromShift, ...extra]);
+        }
         shiftShown += fromShift.length;
         for (const m of fromShift) {
           names.appendChild(dutyBadge(m.staff, { phoneDuty: m.phoneDuty }));

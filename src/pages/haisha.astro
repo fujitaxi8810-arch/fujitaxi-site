@@ -2113,15 +2113,20 @@ import '../styles/kt-components.css';
        * 「1件も一致しない」を条件にすると、たまたま1件だけ一致しただけで
        * 警告が消えてしまう（実際の検証でそうなった）ため、割合で見る。
        * 初めて取り込む期間は missing が0件なので警告は出ない。
+       *
+       * 比べる相手は updates ではなく「一致した既存行の総数」。DSのCSVは毎回
+       * 全予約が出てくるので、正常な取り込みほど大半が unchanged になり、
+       * updates だけで比べると数件の正当なキャンセルで誤警告してしまう。
        */
+      const matchedTotal = importPlan.updates.length + importPlan.unchanged;
       importLooksWrong = importPlan.missing.length >= 3
-        && importPlan.missing.length >= importPlan.updates.length;
+        && importPlan.missing.length >= matchedTotal;
 
       if (importLooksWrong) {
         line(box,
           `⚠ このまま取り込むと、すでに入っている${importPlan.missing.length}件が`
           + '「変更あり」「キャンセル」に変わります。\n'
-          + `（今回のCSVと一致したのは${importPlan.updates.length}件だけです）\n`
+          + `（今回のCSVと一致したのは${matchedTotal}件だけです）\n`
           + 'ファイルを間違えていないか、一部だけを貼り付けていないか、'
           + 'Excelで開いて保存し直したCSVでないかを確認してください'
           + '（Excelを通すと登録日時の秒が消え、別の予約として扱われます）。',
@@ -2137,8 +2142,15 @@ import '../styles/kt-components.css';
 
       line(box, `対象期間：${importPlan.dateFrom} 〜 ${importPlan.dateTo}`);
       line(box, `新規に追加：${importPlan.inserts.length}件`, 'ha-preview__ok');
-      line(box, `既存を更新：${importPlan.updates.length}件`
+      line(box, `内容が変わった予約を更新：${importPlan.updates.length}件`
         + (keepStaff > 0 ? `（うち${keepStaff}件は担当者が割り当て済み。担当者はそのまま残します）` : ''), 'ha-preview__ok');
+      /*
+       * DSのCSVは毎回すべての予約が出てくるため、通常はここが件数の大半になる。
+       * 「何もしない」ことが分かるよう、更新とは別に淡く出す。
+       */
+      if (importPlan.unchanged > 0) {
+        line(box, `変更なし：${importPlan.unchanged}件（内容が同じなので何もしません）`, 'ha-preview__muted');
+      }
       if (changedCount > 0) {
         line(box, `変更ありに設定：${changedCount}件（予約時刻が変わり、同じ電話番号の新規予約が見つかったもの）`, 'ha-preview__warn');
       }
@@ -2153,6 +2165,26 @@ import '../styles/kt-components.css';
         for (const e of parsed.errors.slice(0, 5)) {
           line(box, `　${e.line}行目: ${e.reason}`, 'ha-preview__warn');
         }
+      }
+
+      /*
+       * 「更新◯件」だけでは何が変わったのか分からない、というのが元の不満なので、
+       * どの予約が変わるのかを開いて確かめられるようにする。
+       */
+      if (importPlan.updates.length > 0) {
+        const det = document.createElement('details');
+        const s3 = document.createElement('summary');
+        s3.textContent = `内容が変わった予約（${importPlan.updates.length}件）`;
+        det.appendChild(s3);
+        const ul3 = document.createElement('ul');
+        for (const u of importPlan.updates) {
+          const li = document.createElement('li');
+          const when = `${jstDateKey(u.row.reservedAt).slice(5).replace('-', '/')} ${jstTimeLabel(u.row.reservedAt)}`;
+          li.textContent = `${when} ${u.row.customerName}`;
+          ul3.appendChild(li);
+        }
+        det.appendChild(ul3);
+        box.appendChild(det);
       }
 
       if (importPlan.missing.length > 0) {
@@ -2203,7 +2235,10 @@ import '../styles/kt-components.css';
         const extra = (result.changed > 0 || result.cancelled > 0)
           ? ` / 変更あり ${result.changed}件 / キャンセル ${result.cancelled}件`
           : '';
-        alert(`取り込みました。\n新規 ${result.inserted}件 / 更新 ${result.updated}件${extra}`);
+        // 「変更なし」も出す。DSのCSVは毎回全件出てくるので、
+        // これが多いこと自体は正常だと分かるようにしておく
+        const same = importPlan.unchanged > 0 ? ` / 変更なし ${importPlan.unchanged}件` : '';
+        alert(`取り込みました。\n新規 ${result.inserted}件 / 更新 ${result.updated}件${same}${extra}`);
         if (importPlan.dateFrom) {
           $('datePick').value = importPlan.dateFrom;
           $('fromPick').value = importPlan.dateFrom;
@@ -2938,6 +2973,8 @@ import '../styles/kt-components.css';
     .ha-preview p { margin: 0; }
     .ha-preview__ok { color: #86efac; font-weight: 700; }
     .ha-preview__warn { color: #fcd34d; }
+    /* 「何もしない」件数。件数の中で一番多くなるので、主張しない色にする */
+    .ha-preview__muted { color: rgba(255,255,255,0.55); }
     .ha-preview__error { color: #fca5a5; font-weight: 700; }
     /* 取り込むと実データが壊れる恐れがある兆候。件数の行に埋もれないよう枠で囲む。
        改行で読ませたいので pre-line（textContent に \n を入れている） */

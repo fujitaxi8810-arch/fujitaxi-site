@@ -558,6 +558,12 @@ export type ImportPlan = {
   missing: MissingReservation[];
   /** ファイル内で重複していて後勝ちで捨てた件数 */
   duplicatesInFile: number;
+  /**
+   * 既存と一致し、かつDS由来の内容が1文字も変わっていなかった件数。
+   * DSのCSVは毎回すべての予約が出てくるため、これが件数の大半を占める。
+   * 「更新◯件」に混ぜると本当に変わった予約が埋もれるので、書き込みもせず別に数える。
+   */
+  unchanged: number;
   dateFrom: string;
   dateTo: string;
 };
@@ -634,6 +640,42 @@ function matchKey(reservedAt: string, phone: string | null, registeredAt: string
   return `${new Date(reservedAt).getTime()}|${normalizePhoneKey(phone)}|${registeredKey}`;
 }
 
+/**
+ * 既存の予約と取り込み行で、DS由来の内容が同じか。
+ *
+ * DSのCSVは毎回すべての予約を書き出すため、取り込みのたびに大半の行が
+ * 「一致した既存行」になる。中身が1文字も変わっていないものまで更新扱いにすると、
+ * 本当に変わった予約が件数に埋もれて分からなくなる（ユーザーからの指摘）。
+ * ここで同じと判定したものは、書き込みもせず「変更なし」として数える。
+ *
+ * 日時は文字列の形が違っても同じ時刻を指すことがある
+ * （DBは "+00:00"、CSV由来は "....Z"）ため、必ず時刻値で比べる。
+ */
+function isSameDsContent(existing: Reservation, row: NormalizedRow): boolean {
+  const sameTime = (a: string | null, b: string | null) => {
+    if (!a || !b) return !a && !b;
+    return new Date(a).getTime() === new Date(b).getTime();
+  };
+  // null と空文字は同じ意味として扱う（DSの空欄がどちらで入るかは経路次第のため）
+  const sameText = (a: string | null, b: string | null) => (a ?? '') === (b ?? '');
+
+  return sameTime(existing.reservedAt, row.reservedAt)
+    && sameTime(existing.registeredAt, row.registeredAt)
+    && existing.alarmMinutes === row.alarmMinutes
+    && sameText(existing.officeName, row.officeName)
+    && sameText(existing.customerName, row.customerName)
+    && sameText(existing.customerKana, row.customerKana)
+    && sameText(existing.phone, row.phone)
+    && sameText(existing.reservationMemo, row.reservationMemo)
+    && sameText(existing.operatorMemo, row.operatorMemo)
+    && sameText(existing.pickupName, row.pickupName)
+    && sameText(existing.pickupMemo, row.pickupMemo)
+    && sameText(existing.pickupAddress, row.pickupAddress)
+    && sameText(existing.dropoffName, row.dropoffName)
+    && sameText(existing.dropoffAddress, row.dropoffAddress)
+    && sameText(existing.registeredBy, row.registeredBy);
+}
+
 /** 表記ゆれ（前後・間の空白）を無視した比較用のお客様名 */
 function normalizeCustomerName(name: string | null): string {
   return (name || '').replace(/[\s　]/g, '');
@@ -655,7 +697,7 @@ function normalizeMemoKey(r: { operatorMemo?: string | null; pickupMemo?: string
 export async function buildImportPlan(rows: NormalizedRow[]): Promise<ImportPlan> {
   if (rows.length === 0) {
     const today = todayJst();
-    return { inserts: [], updates: [], missing: [], duplicatesInFile: 0, dateFrom: today, dateTo: today };
+    return { inserts: [], updates: [], missing: [], duplicatesInFile: 0, unchanged: 0, dateFrom: today, dateTo: today };
   }
 
   // ファイル内の重複は後勝ちで1件に寄せる
@@ -679,11 +721,22 @@ export async function buildImportPlan(rows: NormalizedRow[]): Promise<ImportPlan
   const inserts: ImportPlan['inserts'] = [];
   const updates: ImportPlan['updates'] = [];
   const matchedKeys = new Set<string>();
+  let unchanged = 0;
   for (const [k, row] of byKey) {
     const hit = existingByKey.get(k);
     if (hit) {
-      updates.push({ id: hit.id, row, hasStaff: hit.staffId !== null });
+      /*
+       * 一致した時点で「今回のCSVにも居る」ことは確定なので、
+       * 中身が同じかどうかに関わらず必ず matchedKeys に入れる。
+       * ここを内容比較の内側に入れてしまうと、変更なしの予約が
+       * 「CSVから消えた」と誤判定されてキャンセル扱いになる。
+       */
       matchedKeys.add(k);
+      if (isSameDsContent(hit, row)) {
+        unchanged++;
+      } else {
+        updates.push({ id: hit.id, row, hasStaff: hit.staffId !== null });
+      }
     } else {
       inserts.push({ ...row, tempId: `tmp-${inserts.length}` });
     }
@@ -760,7 +813,7 @@ export async function buildImportPlan(rows: NormalizedRow[]): Promise<ImportPlan
     });
   }
 
-  return { inserts, updates, missing, duplicatesInFile, dateFrom, dateTo };
+  return { inserts, updates, missing, duplicatesInFile, unchanged, dateFrom, dateTo };
 }
 
 /**

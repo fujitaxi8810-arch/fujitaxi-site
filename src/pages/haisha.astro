@@ -2155,7 +2155,9 @@ import '../styles/kt-components.css';
         line(box, `変更ありに設定：${changedCount}件（予約時刻が変わり、同じ電話番号の新規予約が見つかったもの）`, 'ha-preview__warn');
       }
       if (cancelledCount > 0) {
-        line(box, `キャンセルに設定：${cancelledCount}件（今回のCSVに見当たらなくなった予約）`, 'ha-preview__warn');
+        // 「1時間以上先の予約が消えたときだけ」が実際の挙動なので、そう書く。
+        // 直前・配車済みの予約はDSのCSVから消えるが、それはキャンセルではない
+        line(box, `キャンセルに設定：${cancelledCount}件（1時間以上先の予約で、今回のCSVに見当たらなくなったもの）`, 'ha-preview__warn');
       }
       if (importPlan.duplicatesInFile > 0) {
         line(box, `ファイル内で重複していた行：${importPlan.duplicatesInFile}件（後の行を採用します）`, 'ha-preview__warn');

@@ -691,6 +691,21 @@ function normalizeMemoKey(r: { operatorMemo?: string | null; pickupMemo?: string
 }
 
 /**
+ * 「CSVから消えた＝キャンセル」と判定してよい猶予。予約時刻がこの時間より先の
+ * ものだけを対象にする。
+ *
+ * DSのCSVは**配車が完了した予約を書き出さなくなる**（2026-08-19の実運用で判明。
+ * 07:30と08:00の配車済み予約が2件、CSVから消えたためキャンセルと誤表示された）。
+ * そのため、予約時刻を過ぎた・あるいは差し迫っている予約が消えるのは
+ * 「キャンセルされた」ではなく「配車が終わった」を意味する。
+ *
+ * 配車はアラーム（実データで15〜30分前）の頃に行われるので、それを十分に覆う
+ * 1時間を猶予とする。この範囲の予約は、CSVから消えても状態を変えない。
+ * 代わりに、直前の本当のキャンセルは自動では拾えなくなる（人が手で付ける）。
+ */
+const CANCEL_DETECT_LEAD_MS = 60 * 60 * 1000;
+
+/**
  * 取り込み前の差分計算。実際には書き込まない。
  * UIで「新規◯件・更新◯件」を見せてから確定させるために分けてある。
  */
@@ -750,9 +765,12 @@ export async function buildImportPlan(rows: NormalizedRow[]): Promise<ImportPlan
    */
   const missing: MissingReservation[] = [];
   const usedInsertTempIds = new Set<string>();
+  const cancelCutoff = Date.now() + CANCEL_DETECT_LEAD_MS;
   for (const [k, e] of existingByKey) {
     if (matchedKeys.has(k)) continue;
     if (e.source !== 'csv' || e.status !== 'normal') continue;
+    // 配車済みの予約がキャンセルと誤判定されるのを防ぐ（定数のコメント参照）
+    if (new Date(e.reservedAt).getTime() < cancelCutoff) continue;
 
     /*
      * 「時刻変更」候補として紐付けるのは、電話番号だけでなく

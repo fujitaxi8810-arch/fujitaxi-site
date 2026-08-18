@@ -383,6 +383,8 @@ import '../styles/kt-components.css';
     let historyRows: any[] = [];
     let editing: any = null;      // 編集中の予約（新規はnull）
     let importPlan: any = null;
+    // 取り込み計画が「明らかにおかしい」とき真。取り込みボタンで念押しを出すのに使う
+    let importLooksWrong = false;
 
     // ── 日付ユーティリティ ──
     const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -2022,6 +2024,7 @@ import '../styles/kt-components.css';
 
     function openImport() {
       importPlan = null;
+      importLooksWrong = false;
       $('importText').value = '';
       $('importFile').value = '';
       $('importPreview').hidden = true;
@@ -2088,6 +2091,50 @@ import '../styles/kt-components.css';
       const changedCount = importPlan.missing.filter((m: any) => m.matchedInsertId !== null).length;
       const cancelledCount = importPlan.missing.length - changedCount;
 
+      /*
+       * ── 取り込み前の安全確認 ──
+       * 誤ったファイルを取り込むと、予約が二重に増えるうえ、既存の予約が
+       * 「変更あり」「キャンセル」に書き換わる。件数だけ見て押してしまわないよう、
+       * 危険な兆候は数字の前に赤枠で出す（2026-08-17のデータ消失事故を受けて追加）。
+       */
+
+      /*
+       * 登録日時が読めない行。同時刻・同電話番号の複数台予約を区別する唯一の
+       * 材料なので、欠けていると別々の予約が1件に潰れる。
+       * Excelで開いて保存し直すと秒が落ちる件とは別に、列ごと欠けている場合を拾う。
+       */
+      const noRegisteredAt = parsed.rows.filter((r) => !r.registeredAt).length;
+
+      /*
+       * 既存の予約の多くが一致せず、まとめて「変更あり」「キャンセル」に
+       * 変わろうとしている状態。原因は主に3つ（ファイル違い／一部だけ貼り付け／
+       * Excelで開いて保存し直して登録日時の秒が落ちた）。
+       *
+       * 「1件も一致しない」を条件にすると、たまたま1件だけ一致しただけで
+       * 警告が消えてしまう（実際の検証でそうなった）ため、割合で見る。
+       * 初めて取り込む期間は missing が0件なので警告は出ない。
+       */
+      importLooksWrong = importPlan.missing.length >= 3
+        && importPlan.missing.length >= importPlan.updates.length;
+
+      if (importLooksWrong) {
+        line(box,
+          `⚠ このまま取り込むと、すでに入っている${importPlan.missing.length}件が`
+          + '「変更あり」「キャンセル」に変わります。\n'
+          + `（今回のCSVと一致したのは${importPlan.updates.length}件だけです）\n`
+          + 'ファイルを間違えていないか、一部だけを貼り付けていないか、'
+          + 'Excelで開いて保存し直したCSVでないかを確認してください'
+          + '（Excelを通すと登録日時の秒が消え、別の予約として扱われます）。',
+          'ha-preview__alert');
+      }
+      if (noRegisteredAt > 0) {
+        line(box,
+          `⚠ 登録日時を読み取れない行が${noRegisteredAt}件あります。\n`
+          + '同じ時刻・同じ電話番号で複数台のご予約がある場合、1件にまとめられて取り込まれる恐れがあります。\n'
+          + 'DSからダウンロードしたCSVをそのままお使いください。',
+          'ha-preview__alert');
+      }
+
       line(box, `対象期間：${importPlan.dateFrom} 〜 ${importPlan.dateTo}`);
       line(box, `新規に追加：${importPlan.inserts.length}件`, 'ha-preview__ok');
       line(box, `既存を更新：${importPlan.updates.length}件`
@@ -2142,6 +2189,13 @@ import '../styles/kt-components.css';
 
     $('importApplyBtn').onclick = async () => {
       if (!importPlan) return;
+      // 赤枠の警告を見落として押してしまう事故を防ぐ、最後の念押し
+      if (importLooksWrong && !confirm(
+        `すでに入っている${importPlan.missing.length}件が`
+        + '「変更あり」「キャンセル」に変わります。\n\n'
+        + 'ファイル違い・一部だけの貼り付け・Excelで保存し直したCSVの可能性があります。\n\n'
+        + '本当に取り込みますか？'
+      )) return;
       $('importApplyBtn').disabled = true;
       try {
         const result = await applyImportPlan(importPlan);
@@ -2885,6 +2939,18 @@ import '../styles/kt-components.css';
     .ha-preview__ok { color: #86efac; font-weight: 700; }
     .ha-preview__warn { color: #fcd34d; }
     .ha-preview__error { color: #fca5a5; font-weight: 700; }
+    /* 取り込むと実データが壊れる恐れがある兆候。件数の行に埋もれないよう枠で囲む。
+       改行で読ませたいので pre-line（textContent に \n を入れている） */
+    .ha-preview__alert {
+      background: rgba(224,85,85,0.12);
+      border: 1px solid rgba(224,85,85,0.5);
+      border-radius: var(--radius-md);
+      color: #ffc9c9;
+      font-weight: 700;
+      padding: 0.6rem 0.8rem;
+      margin-bottom: 0.6rem !important;
+      white-space: pre-line;
+    }
     .ha-preview details { margin-top: 0.5rem; }
     .ha-preview summary { cursor: pointer; color: var(--fuji-yellow); }
     .ha-preview ul { margin: 0.35rem 0 0 1.2rem; font-size: 0.82rem; color: rgba(255,255,255,0.75); }

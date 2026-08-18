@@ -39,7 +39,7 @@ import Layout from '../layouts/Layout.astro';
         </div>
 
         <p class="sf-legend">
-          公＝公休　①＝普通番(7:00-16:00・森田　愛美莉さんのみ8:00-17:00)　①S＝スクール　①H＝スクール原町　③＝遅番(15:30-24:30)　SH＝シャトル便　S　貸切　有給<br />
+          公＝公休　①＝普通番(7:00-16:00・森田　愛美莉さんのみ8:00-17:00)　①S＝スクール　①H＝スクール原町　③＝遅番(15:30-24:30)　SH＝乗合　SHS＝乗合＋スクール　S　貸切　有給<br />
           セルをクリックで順番に切り替わります。右クリックで一覧から直接選べます（電話番の設定もここから）。右上の赤丸は電話番担当を表します。
         </p>
 
@@ -148,7 +148,7 @@ import Layout from '../layouts/Layout.astro';
     } from '../lib/kintai-db';
     // シフト選択なしの単一出勤ボタンを使う区分（kintai.astroのusesSimplePunchと同じ判定）
     function usesSimplePunch(t) { return t === 'part' || t === 'fulltime-hourly' || t === 'monthly'; }
-    const WORK_CODES = ['①', '①S', '①H', '③', 'SH', 'S', '貸切'];
+    const WORK_CODES = ['①', '①S', '①H', '③', 'SH', 'SHS', 'S', '貸切'];
 
     const $ = (id) => document.getElementById(id);
     const SAVE_FAIL_MSG = '通信エラーで保存できませんでした。電波状況を確認してもう一度お試しください。';
@@ -180,6 +180,7 @@ import Layout from '../layouts/Layout.astro';
       '①': '①普通番 7:00-16:00',
       '①S': '①S（スクール）',
       '①H': '①H（スクール原町）',
+      'SHS': 'SHS（乗合＋スクール）',
       '③': '③遅番 15:30-24:30',
       'SH': 'SH（シャトル便）',
       'S': 'S',
@@ -201,6 +202,7 @@ import Layout from '../layouts/Layout.astro';
       '①H': 'sf-code--school-h',
       '③': 'sf-code--late',
       'SH': 'sf-code--shuttle',
+      'SHS': 'sf-code--shuttle-school',
       'S': 'sf-code--special',
       '貸切': 'sf-code--charter',
       '有給': 'sf-code--paid',
@@ -690,7 +692,7 @@ import Layout from '../layouts/Layout.astro';
     }
 
     function summaryFor(s, month, days) {
-      const counts = { 公: 0, '①': 0, '①S': 0, '①H': 0, '③': 0, SH: 0, S: 0, 貸切: 0, 有給: 0 };
+      const counts = { 公: 0, '①': 0, '①S': 0, '①H': 0, '③': 0, SH: 0, SHS: 0, S: 0, 貸切: 0, 有給: 0 };
       let phoneDutyCount = 0;
       for (let d = 1; d <= days; d++) {
         const workDate = `${month}-${String(d).padStart(2, '0')}`;
@@ -698,7 +700,7 @@ import Layout from '../layouts/Layout.astro';
         if (cell && cell.code in counts) counts[cell.code]++;
         if (cell && cell.phoneDuty) phoneDutyCount++;
       }
-      const workCount = counts['①'] + counts['①S'] + counts['①H'] + counts['③'] + counts.SH + counts.S + counts.貸切;
+      const workCount = counts['①'] + counts['①S'] + counts['①H'] + counts['③'] + counts.SH + counts.SHS + counts.S + counts.貸切;
       return { ...counts, workCount, phoneDutyCount };
     }
 
@@ -707,7 +709,7 @@ import Layout from '../layouts/Layout.astro';
       table.innerHTML = '';
       const thead = document.createElement('thead');
       const headRow = document.createElement('tr');
-      ['氏名', '稼働日数', '①普通番', '①S', '①H', '③遅番', 'SH', 'S', '貸切', '有給', '公休', '電話番'].forEach((label) => {
+      ['氏名', '稼働日数', '①普通番', '①S', '①H', '③遅番', 'SH', 'SHS', 'S', '貸切', '有給', '公休', '電話番'].forEach((label) => {
         const th = document.createElement('th');
         th.textContent = label;
         headRow.appendChild(th);
@@ -722,7 +724,7 @@ import Layout from '../layouts/Layout.astro';
           const tr = document.createElement('tr');
           const th = document.createElement('th');
           th.textContent = label;
-          th.colSpan = 12;
+          th.colSpan = 13;
           th.className = 'sf-group-header';
           tr.appendChild(th);
           tbody.appendChild(tr);
@@ -734,7 +736,7 @@ import Layout from '../layouts/Layout.astro';
           nameTd.textContent = s.name;
           nameTd.style.textAlign = 'left';
           tr.appendChild(nameTd);
-          [sum.workCount, sum['①'], sum['①S'], sum['①H'], sum['③'], sum.SH, sum.S, sum.貸切, sum.有給, sum.公, sum.phoneDutyCount].forEach((v) => {
+          [sum.workCount, sum['①'], sum['①S'], sum['①H'], sum['③'], sum.SH, sum.SHS, sum.S, sum.貸切, sum.有給, sum.公, sum.phoneDutyCount].forEach((v) => {
             const td = document.createElement('td');
             td.textContent = String(v);
             tr.appendChild(td);
@@ -758,6 +760,7 @@ import Layout from '../layouts/Layout.astro';
       if (s.shiftSchoolHaramachi) codes.push('①H');
       codes.push('③');
       if (s.shiftShuttle) codes.push('SH');
+      if (s.shiftShuttleSchool) codes.push('SHS');
       if (s.shiftSpecial) codes.push('S');
       codes.push('貸切');
       codes.push('有給');
@@ -1238,6 +1241,13 @@ import Layout from '../layouts/Layout.astro';
       border-color: #6d28d9;
       color: #6d28d9;
     }
+    /* SHS（乗合＋スクール）はSHの紫とスクールの緑の中間に置いて、
+       どちらの仲間かひと目で分かるようにする */
+    .sf-code--shuttle-school {
+      background: #f0fdf4;
+      border-color: #4d7c0f;
+      color: #4d7c0f;
+    }
     .sf-code--special {
       background: #f0fdfa;
       border-color: #115e59;
@@ -1322,6 +1332,7 @@ import Layout from '../layouts/Layout.astro';
       .sf-code--school-h { background: #fbe8c8; }
       .sf-code--late { background: #dcebfb; }
       .sf-code--shuttle { background: #ecdcfb; }
+      .sf-code--shuttle-school { background: #e0f0c8; }
       .sf-code--special { background: #dcf7f4; }
       .sf-code--charter { background: #fbe1ea; }
       .sf-note { color: #000; background: #fff; border-color: #000; }

@@ -734,7 +734,10 @@ import Layout from '../layouts/Layout.astro';
       $('noteInput').value = noteText;
     }
 
+    // 渋佐　繁男さんは①S・①H・公・有給の4つだけ選べればよい（他のコードは使わない）（2026-08-18指示）
+    const RESTRICTED_CODES = { '渋佐　繁男': ['公', '①S', '①H', '有給'] };
     function codesFor(s) {
+      if (s && RESTRICTED_CODES[s.name]) return RESTRICTED_CODES[s.name];
       const codes = ['公', '①'];
       if (s.shiftSchool) codes.push('①S');
       if (s.shiftSchoolHaramachi) codes.push('①H');

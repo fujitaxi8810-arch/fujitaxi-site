@@ -70,33 +70,48 @@ import Layout from '../layouts/Layout.astro';
         </div>
       </div>
 
-      <!-- シフトと実績の差異（管理者のみ） -->
-      <div class="kt-panel" id="discrepancyPanel" hidden>
-        <h2 class="kt-title">シフトと実績の差異（管理者）</h2>
-        <p class="sf-legend">シフト予定（このページ）と勤怠打刻（/kintai）を突き合わせて、食い違いがある日を一覧表示します。</p>
-        <div class="kt-table-wrap sf-grid-wrap" id="discrepancyWrap"></div>
-      </div>
-
-      <!-- 拘束時間・休息期間チェック（管理者のみ） -->
-      <div class="kt-panel" id="bindingPanel" hidden>
-        <h2 class="kt-title">拘束時間・休息期間チェック（管理者）</h2>
-        <p class="sf-legend">
-          タクシー運転者の改善基準告示（2024年4月施行）に基づく目安です。実際の打刻（出勤〜退勤）から自動計算しています。<br />
-          日次拘束時間：注意13時間超／違反16時間超　休息期間：注意11時間未満／違反9時間未満　月間拘束時間：違反288時間超<br />
-          ※運転時間・連続運転時間はkintaiで記録していないためチェック対象外です。あくまで目安であり、最終判断は別途行ってください。
-        </p>
-        <div class="kt-table-wrap sf-grid-wrap" id="bindingWrap"></div>
-      </div>
-
-      <!-- 変更履歴（管理者のみ） -->
-      <div class="kt-panel" id="historyPanel" hidden>
-        <div class="kt-panel__head">
-          <h2 class="kt-title">変更履歴（管理者）</h2>
-          <button type="button" class="kt-btn kt-btn--ghost" id="historyRefreshBtn">更新</button>
+      <!-- シフトと実績の差異（管理者のみ）。普段は畳んでおく -->
+      <details class="kt-panel sf-details" id="discrepancyPanel" hidden>
+        <summary class="sf-details__summary">
+          <span class="kt-title">シフトと実績の差異（管理者）</span>
+          <span class="sf-details__hint">クリックで開く</span>
+        </summary>
+        <div class="sf-details__body">
+          <p class="sf-legend">シフト予定（このページ）と勤怠打刻（/kintai）を突き合わせて、食い違いがある日を一覧表示します。</p>
+          <div class="kt-table-wrap sf-grid-wrap" id="discrepancyWrap"></div>
         </div>
-        <p class="sf-legend">この月の変更を新しい順に最大200件表示します。「元に戻す」で変更前の状態に戻せます。</p>
-        <div class="kt-table-wrap sf-grid-wrap" id="historyWrap"></div>
-      </div>
+      </details>
+
+      <!-- 拘束時間・休息期間チェック（管理者のみ）。普段は畳んでおく -->
+      <details class="kt-panel sf-details" id="bindingPanel" hidden>
+        <summary class="sf-details__summary">
+          <span class="kt-title">拘束時間・休息期間チェック（管理者）</span>
+          <span class="sf-details__hint">クリックで開く</span>
+        </summary>
+        <div class="sf-details__body">
+          <p class="sf-legend">
+            タクシー運転者の改善基準告示（2024年4月施行）に基づく目安です。実際の打刻（出勤〜退勤）から自動計算しています。<br />
+            日次拘束時間：注意13時間超／違反16時間超　休息期間：注意11時間未満／違反9時間未満　月間拘束時間：違反288時間超<br />
+            ※運転時間・連続運転時間はkintaiで記録していないためチェック対象外です。あくまで目安であり、最終判断は別途行ってください。
+          </p>
+          <div class="kt-table-wrap sf-grid-wrap" id="bindingWrap"></div>
+        </div>
+      </details>
+
+      <!-- 変更履歴（管理者のみ）。普段は畳んでおく -->
+      <details class="kt-panel sf-details" id="historyPanel" hidden>
+        <summary class="sf-details__summary">
+          <span class="kt-title">変更履歴（管理者）</span>
+          <span class="sf-details__hint">クリックで開く</span>
+        </summary>
+        <div class="sf-details__body">
+          <div class="kt-panel__tools sf-details__tools">
+            <button type="button" class="kt-btn kt-btn--ghost" id="historyRefreshBtn">更新</button>
+          </div>
+          <p class="sf-legend">この月の変更を新しい順に最大200件表示します。「元に戻す」で変更前の状態に戻せます。</p>
+          <div class="kt-table-wrap sf-grid-wrap" id="historyWrap"></div>
+        </div>
+      </details>
 
       <!-- 備考 -->
       <div class="kt-panel" id="notePanel">
@@ -920,6 +935,21 @@ import Layout from '../layouts/Layout.astro';
     syncPrintScope();
     $('printBtn').onclick = () => window.print();
 
+    // シフトと実績の差異・拘束時間チェック・変更履歴は、普段は畳んでおいて
+    // 必要なときだけ開く（端末ごとに開閉状態を記憶。既定は畳んだ状態）
+    const PANEL_OPEN_KEYS = {
+      discrepancyPanel: 'fuji-shift-discrepancy-open',
+      bindingPanel: 'fuji-shift-binding-open',
+      historyPanel: 'fuji-shift-history-open',
+    };
+    Object.entries(PANEL_OPEN_KEYS).forEach(([id, key]) => {
+      const el = $(id);
+      if (localStorage.getItem(key) === 'open') el.open = true;
+      el.addEventListener('toggle', () => {
+        localStorage.setItem(key, el.open ? 'open' : 'closed');
+      });
+    });
+
     async function boot() {
       const authResult = await initAuth();
       if (!authResult.ok) {
@@ -980,6 +1010,34 @@ import Layout from '../layouts/Layout.astro';
     }
     .kt-panel__tools { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
     .kt-title { font-size: 1.25rem; font-weight: 900; color: var(--fuji-yellow); }
+
+    /* ── 折りたたみパネル（シフトと実績の差異／拘束時間チェック／変更履歴） ── */
+    .sf-details { padding: 0; }
+    .sf-details__summary {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.9rem 1.1rem;
+      cursor: pointer;
+      list-style: none;
+      min-height: 2.75rem;
+    }
+    .sf-details__summary::-webkit-details-marker { display: none; }
+    /* 開閉の向きが分かる三角を自前で描く */
+    .sf-details__summary::before {
+      content: '';
+      border-left: 6px solid var(--fuji-yellow);
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      transition: transform 0.15s ease;
+      flex-shrink: 0;
+    }
+    .sf-details[open] > .sf-details__summary::before { transform: rotate(90deg); }
+    .sf-details__summary:hover .kt-title { text-decoration: underline; }
+    .sf-details__hint { color: rgba(255,255,255,0.45); font-size: 0.8rem; }
+    .sf-details[open] .sf-details__hint { display: none; }
+    .sf-details__body { padding: 0 1.1rem 0.9rem; }
+    .sf-details__tools { justify-content: flex-end; margin-bottom: 0.6rem; }
     .kt-btn {
       background: rgba(245,200,0,0.12);
       border: 1px solid rgba(245,200,0,0.4);

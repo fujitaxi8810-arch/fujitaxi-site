@@ -36,6 +36,8 @@ export type Staff = {
   shiftSpecial: boolean;
   shiftSchool: boolean;
   shiftSchoolHaramachi: boolean;
+  /** SHS（乗合＋スクール）を使えるか。乗合を担当しつつスクール送迎も兼ねる人向け */
+  shiftShuttleSchool: boolean;
   shiftGroup: 'office' | 'maintenance' | 'jumbo' | null;
   shiftDisplayOrder: number | null;
   /** 配車(/haisha)の担当者候補に出すか。列が無い環境では true 扱い */
@@ -213,6 +215,7 @@ function rowToStaff(row: any): Staff {
     shiftSpecial: row.shift_special,
     shiftSchool: row.shift_school ?? false,
     shiftSchoolHaramachi: row.shift_school_haramachi ?? false,
+    shiftShuttleSchool: row.shift_shuttle_school ?? false,
     shiftGroup: row.shift_group,
     shiftDisplayOrder: row.shift_display_order,
     haishaAssignable: row.haisha_assignable ?? true,
@@ -493,7 +496,7 @@ export async function recordExport(month: string, kind: ExportKind): Promise<voi
 }
 
 // ── shift plan（月次シフト作成） ──
-export type ShiftCode = '公' | '①' | '①S' | '①H' | '③' | 'SH' | 'S' | '貸切' | '有給';
+export type ShiftCode = '公' | '①' | '①S' | '①H' | '③' | 'SH' | 'SHS' | 'S' | '貸切' | '有給';
 
 export type Shift = {
   staffId: string;

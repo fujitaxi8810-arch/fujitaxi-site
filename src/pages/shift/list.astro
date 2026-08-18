@@ -481,7 +481,9 @@ import Layout from '../../layouts/Layout.astro';
   .sl-code--school-h { background: #fbe8c8 !important; color: #c2410c; }
   .sl-code--late { background: #dcebfb !important; color: #1d4ed8; }
   .sl-code--shuttle { background: #ecdcfb !important; color: #6d28d9; }
-  .sl-code--shuttle-school { background: #e0f0c8 !important; color: #4d7c0f; }
+  /* SHSは①S（スクール）と同じ緑にすると見分けがつかないので、
+     背景は緑寄り・文字は乗合(SH)の紫にして「スクール＋乗合」と読めるようにする */
+  .sl-code--shuttle-school { background: #ddebd6 !important; color: #4c1d95; }
   .sl-code--special { background: #dcf7f4 !important; color: #115e59; }
   .sl-code--charter { background: #fbe1ea !important; color: #be185d; }
   .sl-code--paid { background: #e5e5fb !important; color: #4338ca; }

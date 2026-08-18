@@ -1243,10 +1243,12 @@ import Layout from '../layouts/Layout.astro';
     }
     /* SHS（乗合＋スクール）はSHの紫とスクールの緑の中間に置いて、
        どちらの仲間かひと目で分かるようにする */
+    /* SHSは①S（スクール）と紛らわしくならないよう、背景は緑寄り・
+       枠と文字は乗合(SH)の紫にして「スクール＋乗合」と読めるようにする */
     .sf-code--shuttle-school {
-      background: #f0fdf4;
-      border-color: #4d7c0f;
-      color: #4d7c0f;
+      background: #f0f7ec;
+      border-color: #4c1d95;
+      color: #4c1d95;
     }
     .sf-code--special {
       background: #f0fdfa;
@@ -1332,7 +1334,7 @@ import Layout from '../layouts/Layout.astro';
       .sf-code--school-h { background: #fbe8c8; }
       .sf-code--late { background: #dcebfb; }
       .sf-code--shuttle { background: #ecdcfb; }
-      .sf-code--shuttle-school { background: #e0f0c8; }
+      .sf-code--shuttle-school { background: #ddebd6; }
       .sf-code--special { background: #dcf7f4; }
       .sf-code--charter { background: #fbe1ea; }
       .sf-note { color: #000; background: #fff; border-color: #000; }

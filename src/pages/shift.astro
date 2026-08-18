@@ -1307,10 +1307,13 @@ import Layout from '../layouts/Layout.astro';
       .sf-grid tbody tr[hidden] { display: table-row !important; }
       .sf-group-chevron { display: none; }
       /* 印刷範囲の絞り込み（#printScopeの選択をbodyのdata属性に反映し、該当しない行を隠す） */
-      body[data-print-scope="main"] .sf-grid tbody tr:not([data-group="main"]) { display: none !important; }
-      body[data-print-scope="office"] .sf-grid tbody tr:not([data-group="office"]) { display: none !important; }
-      body[data-print-scope="maintenance"] .sf-grid tbody tr:not([data-group="maintenance"]) { display: none !important; }
-      body[data-print-scope="jumbo"] .sf-grid tbody tr:not([data-group="jumbo"]) { display: none !important; }
+      /* #shiftTable に限定すること。`.sf-grid` だけで書くと月次サマリーなど
+         同じクラスの別表まで巻き込み、data-group を持たない全行が消えて
+         見出しだけの空表になる */
+      body[data-print-scope="main"] #shiftTable tbody tr:not([data-group="main"]) { display: none !important; }
+      body[data-print-scope="office"] #shiftTable tbody tr:not([data-group="office"]) { display: none !important; }
+      body[data-print-scope="maintenance"] #shiftTable tbody tr:not([data-group="maintenance"]) { display: none !important; }
+      body[data-print-scope="jumbo"] #shiftTable tbody tr:not([data-group="jumbo"]) { display: none !important; }
       .sf-code { background: #fff; border-color: #000; color: #000; }
       .sf-code--filled { background: #eee; border-color: #000; color: #000; }
       .sf-code--off { background: #fbdcdc; }

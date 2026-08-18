@@ -38,6 +38,16 @@ export type Staff = {
   shiftSchoolHaramachi: boolean;
   /** SHS（乗合＋スクール）を使えるか。乗合を担当しつつスクール送迎も兼ねる人向け */
   shiftShuttleSchool: boolean;
+  /**
+   * ①（普通番）の勤務時間がこの人だけ違う場合の表記（例 '8:00-17:00'）。
+   * null なら既定の 7:00-16:00。表示用のラベルだけに使い、給与計算には影響しない
+   */
+  shiftNormalHours: string | null;
+  /**
+   * この人が選べるシフトコードを明示的に絞る場合の一覧。
+   * null なら上の各フラグから組み立てた既定の並び
+   */
+  shiftCodes: string[] | null;
   shiftGroup: 'office' | 'maintenance' | 'jumbo' | null;
   shiftDisplayOrder: number | null;
   /** 配車(/haisha)の担当者候補に出すか。列が無い環境では true 扱い */
@@ -216,6 +226,9 @@ function rowToStaff(row: any): Staff {
     shiftSchool: row.shift_school ?? false,
     shiftSchoolHaramachi: row.shift_school_haramachi ?? false,
     shiftShuttleSchool: row.shift_shuttle_school ?? false,
+    shiftNormalHours: row.shift_normal_hours ?? null,
+    // 列が無い環境・空配列はどちらも「指定なし」として扱う
+    shiftCodes: Array.isArray(row.shift_codes) && row.shift_codes.length ? row.shift_codes : null,
     shiftGroup: row.shift_group,
     shiftDisplayOrder: row.shift_display_order,
     haishaAssignable: row.haisha_assignable ?? true,

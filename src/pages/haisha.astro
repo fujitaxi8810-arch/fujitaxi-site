@@ -905,6 +905,35 @@ import '../styles/kt-components.css';
       return mark;
     }
 
+    /**
+     * 「変更あり」の予約に、変更後の新しい予約の時刻を添える。
+     * 「何が変わったのか」「新しい予約がどれなのか」が分からない、という
+     * ユーザー指摘への対応（2026-08-19）。クリックすると配車ボードでその日を開く。
+     *
+     * 取り込み時に紐付けを見送った（＝手動でstatusを変えた、または
+     * この機能の追加前に「変更あり」になった）場合は supersededByReservedAt が
+     * 無いので、何も付けない。
+     */
+    function buildSupersededNote(r: any) {
+      if (r.status !== 'changed' || !r.supersededByReservedAt) return null;
+      const note = document.createElement('button');
+      note.type = 'button';
+      note.className = 'ha-superseded-note';
+      const dateKey = jstDateKey(r.supersededByReservedAt);
+      const sameDay = dateKey === jstDateKey(r.reservedAt);
+      note.textContent = sameDay
+        ? `→ ${jstTimeLabel(r.supersededByReservedAt)}に変更`
+        : `→ ${dateKey.slice(5).replace('-', '/')} ${jstTimeLabel(r.supersededByReservedAt)}に変更`;
+      note.title = 'クリックすると変更後の予約がある日をボードで開きます';
+      note.onclick = (e) => {
+        e.stopPropagation();
+        $('datePick').value = dateKey;
+        showTab('board');
+        loadBoard();
+      };
+      return note;
+    }
+
     /** 新着の説明文（いつ入った予約で、何を基準に新着なのか）。ツールチップに使う */
     function newBadgeTitle(r: any) {
       // 基準は「手動の記録」か「19時の自動判定」の新しい方。実際に使われた時刻を出す
@@ -1581,6 +1610,9 @@ import '../styles/kt-components.css';
         if (isNew) stSel.title = newBadgeTitle(r);
         statusCell.appendChild(stSel);
 
+        const supersededNote = buildSupersededNote(r);
+        if (supersededNote) statusCell.appendChild(supersededNote);
+
         // 「変更あり」「キャンセル」で「新着」の文字が消えても分かるよう、小さく印を添える
         let newMark: HTMLElement | null = null;
         function syncNewMark() {
@@ -1856,6 +1888,8 @@ import '../styles/kt-components.css';
           stCell.appendChild(badge);
           // 「変更あり」「キャンセル」で「新着」の文字が消えても分かるよう、小さく印を添える
           if (isNew) stCell.appendChild(buildNewMark(r));
+          const supersededNote = buildSupersededNote(r);
+          if (supersededNote) stCell.appendChild(supersededNote);
         }
         tr.appendChild(stCell);
 
@@ -2913,6 +2947,22 @@ import '../styles/kt-components.css';
       flex-shrink: 0;
     }
 
+    /* 「変更あり」の予約から、変更後の新しい予約の時刻へのリンク。
+       押せることが分かるよう下線＋ポインタ、状態選択の下に小さく置く */
+    .ha-superseded-note {
+      display: block;
+      margin-top: 0.25rem;
+      padding: 0;
+      background: none;
+      border: none;
+      color: #92400e;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .ha-superseded-note:hover { color: #6b2f04; }
+
     /* ── 表の中の入力 ── */
     .ha-select {
       background: #fff;
@@ -3059,6 +3109,8 @@ import '../styles/kt-components.css';
       .ha-grid th, .ha-grid td { color: #000; font-size: 0.9rem; }
       .ha-row--unassigned, .ha-row--unassigned td.ha-sticky { background: #f5f5f5 !important; }
       .ha-select { border: none; background: transparent; font-size: 0.95rem; padding: 0; min-height: 0; }
+      /* クリックできる必要は印刷では無いので、ボタンの見た目を消して文字だけ残す */
+      .ha-superseded-note { text-decoration: none; cursor: default; color: #000; }
       /* 画面上は1行省略表示にしたが、印刷では紙面の幅に合わせて折り返し、
          省略せず全文を出す（紙は横スクロールできないため） */
       .ha-wrapcell { max-width: none; white-space: normal; overflow: visible; text-overflow: clip; }

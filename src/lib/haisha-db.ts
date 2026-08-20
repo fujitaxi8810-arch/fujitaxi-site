@@ -41,6 +41,14 @@ export type Reservation = {
   sortOrder: number | null;
   /** この行がDBに入った時刻。registeredAt が無い手入力の予約で「新着」判定に使う */
   createdAt: string | null;
+  /**
+   * status が 'changed' のとき、取り込みで「同じ予約の時刻違い」と判定して
+   * 紐付けた新しい予約のid。手動でstatusを変えた場合や、この機能の追加前に
+   * 変更ありになった予約では null のまま
+   */
+  supersededBy: string | null;
+  /** supersededBy が指す予約の予約日時。一覧・ボードに「→ 何時に変更」と出すために埋め込み取得する */
+  supersededByReservedAt: string | null;
 };
 
 /**
@@ -121,6 +129,9 @@ function rowToReservation(row: any): Reservation {
     source: row.source,
     sortOrder: row.sort_order,
     createdAt: row.created_at ?? null,
+    supersededBy: row.superseded_by ?? null,
+    // Supabaseの埋め込み取得は一覧で返る（1件でも配列）。無ければ空配列
+    supersededByReservedAt: row.superseded?.[0]?.reserved_at ?? row.superseded?.reserved_at ?? null,
   };
 }
 
@@ -147,10 +158,17 @@ function dsFields(r: NormalizedRow): Record<string, unknown> {
 
 // ── 取得 ──
 
+/*
+ * superseded_by で指している「変更後の予約」の日時も一緒に取ってくる。
+ * 一覧・ボードの表示期間の外に変更後の予約があっても表示できるよう、
+ * 別読み込みではなくこの埋め込みで一度に取得する。
+ */
+const SELECT_WITH_SUPERSEDED = '*, superseded:superseded_by(reserved_at)';
+
 export async function fetchReservationsByDate(dateKey: string): Promise<Reservation[]> {
   const { data, error } = await supabase
     .from(TABLE)
-    .select('*')
+    .select(SELECT_WITH_SUPERSEDED)
     .eq('reserved_date', dateKey)
     .order('reserved_at', { ascending: true })
     .order('sort_order', { ascending: true, nullsFirst: true });
@@ -161,7 +179,7 @@ export async function fetchReservationsByDate(dateKey: string): Promise<Reservat
 export async function fetchReservationsRange(fromDate: string, toDate: string): Promise<Reservation[]> {
   const { data, error } = await supabase
     .from(TABLE)
-    .select('*')
+    .select(SELECT_WITH_SUPERSEDED)
     .gte('reserved_date', fromDate)
     .lte('reserved_date', toDate)
     .order('reserved_at', { ascending: true });
@@ -841,16 +859,31 @@ export async function buildImportPlan(rows: NormalizedRow[]): Promise<ImportPlan
  * 触らないため、担当者を割り当てた後にCSVを入れ直しても割り当ては消えない。
  */
 export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
+  // tempId（プレビュー時の仮ID）→ 実際に発行されたDBの id
+  const insertedIdByTempId = new Map<string, string>();
+
   if (plan.inserts.length > 0) {
     const payload = plan.inserts.map((r) => ({
       ...dsFields(r),
       reserved_date: jstDateKey(r.reservedAt), // NOT NULL制約のため。値はトリガーが上書きする
       source: 'csv',
     }));
-    // 一度に送る件数を抑える（1日分は20〜30件程度だが、まとめ取り込みに備える）
-    for (let i = 0; i < payload.length; i += 100) {
-      const { error } = await supabase.from(TABLE).insert(payload.slice(i, i + 100));
-      if (error) throw error;
+    /*
+     * 「変更あり」の予約から新しい予約へ矢印（superseded_by）を張るには、
+     * どのtempIdがどの実idになったかを知る必要がある。まとめてinsertした
+     * 戻り値の並び順が入力順と一致する保証は厳密には無いため、1件ずつ
+     * insertしてidを確実に対応付ける（1日あたり数十件程度なので負荷は問題ない）。
+     */
+    const CONCURRENCY = 8;
+    for (let i = 0; i < payload.length; i += CONCURRENCY) {
+      const chunk = plan.inserts.slice(i, i + CONCURRENCY);
+      const chunkPayload = payload.slice(i, i + CONCURRENCY);
+      const results = await Promise.all(
+        chunkPayload.map((p) => supabase.from(TABLE).insert(p).select('id').single())
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+      results.forEach((r, idx) => insertedIdByTempId.set(chunk[idx].tempId, r.data!.id));
     }
   }
 
@@ -870,11 +903,26 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
    * 「変更あり」、紐付かなかったもの（キャンセルの可能性）は「キャンセル」にする。
    * status列だけを更新し、DS由来のカラムには一切触れない。
    */
-  const changedIds = plan.missing.filter((m) => m.matchedInsertId !== null).map((m) => m.id);
+  const changed = plan.missing.filter((m) => m.matchedInsertId !== null);
   const cancelledIds = plan.missing.filter((m) => m.matchedInsertId === null).map((m) => m.id);
-  if (changedIds.length > 0) {
-    const { error } = await supabase.from(TABLE).update({ status: 'changed' }).in('id', changedIds);
-    if (error) throw error;
+  if (changed.length > 0) {
+    /*
+     * superseded_by に新しい予約のidをセットする。「何が変わったか分からない」
+     * 「新しい予約がどれか分からない」というユーザー指摘への対応（2026-08-19）。
+     * matchedInsertId（tempId）は必ず insertedIdByTempId にある
+     * （missingの候補選定は plan.inserts の中からしか選ばないため）。
+     */
+    const CONCURRENCY = 8;
+    for (let i = 0; i < changed.length; i += CONCURRENCY) {
+      const chunk = changed.slice(i, i + CONCURRENCY);
+      const results = await Promise.all(
+        chunk.map((m) => supabase.from(TABLE)
+          .update({ status: 'changed', superseded_by: insertedIdByTempId.get(m.matchedInsertId!) ?? null })
+          .eq('id', m.id))
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+    }
   }
   if (cancelledIds.length > 0) {
     const { error } = await supabase.from(TABLE).update({ status: 'cancelled' }).in('id', cancelledIds);
@@ -891,7 +939,7 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
   return {
     inserted: plan.inserts.length,
     updated: plan.updates.length,
-    changed: changedIds.length,
+    changed: changed.length,
     cancelled: cancelledIds.length,
   };
 }

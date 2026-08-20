@@ -47,8 +47,20 @@ export type Reservation = {
    * 変更ありになった予約では null のまま
    */
   supersededBy: string | null;
-  /** supersededBy が指す予約の予約日時。一覧・ボードに「→ 何時に変更」と出すために埋め込み取得する */
-  supersededByReservedAt: string | null;
+  /**
+   * supersededBy が指す予約のDS由来カラム（生の列名のまま）。一覧・ボードで
+   * 「→ 何時に変更」に加え、迎車場所・メモ等の違いも見せるために埋め込み取得する。
+   * 列名はDBそのまま（reserved_at 等）。既存の `diffFields`（変更履歴で使用）と
+   * そのまま比較できるようにするため、あえてキャメルケースに変換しない
+   */
+  supersededByRaw: Record<string, any> | null;
+  /**
+   * 逆方向：自分を「変更後の予約」として指している、変更前の予約の日時。
+   * 「新しい予約を見ても、元は別の予約だと分からない」への対応。
+   * 複数から指されることは無い想定（1つの予約は高々1回しか「変更あり」の
+   * 行き先にならない）ので先頭の1件だけ見る
+   */
+  supersededFromReservedAt: string | null;
 };
 
 /**
@@ -130,8 +142,10 @@ function rowToReservation(row: any): Reservation {
     sortOrder: row.sort_order,
     createdAt: row.created_at ?? null,
     supersededBy: row.superseded_by ?? null,
-    // Supabaseの埋め込み取得は一覧で返る（1件でも配列）。無ければ空配列
-    supersededByReservedAt: row.superseded?.[0]?.reserved_at ?? row.superseded?.reserved_at ?? null,
+    // Supabaseの埋め込み取得は配列で返ることがある（1件でも）。両方の形に対応しておく
+    supersededByRaw: (Array.isArray(row.superseded) ? row.superseded[0] : row.superseded) ?? null,
+    supersededFromReservedAt:
+      (Array.isArray(row.supersededFrom) ? row.supersededFrom[0] : row.supersededFrom)?.reserved_at ?? null,
   };
 }
 
@@ -159,11 +173,25 @@ function dsFields(r: NormalizedRow): Record<string, unknown> {
 // ── 取得 ──
 
 /*
- * superseded_by で指している「変更後の予約」の日時も一緒に取ってくる。
+ * superseded_by で指している「変更後の予約」を一緒に取ってくる。
  * 一覧・ボードの表示期間の外に変更後の予約があっても表示できるよう、
  * 別読み込みではなくこの埋め込みで一度に取得する。
+ *
+ * 時刻だけでなく、DS由来の項目（迎車場所・メモ等）も取っておく。
+ * 「時刻以外に何が変わったか」も一緒に見せたい、という要望への対応（2026-08-21）。
+ * staff_id・checked・app_memo・status はアプリ側の状態で、新旧で違って当然のため含めない。
  */
-const SELECT_WITH_SUPERSEDED = '*, superseded:superseded_by(reserved_at)';
+/*
+ * supersededFrom は逆方向（自分を「変更後の予約」として指している古い予約）。
+ * 新しい方の予約を見ても「これは別の予約が変更されてできたもの」と分かるように
+ * するための要望（2026-08-21）。自己参照FKの逆embedは `テーブル名!列名` で書く
+ * （本番のSupabaseに対して実際にクエリを投げ、この書き方で通ることを確認済み）。
+ */
+const SELECT_WITH_SUPERSEDED = `*, superseded:superseded_by(
+  reserved_at, alarm_minutes, office_name, customer_kana,
+  reservation_memo, operator_memo, pickup_name, pickup_memo, pickup_address,
+  dropoff_name, dropoff_address
+), supersededFrom:dispatch_reservations!superseded_by(reserved_at)`;
 
 export async function fetchReservationsByDate(dateKey: string): Promise<Reservation[]> {
   const { data, error } = await supabase

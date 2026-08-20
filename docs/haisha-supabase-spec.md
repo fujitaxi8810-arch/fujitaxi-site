@@ -886,6 +886,36 @@ alter table dispatch_reservations
   形で添える（`buildSupersededNote`）。押すと配車ボードでその日を開く
 - この機能の追加**前**に「変更あり」になった予約（過去分）は `superseded_by` が無いため、矢印は出ない
   （何も出ない＝以前と同じ見た目に留まるだけで、エラーにはならない）
+- 2026-08-21実運用（8/21 08:20→09:20 宮本様の実際の時刻変更）で動作確認。SQLで手動リンクを張って確認：
+  ```sql
+  update dispatch_reservations
+  set superseded_by = (
+    select id from dispatch_reservations
+    where reserved_at = '2026-08-21 09:20:00+09' and phone = '08018348581' and status = 'normal'
+  )
+  where reserved_at = '2026-08-21 08:20:00+09' and phone = '08018348581' and status = 'changed';
+  ```
+  ボード・一覧の両方で「→ 09:20に変更」が正しく表示され、クリックで正しい日付のボードへ移動することを確認
+
+### 時刻以外の変更点・逆方向のリンクを追加（2026-08-21）
+
+ユーザーから2点追加要望：①迎車場所・メモも変わっていれば分かるようにしたい、②「変更あり」になった
+古い予約だけでなく、**新しい方の予約を見ても元は同じ予約だと分かるようにしたい**。
+
+- `SELECT_WITH_SUPERSEDED` の埋め込みを、日時だけでなくDS由来カラム一式
+  （迎車場所・メモ・アラーム等。`staff_id`/`checked`/`app_memo`/`status`はアプリ側の状態で
+  新旧で違って当然なので含めない）に拡張。既存の「変更履歴」で使っている `diffFields` /
+  `FIELD_LABELS` / `fieldValueLabel` をそのまま流用し、`toDsRawFields()` で
+  Reservation（キャメルケース）をDBの生の列名の形に変換して比較する
+- **逆方向のリンク**（新しい予約→元の予約）は、自己参照FKの逆embedで実現：
+  ```
+  supersededFrom:dispatch_reservations!superseded_by(reserved_at)
+  ```
+  本番のSupabaseに対して実際にクエリを投げ、この書き方で通ることを事前に確認してから実装した
+  （`dispatch_reservations!superseded_by` という指定の仕方が、自己参照FKの逆方向embedの正しい書き方）
+- 表示は「→ 17:35に変更」の下に、変わった項目があれば箇条書きで続ける
+  （例：「場所メモ：8/21 820予約 原ノ町駅迄 → 8/21 9:20予約 原ノ町駅迄」）。
+  新しい方の予約には「← 08:20から変更」と逆向きに表示し、押すと元の予約がある日をボードで開く
 
 ### 教訓・積み残し
 

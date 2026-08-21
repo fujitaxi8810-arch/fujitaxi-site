@@ -1597,6 +1597,21 @@ import '../styles/kt-components.css';
       if (hiddenRows().length !== lastHiddenCount) renderBoard();
     }, 60 * 1000);
 
+    /*
+     * タブを開けっぱなしにしていても、他の人がCSV取り込み・担当者割当をした
+     * 内容が自動で反映されるように（ユーザー要望：「自動でリロードとかしてくれますか」。
+     * 複数人で同じ画面を見る想定の日別ボード・全体配車ボードの両方に付ける）。
+     * ちょうどセレクトを選んでいる最中に描き直すと選択中の項目が消えてしまうため、
+     * フォーカスが表内の入力に無いときだけ更新する
+     */
+    function isInteractingWithForm() {
+      const el = document.activeElement;
+      return !!el && (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+    }
+    setInterval(() => {
+      if (!$('boardPanel').hidden && !isInteractingWithForm()) loadBoard();
+    }, 30 * 1000);
+
     // ── ① 配車ボード ──
     async function loadBoard() {
       const dateKey = $('datePick').value || todayJst();
@@ -2074,6 +2089,11 @@ import '../styles/kt-components.css';
       if ($('allPanel').hidden) return;
       if (hiddenAllRows().length !== lastHiddenAllCount) renderAllView();
     }, 60 * 1000);
+
+    // 日別ボードと同じ理由で、こちらも開けっぱなしで自動更新する
+    setInterval(() => {
+      if (!$('allPanel').hidden && !isInteractingWithForm()) loadAllView();
+    }, 30 * 1000);
 
     async function loadAllView() {
       const dateKey = $('allDatePick').value || todayJst();
@@ -3366,6 +3386,13 @@ import '../styles/kt-components.css';
      * セレクト・ボタン・チェックの高さを詰める（他の画面には影響しない）
      */
     .ha-all-grid { overflow-x: auto; }
+    /*
+     * ページ（kt-panel）はダークテーマの黒背景。この表のtdは背景を指定していなかったため、
+     * 未割当・変更あり・キャンセルの色分けが付かない通常行（＝担当者を割り当てた直後の状態）は
+     * 黒い文字がそのまま黒い背景の上に乗り、行の状態・担当者以外（時刻・お客様名・場所・
+     * メモ・済・編集）が読めなくなっていた（.ha-selectだけ自前の白背景を持つため無事だった）。
+     * tdに白背景を明示し、未割当等の色はその上に乗る形にする
+     */
     .ha-all-table { border-collapse: collapse; font-size: 0.88rem; width: 100%; }
     .ha-all-table th {
       color: #666;
@@ -3376,7 +3403,7 @@ import '../styles/kt-components.css';
       border-bottom: 2px solid #ccc;
       white-space: nowrap;
     }
-    .ha-all-table td { padding: 0.05rem 0.6rem; border-bottom: 1px solid #eee; color: #111; }
+    .ha-all-table td { padding: 0.05rem 0.6rem; border-bottom: 1px solid #eee; color: #111; background: #fff; }
     .ha-all-table tr:last-child td { border-bottom: none; }
     .ha-all-card--unassigned td { background: #fffaf0; }
     .ha-all-card--changed td { background: #fffbeb; }

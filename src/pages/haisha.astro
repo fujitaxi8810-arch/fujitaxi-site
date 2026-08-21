@@ -8,6 +8,7 @@ import '../styles/kt-components.css';
   description="富士タクシー社内用の配車管理アプリ。予約の取り込み、担当者の割り当て、日別の配車確認ができます。"
   noindex
   hideFloatCta
+  hideNav
   appIcon={{ key: 'haisha', name: '配車管理' }}
 >
 
@@ -3397,6 +3398,16 @@ import '../styles/kt-components.css';
       min-height: 1.5rem;
       padding: 0.02rem 0.4rem;
       font-size: 0.8rem;
+    }
+    /*
+     * サイト共通のキーボードフォーカス枠（::focus-visible。outline-offset: 3px）は
+     * 通常サイズの入力欄向けで、行を詰めたこの表では余白が足りず、枠が隣の行に
+     * はみ出して不自然に見えていた（ユーザー指摘）。この表の中だけ余白を縮める
+     */
+    .ha-all-table .ha-select:focus-visible,
+    .ha-all-table .ha-check:focus-visible,
+    .ha-all-table .ha-linkbtn--icon:focus-visible {
+      outline-offset: 0px;
     }
     .ha-all-table .ha-check { width: 1rem; height: 1rem; }
     .ha-all-table .ha-linkbtn--icon { min-height: 1.5rem; min-width: 1.5rem; padding: 0.02rem 0.25rem; font-size: 0.85rem; }

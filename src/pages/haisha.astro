@@ -409,6 +409,8 @@ import '../styles/kt-components.css';
     let historyRows: any[] = [];
     let editing: any = null;      // 編集中の予約（新規はnull）
     let allViewRows: any[] = [];  // 「全体で見る」タブ専用。boardRowsとは別に持つ
+    // 直前に実測した表(.ha-all-table)1つぶんの幅(px)。列数の計算に使う
+    let lastAllTableWidthPx: number | null = null;
     let importPlan: any = null;
     // 取り込み計画が「明らかにおかしい」とき真。取り込みボタンで念押しを出すのに使う
     let importLooksWrong = false;
@@ -688,7 +690,9 @@ import '../styles/kt-components.css';
       const list = which === 'list';
       const all = which === 'all';
       $('boardPanel').hidden = !board;
-      $('dutyPanel').hidden = !board;
+      // 乗務割は全体タブでも見たい、という要望があり、日別ボードに加えて出す
+      // （ユーザー要望：「乗務割も全体タブに追加してください」。2026-08-21）
+      $('dutyPanel').hidden = !(board || all);
       $('handoverBar').hidden = !board;
       $('historyPanel').hidden = !board;
       $('listPanel').hidden = !list;
@@ -1112,7 +1116,13 @@ import '../styles/kt-components.css';
 
     type DutyCat = 'school_haramachi' | 'exchange' | 'charter' | 'school';
 
+    /*
+     * 乗務割パネルはDOM上1つを日別ボード・全体タブで共有する。今どちらを
+     * 見ているかで、パネルに反映すべき日付を切り替える
+     * （全体タブにも乗務割を出してほしい、という要望への対応。2026-08-21）
+     */
     function dutyDateKey() {
+      if (!$('allPanel').hidden) return $('allDatePick').value || todayJst();
       return $('datePick').value || todayJst();
     }
 
@@ -2068,12 +2078,27 @@ import '../styles/kt-components.css';
     async function loadAllView() {
       const dateKey = $('allDatePick').value || todayJst();
       try {
-        allViewRows = await fetchReservationsByDate(dateKey);
+        // 乗務割（dutyRows/dailyDutyRows）も、全体タブで見ている日付ぶんを
+        // 取り直す。dutyPanel は日別ボードと共有のDOMなので、renderDuty() が
+        // 参照する変数をこちらの日付で上書きしてから描き直す
+        const [reservations, duties, daily] = await Promise.all([
+          fetchReservationsByDate(dateKey),
+          fetchShiftsByDate(dateKey),
+          fetchDailyDuties(dateKey),
+        ]);
+        allViewRows = reservations;
+        dutyRows = duties;
+        dailyDutyRows = daily;
       } catch (e) {
         alert(failMsg(e, 'データの読み込み'));
         return;
       }
+      renderDuty();
+      // 最初の1回だけ、列数の見積もりが実測前の暫定値のまま。
+      // 1回描画すると次回用の実測値ができるので、その場でもう一度描き直して揃える
+      const firstTime = lastAllTableWidthPx === null;
       renderAllView();
+      if (firstTime) renderAllView();
     }
 
     /** カードの背景色・打ち消し線。日別ボードの applyRowStatus と同じ判定だが、
@@ -2095,9 +2120,16 @@ import '../styles/kt-components.css';
       const grid = $('allGrid');
       const width = grid.clientWidth || grid.parentElement?.clientWidth || 800;
       // 文字サイズズーム（documentElementのfont-size）でrem基準が変わるため、
-      // 元のCSSでの目安（.ha-all-table の min-width: 15rem）をその時点のpx換算に直して揃える
+      // 表の実際の幅を測って揃える。時刻・状態・担当者・お客様名(+場所)・済・編集の
+      // 6列だと、あらかじめ決め打ちした値（rem）では実際の必要幅とズレて、
+      // flex-wrapで折り返した分だけ縦に積み上がってしまう不具合があった
+      // （2026-08-21・実測で発覚。狙った列数より少ない数しか横に並ばず、
+      // 余った表が次の行に落ちて高さが数倍になっていた）。
+      // そのため固定値ではなく、直前の描画で実際に測った表の幅を使う
+      // （renderAllViewの最後で lastAllTableWidthPx に保存している。
+      // まだ一度も描画していない最初の1回だけ、暫定の見積もり値を使う）
       const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      const minColPx = 15 * remPx;
+      const minColPx = lastAllTableWidthPx || 27 * remPx;
       const gapPx = 0.6 * remPx;
       const n = Math.floor((width + gapPx) / (minColPx + gapPx));
       return Math.max(1, n);
@@ -2152,7 +2184,7 @@ import '../styles/kt-components.css';
       for (let i = 0; i < colCount; i++) {
         const table = document.createElement('table');
         table.className = 'ha-all-table';
-        table.appendChild(headerRow(['時刻', '状態', '担当者', 'お客様名', '場所・メモ', '済', '']));
+        table.appendChild(headerRow(['時刻', '状態', '担当者', 'お客様名', '済', '']));
         const tbody = document.createElement('tbody');
         table.appendChild(tbody);
         tbodies.push(tbody);
@@ -2168,6 +2200,7 @@ import '../styles/kt-components.css';
         tr.appendChild(td(jstTimeLabel(r.reservedAt), 'ha-all-time'));
 
         const statusCell = document.createElement('td');
+        statusCell.className = 'ha-all-status';
         const stSel = buildStatusSelect(r.status, isNew);
         if (isNew) stSel.title = newBadgeTitle(r);
         statusCell.appendChild(stSel);
@@ -2229,8 +2262,18 @@ import '../styles/kt-components.css';
         staffCell.appendChild(sel);
         tr.appendChild(staffCell);
 
-        tr.appendChild(td(r.customerName, 'ha-all-name'));
-        tr.appendChild(td(`${pickupText(r)} → ${destinationText(r)}`, 'ha-all-place'));
+        // お客様名の後ろに迎車場所・行き先メモを続けて1つのセルにまとめ、
+        // 大きめの文字で読みやすくする（ユーザー要望：「（北町）の後ろにつけて大きく」）
+        const nameCell = document.createElement('td');
+        nameCell.className = 'ha-all-name';
+        const nameLine = document.createElement('div');
+        nameLine.textContent = r.customerName;
+        nameCell.appendChild(nameLine);
+        const placeLine = document.createElement('div');
+        placeLine.className = 'ha-all-place';
+        placeLine.textContent = `${pickupText(r)} → ${destinationText(r)}`;
+        nameCell.appendChild(placeLine);
+        tr.appendChild(nameCell);
 
         const checkCell = document.createElement('td');
         const cb = document.createElement('input');
@@ -2268,6 +2311,10 @@ import '../styles/kt-components.css';
         const colIndex = Math.min(colCount - 1, Math.floor(i / perCol));
         tbodies[colIndex].appendChild(tr);
       }
+
+      // 次回のcomputeAllColumns()のために、実際に描画された表の幅を測っておく
+      const rendered = grid.querySelector('.ha-all-table');
+      if (rendered) lastAllTableWidthPx = rendered.getBoundingClientRect().width;
     }
 
     $('allDatePick').onchange = loadAllView;
@@ -3374,7 +3421,13 @@ import '../styles/kt-components.css';
      * 幅から決めて、時系列のまま1つ目の表から順に振り分ける。
      */
     .ha-all-grid { display: flex; gap: 0.6rem; align-items: flex-start; flex-wrap: wrap; }
-    .ha-all-table { border-collapse: collapse; flex: 1; min-width: 15rem; font-size: 0.72rem; }
+    /*
+     * flex:1（伸びて空きを埋める）にすると、列数の見積もりが少し外れただけで
+     * 表が大きく引き伸ばされ、次回の列数計算のための幅測定（JS側）まで
+     * 狂わせてしまっていた（2026-08-21・実測で発覚）。伸縮させず、
+     * 内容なりの自然な幅のまま並べる
+     */
+    .ha-all-table { border-collapse: collapse; flex: 0 0 auto; font-size: 0.74rem; }
     .ha-all-table th {
       color: #666;
       text-align: left;
@@ -3392,14 +3445,21 @@ import '../styles/kt-components.css';
     .ha-all-card--cancelled .ha-select, .ha-all-card--cancelled .ha-check { text-decoration: none; }
     .ha-all-card--new td:first-child { box-shadow: inset 3px 0 0 #0e7490; }
     .ha-all-time { font-weight: 700; white-space: nowrap; }
-    .ha-all-name { max-width: 6.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+    /*
+     * お客様名の後ろに迎車場所・行き先メモを続けて1セルにまとめ、大きめの文字にする
+     * （ユーザー要望：「（北町）の後ろにつけて大きくしてください」）。
+     * 列（時刻・状態・担当者・済・編集）が減った分の余白をこの列に回す
+     */
+    .ha-all-name { max-width: 11rem; font-weight: 700; font-size: 0.78rem; }
+    .ha-all-name > div:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ha-all-place {
-      max-width: 9rem;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       color: #666;
-      font-size: 0.66rem;
+      font-weight: 400;
+      font-size: 0.72rem;
+      margin-top: 0.05rem;
     }
     /*
      * .ha-select.ha-status（状態のセレクト）は font-size/padding/min-width を
@@ -3416,8 +3476,23 @@ import '../styles/kt-components.css';
     }
     .ha-all-table .ha-check { width: 0.85rem; height: 0.85rem; }
     .ha-all-table .ha-linkbtn--icon { min-width: 1.2rem; min-height: 1.2rem; padding: 0.05rem 0.15rem; font-size: 0.64rem; }
-    .ha-all-table .ha-superseded-note { font-size: 0.58rem; display: block; margin-top: 0.1rem; }
-    .ha-all-table .ha-superseded-diff { font-size: 0.55rem; }
+    /*
+     * 「変更あり」の注記（→変更後の時刻／何が変わったか）は文章が長くなりがちで、
+     * 折り返さず幅いっぱいに伸びると、表全体の幅を押し広げてしまっていた
+     * （2026-08-21・実測で発覚）。ここでは列の幅を固定し、はみ出す分は省略する
+     * （全文は日別ボード・予約一覧で確認できるので、ここは概要だけで十分）
+     */
+    .ha-all-status { max-width: 6rem; }
+    .ha-all-table .ha-superseded-note {
+      font-size: 0.58rem;
+      display: block;
+      margin-top: 0.1rem;
+      max-width: 6rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ha-all-table .ha-superseded-diff { display: none; }
 
     /* ── モーダル ── */
     .ha-modal { max-width: 680px; }

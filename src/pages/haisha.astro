@@ -3358,18 +3358,24 @@ import '../styles/kt-components.css';
      * 分割をやめ、日別ボードとほぼ同じ列構成の**1つの横長な表**に作り直した
      * （1行＝1予約、時系列のまま。電話番号は日別ボードの方針通り出さない）
      */
+    /*
+     * 「高さを狭くしてもっと全体がうつるように。30件MAX」という要望への対応。
+     * .ha-select・.ha-linkbtnは元々タッチ操作前提でmin-height 2.75rem/2.5remあり、
+     * これが1行の高さ（実測58px）の主な原因だったため、この表の中に限って
+     * セレクト・ボタン・チェックの高さを詰める（他の画面には影響しない）
+     */
     .ha-all-grid { overflow-x: auto; }
-    .ha-all-table { border-collapse: collapse; font-size: 0.95rem; width: 100%; }
+    .ha-all-table { border-collapse: collapse; font-size: 0.88rem; width: 100%; }
     .ha-all-table th {
       color: #666;
       text-align: left;
       font-weight: 700;
-      font-size: 0.85rem;
-      padding: 0.4rem 0.6rem;
+      font-size: 0.78rem;
+      padding: 0.25rem 0.6rem;
       border-bottom: 2px solid #ccc;
       white-space: nowrap;
     }
-    .ha-all-table td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; color: #111; }
+    .ha-all-table td { padding: 0.05rem 0.6rem; border-bottom: 1px solid #eee; color: #111; }
     .ha-all-table tr:last-child td { border-bottom: none; }
     .ha-all-card--unassigned td { background: #fffaf0; }
     .ha-all-card--changed td { background: #fffbeb; }
@@ -3386,9 +3392,15 @@ import '../styles/kt-components.css';
       color: #444;
     }
     .ha-all-status { white-space: nowrap; }
-    .ha-all-table .ha-select { min-width: 6rem; }
-    .ha-all-table .ha-check { width: 1.2rem; height: 1.2rem; }
-    .ha-all-table .ha-superseded-note { display: block; margin-top: 0.15rem; }
+    .ha-all-table .ha-select {
+      min-width: 6rem;
+      min-height: 1.5rem;
+      padding: 0.02rem 0.4rem;
+      font-size: 0.8rem;
+    }
+    .ha-all-table .ha-check { width: 1rem; height: 1rem; }
+    .ha-all-table .ha-linkbtn--icon { min-height: 1.5rem; min-width: 1.5rem; padding: 0.02rem 0.25rem; font-size: 0.85rem; }
+    .ha-all-table .ha-superseded-note { display: block; margin-top: 0.1rem; font-size: 0.78rem; }
 
     /* ── モーダル ── */
     .ha-modal { max-width: 680px; }

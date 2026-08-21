@@ -3384,13 +3384,13 @@ import '../styles/kt-components.css';
     .ha-all-card--new td:first-child { box-shadow: inset 4px 0 0 #0e7490; }
     .ha-all-time { font-weight: 700; white-space: nowrap; }
     .ha-all-name { font-weight: 700; white-space: nowrap; }
-    .ha-all-place {
-      max-width: 16rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      color: #444;
-    }
+    /*
+     * 迎車場所・行き先メモが省略されて見えない、という指摘への対応。
+     * max-widthで省略していたのをやめ、内容の長さなりに表を横に伸ばす。
+     * はみ出す場合は .ha-all-grid の overflow-x: auto で横スクロールする
+     * （縦の行の高さは崩したくないので white-space: nowrap のままにする）
+     */
+    .ha-all-place { white-space: nowrap; color: #444; }
     .ha-all-status { white-space: nowrap; }
     .ha-all-table .ha-select {
       min-width: 6rem;

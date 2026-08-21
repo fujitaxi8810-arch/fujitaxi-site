@@ -354,6 +354,14 @@ button {
    ============================================ */
 
 /* ── ニューステッカー ── */
+/*
+ * hidden属性はブラウザ標準の [hidden]{display:none} で消えるはずだが、
+ * 下の .news-ticker{display:flex} が同じ「作者スタイルシート・通常優先度」で
+ * 効いてしまい、詳細度（0,1,0 vs 0,1,0）で後にあるこちらが勝つため、
+ * hidden属性を付けても実際には消えていなかった（社内ツールでの非表示化で発覚）。
+ * [hidden] を明示して詳細度を上げ、確実に消えるようにする
+ */
+.news-ticker[hidden] { display: none; }
 .news-ticker {
   display: flex;
   align-items: center;

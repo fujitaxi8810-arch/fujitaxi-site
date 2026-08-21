@@ -2133,12 +2133,17 @@ import '../styles/kt-components.css';
       $('allSummary').textContent = parts.join('　');
 
       // 列数ぶんの縦積みブロックを先に作り、時系列のまま1列目から順に割り振る
-      // （rowsは既に予約時刻順。3件・3列なら1件ずつ、7件・3列なら3/2/2件、という配り方）。
-      // 件数が少ない日は、幅的に置ける列数より少ない列しか使わない
-      // （余った列を空のまま置くと不自然な余白になるため）
+      // （rowsは既に予約時刻順。19件・5列なら4/4/4/4/3件、という配り方）。
+      //
+      // 「件数 ÷ 置ける最大列数」で1列あたりの件数を決めると、件数が少ない日
+      // （例：3件・最大6列）は1件÷6列＝1列1件になり、1件ずつバラバラの列に
+      // 分かれて縦に並ばなくなってしまう（ユーザー指摘で発覚）。
+      // 1列に最低でも TARGET_ROWS_PER_COL 件は入れてから、それでも
+      // 収まりきらない分だけ次の列を使う、という順番に直す。
+      const TARGET_ROWS_PER_COL = 4;
       const maxColCount = computeAllColumns();
-      const perCol = Math.ceil(rows.length / maxColCount);
-      const colCount = Math.min(maxColCount, Math.ceil(rows.length / perCol));
+      const colCount = Math.max(1, Math.min(maxColCount, Math.ceil(rows.length / TARGET_ROWS_PER_COL)));
+      const perCol = Math.ceil(rows.length / colCount);
       lastAllColCount = maxColCount;
       const cols: HTMLElement[] = [];
       for (let i = 0; i < colCount; i++) {

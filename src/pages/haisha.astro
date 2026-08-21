@@ -35,10 +35,11 @@ import '../styles/kt-components.css';
       <!-- タブ -->
       <div class="ha-tabs">
         <button type="button" class="ha-tab is-active" id="tabBoardBtn">日別の配車ボード</button>
-        <button type="button" class="ha-tab" id="tabListBtn">予約一覧</button>
         <!-- 日別ボードは1日分でも縦に長くスクロールが要る、という指摘への対応。
-             既存のボード・一覧はそのままに、複数列で全件を一望できる版を別タブとして追加する -->
-        <button type="button" class="ha-tab" id="tabAllBtn">全体で見る</button>
+             既存のボード・一覧はそのままに、横長の1枚表で全件を見られる版を別タブとして追加する。
+             「日別の配車ボード」と対になる名前にする（ユーザー要望） -->
+        <button type="button" class="ha-tab" id="tabAllBtn">全体配車ボード</button>
+        <button type="button" class="ha-tab" id="tabListBtn">予約一覧</button>
       </div>
 
       <!-- ── 引き継ぎ（「新着」判定の基準時刻。交代した人が最初に見る想定で一番上に置く） ──
@@ -162,7 +163,7 @@ import '../styles/kt-components.css';
            日別ボード・予約一覧の既存コードには手を加えず、別タブとして追加した ── -->
       <div class="kt-panel" id="allPanel" hidden>
         <div class="kt-panel__head">
-          <h2 class="kt-title" id="allTitle">全体で見る</h2>
+          <h2 class="kt-title" id="allTitle">全体配車ボード</h2>
           <div class="kt-panel__tools">
             <button type="button" class="kt-btn kt-btn--ghost" id="allPrevDayBtn">◀</button>
             <input type="date" id="allDatePick" class="kt-input" />
@@ -409,8 +410,6 @@ import '../styles/kt-components.css';
     let historyRows: any[] = [];
     let editing: any = null;      // 編集中の予約（新規はnull）
     let allViewRows: any[] = [];  // 「全体で見る」タブ専用。boardRowsとは別に持つ
-    // 直前に実測した表(.ha-all-table)1つぶんの幅(px)。列数の計算に使う
-    let lastAllTableWidthPx: number | null = null;
     let importPlan: any = null;
     // 取り込み計画が「明らかにおかしい」とき真。取り込みボタンで念押しを出すのに使う
     let importLooksWrong = false;
@@ -2094,11 +2093,7 @@ import '../styles/kt-components.css';
         return;
       }
       renderDuty();
-      // 最初の1回だけ、列数の見積もりが実測前の暫定値のまま。
-      // 1回描画すると次回用の実測値ができるので、その場でもう一度描き直して揃える
-      const firstTime = lastAllTableWidthPx === null;
       renderAllView();
-      if (firstTime) renderAllView();
     }
 
     /** カードの背景色・打ち消し線。日別ボードの applyRowStatus と同じ判定だが、
@@ -2116,28 +2111,9 @@ import '../styles/kt-components.css';
      * 列数だけJSで決め、その列数ぶんの縦積みブロックをこちらで作って
      * 時系列に振り分ける（1列目の上から下へ、次に2列目の上から下へ…）。
      */
-    function computeAllColumns() {
-      const grid = $('allGrid');
-      const width = grid.clientWidth || grid.parentElement?.clientWidth || 800;
-      // 文字サイズズーム（documentElementのfont-size）でrem基準が変わるため、
-      // 表の実際の幅を測って揃える。時刻・状態・担当者・お客様名(+場所)・済・編集の
-      // 6列だと、あらかじめ決め打ちした値（rem）では実際の必要幅とズレて、
-      // flex-wrapで折り返した分だけ縦に積み上がってしまう不具合があった
-      // （2026-08-21・実測で発覚。狙った列数より少ない数しか横に並ばず、
-      // 余った表が次の行に落ちて高さが数倍になっていた）。
-      // そのため固定値ではなく、直前の描画で実際に測った表の幅を使う
-      // （renderAllViewの最後で lastAllTableWidthPx に保存している。
-      // まだ一度も描画していない最初の1回だけ、暫定の見積もり値を使う）
-      const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      const minColPx = lastAllTableWidthPx || 27 * remPx;
-      const gapPx = 0.6 * remPx;
-      const n = Math.floor((width + gapPx) / (minColPx + gapPx));
-      return Math.max(1, n);
-    }
-
     function renderAllView() {
       const dateKey = $('allDatePick').value || todayJst();
-      $('allTitle').textContent = `全体で見る　${dateKey.replace(/-/g, '/')}（${weekdayOf(dateKey)}）`;
+      $('allTitle').textContent = `全体配車ボード　${dateKey.replace(/-/g, '/')}（${weekdayOf(dateKey)}）`;
 
       const rows = visibleAllRows();
       const hidden = hiddenAllRows().length;
@@ -2164,34 +2140,21 @@ import '../styles/kt-components.css';
       if (hidden > 0) parts.push(`時間経過で非表示 ${hidden}件`);
       $('allSummary').textContent = parts.join('　');
 
-      // 列数ぶんの縦積みブロックを先に作り、時系列のまま1列目から順に割り振る
-      // （rowsは既に予約時刻順。19件・5列なら4/4/4/4/3件、という配り方）。
-      //
-      // 「件数 ÷ 置ける最大列数」で1列あたりの件数を決めると、件数が少ない日
-      // （例：3件・最大6列）は1件÷6列＝1列1件になり、1件ずつバラバラの列に
-      // 分かれて縦に並ばなくなってしまう（ユーザー指摘で発覚）。
-      // 1列に最低でも TARGET_ROWS_PER_COL 件は入れてから、それでも
-      // 収まりきらない分だけ次の列を使う、という順番に直す。
-      const TARGET_ROWS_PER_COL = 4;
-      const maxColCount = computeAllColumns();
-      const colCount = Math.max(1, Math.min(maxColCount, Math.ceil(rows.length / TARGET_ROWS_PER_COL)));
-      const perCol = Math.ceil(rows.length / colCount);
-      lastAllColCount = maxColCount;
-      // カードではなく、旧スプレッドシート「配車確認表」のような表形式にしてほしい、
-      // という要望（2026-08-21）。列ごとに独立した小さな表（<table>）を並べる。
-      // 電話番号は日別ボードの方針通り出さない（そこだけ除いてイメージ図に寄せた）
-      const tbodies: HTMLElement[] = [];
-      for (let i = 0; i < colCount; i++) {
-        const table = document.createElement('table');
-        table.className = 'ha-all-table';
-        table.appendChild(headerRow(['時刻', '状態', '担当者', 'お客様名', '済', '']));
-        const tbody = document.createElement('tbody');
-        table.appendChild(tbody);
-        tbodies.push(tbody);
-        grid.appendChild(table);
-      }
+      /*
+       * 複数の狭い表に分ける方式（列優先）は、幅の見積もりが実際の内容と
+       * ズレるたびに崩れやすく、実測でも折り返し暴走の不具合が起きていた。
+       * ユーザー要望「横長にしてください。幅を広げて一行に一つの予定」で、
+       * 分割をやめて**1つの横長な表**に作り直した（1行＝1予約、時系列のまま）。
+       * 列の分け方を計算する必要が無くなった分、構造もシンプルになっている。
+       */
+      const table = document.createElement('table');
+      table.className = 'ha-all-table';
+      table.appendChild(headerRow(['時刻', '状態', '担当者', 'お客様名', '迎車場所', '行き先・メモ', '済', '']));
+      const tbody = document.createElement('tbody');
+      table.appendChild(tbody);
+      grid.appendChild(table);
 
-      for (const [i, r] of rows.entries()) {
+      for (const r of rows) {
         const tr = document.createElement('tr');
         applyAllCardStatus(tr, r);
         const isNew = isNewSinceHandover(r);
@@ -2262,18 +2225,11 @@ import '../styles/kt-components.css';
         staffCell.appendChild(sel);
         tr.appendChild(staffCell);
 
-        // お客様名の後ろに迎車場所・行き先メモを続けて1つのセルにまとめ、
-        // 大きめの文字で読みやすくする（ユーザー要望：「（北町）の後ろにつけて大きく」）
-        const nameCell = document.createElement('td');
-        nameCell.className = 'ha-all-name';
-        const nameLine = document.createElement('div');
-        nameLine.textContent = r.customerName;
-        nameCell.appendChild(nameLine);
-        const placeLine = document.createElement('div');
-        placeLine.className = 'ha-all-place';
-        placeLine.textContent = `${pickupText(r)} → ${destinationText(r)}`;
-        nameCell.appendChild(placeLine);
-        tr.appendChild(nameCell);
+        // 横長の1枚表になり幅の余裕ができたので、日別ボードと同じく
+        // お客様名／迎車場所／行き先・メモを別々の列に戻す
+        tr.appendChild(td(r.customerName, 'ha-all-name'));
+        tr.appendChild(td(pickupText(r), 'ha-all-place'));
+        tr.appendChild(td(destinationText(r), 'ha-all-place'));
 
         const checkCell = document.createElement('td');
         const cb = document.createElement('input');
@@ -2308,13 +2264,8 @@ import '../styles/kt-components.css';
         editCell.appendChild(editBtn);
         tr.appendChild(editCell);
 
-        const colIndex = Math.min(colCount - 1, Math.floor(i / perCol));
-        tbodies[colIndex].appendChild(tr);
+        tbody.appendChild(tr);
       }
-
-      // 次回のcomputeAllColumns()のために、実際に描画された表の幅を測っておく
-      const rendered = grid.querySelector('.ha-all-table');
-      if (rendered) lastAllTableWidthPx = rendered.getBoundingClientRect().width;
     }
 
     $('allDatePick').onchange = loadAllView;
@@ -2322,16 +2273,6 @@ import '../styles/kt-components.css';
     $('allNextDayBtn').onclick = () => { $('allDatePick').value = shiftDate($('allDatePick').value, 1); loadAllView(); };
     $('allTodayBtn').onclick = () => { $('allDatePick').value = todayJst(); loadAllView(); };
     $('allPrintBtn').onclick = () => window.print();
-
-    // 画面幅が変わると列数（computeAllColumns）も変わるはずなので、
-    // 変わったときだけ組み直す。リサイズのたびに毎回作り直すと重いため
-    // 実際に列数が変わったときだけにする
-    let lastAllColCount = -1;
-    window.addEventListener('resize', () => {
-      if ($('allPanel').hidden) return;
-      const n = computeAllColumns();
-      if (n !== lastAllColCount) { lastAllColCount = n; renderAllView(); }
-    });
 
     // ── 編集モーダル ──
     function openEdit(rec: any) {
@@ -3408,91 +3349,46 @@ import '../styles/kt-components.css';
       line-height: 1;
     }
 
-    /* ── 「全体で見る」タブ ── */
+    /* ── 全体配車ボード（横長の1枚表） ── */
     /*
      * 1日分でも縦に長くスクロールしないと把握できない、という指摘への対応。
-     * 日別ボードと列・仕様は同じで、複数の表（画面が狭ければ自動で1つに）に
-     * 分けて並べることで、スクロールを減らして一望できるようにする。
-     *
-     * 当初はカード（枠で囲んだブロック）を並べていたが、「カードではなく
-     * 旧スプレッドシート『配車確認表』のような表形式にしてほしい」という
-     * 要望（2026-08-21）で、独立した小さな<table>を複数並べる形に作り直した。
-     * 列＝各<table>の個数はJS側（computeAllColumns/renderAllView）で
-     * 幅から決めて、時系列のまま1つ目の表から順に振り分ける。
+     * 複数の狭い表に分ける版（列優先）を試したが、幅の見積もりが実際の内容と
+     * ズレるたびに崩れやすく、実測でも折り返し暴走の不具合が出た（2026-08-21）。
+     * ユーザー要望「横長にしてください。幅を広げて一行に一つの予定」で、
+     * 分割をやめ、日別ボードとほぼ同じ列構成の**1つの横長な表**に作り直した
+     * （1行＝1予約、時系列のまま。電話番号は日別ボードの方針通り出さない）
      */
-    .ha-all-grid { display: flex; gap: 0.6rem; align-items: flex-start; flex-wrap: wrap; }
-    /*
-     * flex:1（伸びて空きを埋める）にすると、列数の見積もりが少し外れただけで
-     * 表が大きく引き伸ばされ、次回の列数計算のための幅測定（JS側）まで
-     * 狂わせてしまっていた（2026-08-21・実測で発覚）。伸縮させず、
-     * 内容なりの自然な幅のまま並べる
-     */
-    .ha-all-table { border-collapse: collapse; flex: 0 0 auto; font-size: 0.74rem; }
+    .ha-all-grid { overflow-x: auto; }
+    .ha-all-table { border-collapse: collapse; font-size: 0.95rem; width: 100%; }
     .ha-all-table th {
       color: #666;
       text-align: left;
       font-weight: 700;
-      font-size: 0.66rem;
-      padding: 0.15rem 0.3rem;
-      border-bottom: 1px solid #ccc;
+      font-size: 0.85rem;
+      padding: 0.4rem 0.6rem;
+      border-bottom: 2px solid #ccc;
       white-space: nowrap;
     }
-    .ha-all-table td { padding: 0.15rem 0.3rem; border-bottom: 1px solid #eee; color: #111; }
+    .ha-all-table td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; color: #111; }
     .ha-all-table tr:last-child td { border-bottom: none; }
     .ha-all-card--unassigned td { background: #fffaf0; }
     .ha-all-card--changed td { background: #fffbeb; }
     .ha-all-card--cancelled td { background: #f4f4f5; color: #9ca3af; text-decoration: line-through; }
     .ha-all-card--cancelled .ha-select, .ha-all-card--cancelled .ha-check { text-decoration: none; }
-    .ha-all-card--new td:first-child { box-shadow: inset 3px 0 0 #0e7490; }
+    .ha-all-card--new td:first-child { box-shadow: inset 4px 0 0 #0e7490; }
     .ha-all-time { font-weight: 700; white-space: nowrap; }
-    /*
-     * お客様名の後ろに迎車場所・行き先メモを続けて1セルにまとめ、大きめの文字にする
-     * （ユーザー要望：「（北町）の後ろにつけて大きくしてください」）。
-     * 列（時刻・状態・担当者・済・編集）が減った分の余白をこの列に回す
-     */
-    .ha-all-name { max-width: 11rem; font-weight: 700; font-size: 0.78rem; }
-    .ha-all-name > div:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ha-all-name { font-weight: 700; white-space: nowrap; }
     .ha-all-place {
+      max-width: 16rem;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: #666;
-      font-weight: 400;
-      font-size: 0.72rem;
-      margin-top: 0.05rem;
+      color: #444;
     }
-    /*
-     * .ha-select.ha-status（状態のセレクト）は font-size/padding/min-width を
-     * 個別に上書きしている（同じ詳細度 class×2）。ソース順で後にあるこちらを
-     * 勝たせるため、こちらも .ha-all-table .ha-select という class×2 で揃える
-     */
-    .ha-all-table .ha-select {
-      min-height: 1.4rem;
-      min-width: 0;
-      max-width: 4.4rem;
-      font-size: 0.64rem;
-      font-weight: 700;
-      padding: 0.02rem 0.15rem;
-    }
-    .ha-all-table .ha-check { width: 0.85rem; height: 0.85rem; }
-    .ha-all-table .ha-linkbtn--icon { min-width: 1.2rem; min-height: 1.2rem; padding: 0.05rem 0.15rem; font-size: 0.64rem; }
-    /*
-     * 「変更あり」の注記（→変更後の時刻／何が変わったか）は文章が長くなりがちで、
-     * 折り返さず幅いっぱいに伸びると、表全体の幅を押し広げてしまっていた
-     * （2026-08-21・実測で発覚）。ここでは列の幅を固定し、はみ出す分は省略する
-     * （全文は日別ボード・予約一覧で確認できるので、ここは概要だけで十分）
-     */
-    .ha-all-status { max-width: 6rem; }
-    .ha-all-table .ha-superseded-note {
-      font-size: 0.58rem;
-      display: block;
-      margin-top: 0.1rem;
-      max-width: 6rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .ha-all-table .ha-superseded-diff { display: none; }
+    .ha-all-status { white-space: nowrap; }
+    .ha-all-table .ha-select { min-width: 6rem; }
+    .ha-all-table .ha-check { width: 1.2rem; height: 1.2rem; }
+    .ha-all-table .ha-superseded-note { display: block; margin-top: 0.15rem; }
 
     /* ── モーダル ── */
     .ha-modal { max-width: 680px; }

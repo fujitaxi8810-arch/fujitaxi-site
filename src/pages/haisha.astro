@@ -168,6 +168,7 @@ import '../styles/kt-components.css';
             <input type="date" id="allDatePick" class="kt-input" />
             <button type="button" class="kt-btn kt-btn--ghost" id="allNextDayBtn">▶</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="allTodayBtn">今日</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="showPastAllBtn" hidden>経過分も表示</button>
             <button type="button" class="kt-btn" id="allPrintBtn">印刷</button>
           </div>
         </div>
@@ -2033,13 +2034,36 @@ import '../styles/kt-components.css';
     }, 60 * 1000);
 
     // ── ③ 全体で見る ──
-    // 仕様（列・担当者割当・電話番号を出さない・状態選択など）は日別ボードと
-    // 完全に同じにする。違うのは、1時間経過での自動非表示をせず**その日の
-    // 全件を常に表示**する点と、カードを複数列に並べてスクロールを減らす点だけ。
+    // 仕様（列・担当者割当・電話番号を出さない・状態選択・1時間経過での
+    // 自動非表示など）は日別ボードと完全に同じにする。違うのは、カードを
+    // 複数列に並べてスクロールを減らす点だけ。
     // buildStatusSelect / buildStaffSelect / applyStaffColor / pickupText /
     // destinationText / isNewSinceHandover / buildNewMark / buildSupersededNote /
-    // buildSupersededFromNote / openEdit は日別ボードと共通の関数をそのまま使う
-    // （ボード側のコードは一切変更していない）。
+    // buildSupersededFromNote / openEdit / isPastReservation / HIDE_AFTER_MINUTES
+    // は日別ボードと共通の関数・定数をそのまま使う（ボード側のコードは一切変更していない）。
+
+    let showPastAll = false;
+    let lastHiddenAllCount = -1;
+
+    function hidingAppliesAll() {
+      return !showPastAll && ($('allDatePick').value || todayJst()) === todayJst();
+    }
+    function hiddenAllRows() {
+      return hidingAppliesAll() ? allViewRows.filter(isPastReservation) : [];
+    }
+    function visibleAllRows() {
+      return hidingAppliesAll() ? allViewRows.filter((r) => !isPastReservation(r)) : allViewRows;
+    }
+    $('showPastAllBtn').onclick = () => {
+      showPastAll = !showPastAll;
+      $('showPastAllBtn').textContent = showPastAll ? '経過分を隠す' : '経過分も表示';
+      renderAllView();
+    };
+    // 日別ボードと同じく、時間が過ぎたら勝手に消えるように。表示が変わるときだけ描き直す
+    setInterval(() => {
+      if ($('allPanel').hidden) return;
+      if (hiddenAllRows().length !== lastHiddenAllCount) renderAllView();
+    }, 60 * 1000);
 
     async function loadAllView() {
       const dateKey = $('allDatePick').value || todayJst();
@@ -2064,49 +2088,79 @@ import '../styles/kt-components.css';
       const dateKey = $('allDatePick').value || todayJst();
       $('allTitle').textContent = `全体で見る　${dateKey.replace(/-/g, '/')}（${weekdayOf(dateKey)}）`;
 
+      const rows = visibleAllRows();
+      const hidden = hiddenAllRows().length;
+      lastHiddenAllCount = hidden;
+      $('showPastAllBtn').hidden = hidden === 0 && !showPastAll;
+
       const grid = $('allGrid');
       grid.innerHTML = '';
-      $('allEmpty').hidden = allViewRows.length > 0;
-      if (allViewRows.length === 0) { $('allSummary').textContent = ''; return; }
+      $('allEmpty').hidden = rows.length > 0;
+      $('allEmpty').textContent = allViewRows.length > 0 && rows.length === 0
+        ? `この日の予約はすべて時間が過ぎました（${hidden}件）。「経過分も表示」で確認できます。`
+        : 'この日の予約はありません。';
+      if (rows.length === 0) { $('allSummary').textContent = ''; return; }
 
       // 集計は日別ボードの renderBoardSummary と同じ考え方（キャンセルは母数から外す）
-      const live = allViewRows.filter((r) => r.status !== 'cancelled');
+      const live = rows.filter((r) => r.status !== 'cancelled');
       const unassigned = live.filter((r) => !r.staffId).length;
       const done = live.filter((r) => r.checked).length;
       const changedCount = live.filter((r) => r.status === 'changed').length;
-      const cancelledCount = allViewRows.length - live.length;
+      const cancelledCount = rows.length - live.length;
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
       if (changedCount > 0) parts.push(`変更あり ${changedCount}件`);
       if (cancelledCount > 0) parts.push(`キャンセル ${cancelledCount}件`);
+      if (hidden > 0) parts.push(`時間経過で非表示 ${hidden}件`);
       $('allSummary').textContent = parts.join('　');
 
-      for (const r of allViewRows) {
+      for (const r of rows) {
         const card = document.createElement('div');
         card.className = 'ha-all-card';
         applyAllCardStatus(card, r);
         const isNew = isNewSinceHandover(r);
         if (isNew) card.classList.add('ha-all-card--new');
 
+        // 1行目：時刻＋お客様名（文字のみ。選択欄は3行目にまとめて詰める）
         const line1 = document.createElement('div');
         line1.className = 'ha-all-card__line1';
         const time = document.createElement('span');
         time.className = 'ha-all-card__time';
         time.textContent = jstTimeLabel(r.reservedAt);
         line1.appendChild(time);
+        const name = document.createElement('span');
+        name.className = 'ha-all-card__name';
+        name.textContent = r.customerName;
+        line1.appendChild(name);
+        card.appendChild(line1);
+
+        // 2行目：迎車場所→行き先メモ（電話番号は日別ボードと同じく出さない）
+        const line2 = document.createElement('div');
+        line2.className = 'ha-all-card__line2';
+        line2.textContent = `${pickupText(r)} → ${destinationText(r)}`;
+        line2.title = line2.textContent;
+        card.appendChild(line2);
+
+        const supersededNote = buildSupersededNote(r);
+        if (supersededNote) card.appendChild(supersededNote);
+        const supersededFromNote = buildSupersededFromNote(r);
+        if (supersededFromNote) card.appendChild(supersededFromNote);
+
+        // 3行目：状態・担当者・済・編集を1行に詰める
+        const line3 = document.createElement('div');
+        line3.className = 'ha-all-card__line3';
 
         const stSel = buildStatusSelect(r.status, isNew);
         if (isNew) stSel.title = newBadgeTitle(r);
-        line1.appendChild(stSel);
+        line3.appendChild(stSel);
 
         let newMark: HTMLElement | null = null;
         function syncNewMark() {
           if (newMark) { newMark.remove(); newMark = null; }
           if (isNew && stSel.value !== 'normal') {
             newMark = buildNewMark(r);
-            line1.appendChild(newMark);
+            line3.insertBefore(newMark, sel);
           }
         }
-        syncNewMark();
 
         stSel.onchange = async () => {
           const next = stSel.value as 'normal' | 'changed' | 'cancelled';
@@ -2127,19 +2181,6 @@ import '../styles/kt-components.css';
             stSel.disabled = false;
           }
         };
-        card.appendChild(line1);
-
-        const supersededNote = buildSupersededNote(r);
-        if (supersededNote) card.appendChild(supersededNote);
-        const supersededFromNote = buildSupersededFromNote(r);
-        if (supersededFromNote) card.appendChild(supersededFromNote);
-
-        const line2 = document.createElement('div');
-        line2.className = 'ha-all-card__line2';
-        const name = document.createElement('span');
-        name.className = 'ha-all-card__name';
-        name.textContent = r.customerName;
-        line2.appendChild(name);
 
         const sel = buildStaffSelect(r.staffId);
         sel.onchange = async () => {
@@ -2159,18 +2200,9 @@ import '../styles/kt-components.css';
             sel.disabled = false;
           }
         };
-        line2.appendChild(sel);
-        card.appendChild(line2);
+        line3.appendChild(sel);
+        syncNewMark();
 
-        // 電話番号は日別ボードと同じく出さない
-        const line3 = document.createElement('div');
-        line3.className = 'ha-all-card__line3';
-        line3.textContent = `${pickupText(r)} → ${destinationText(r)}`;
-        line3.title = line3.textContent;
-        card.appendChild(line3);
-
-        const line4 = document.createElement('div');
-        line4.className = 'ha-all-card__line4';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.className = 'ha-check';
@@ -2189,7 +2221,7 @@ import '../styles/kt-components.css';
             cb.disabled = false;
           }
         };
-        line4.appendChild(cb);
+        line3.appendChild(cb);
 
         const editBtn = document.createElement('button');
         editBtn.type = 'button';
@@ -2198,9 +2230,9 @@ import '../styles/kt-components.css';
         editBtn.title = '編集';
         editBtn.setAttribute('aria-label', '編集');
         editBtn.onclick = () => openEdit(r);
-        line4.appendChild(editBtn);
+        line3.appendChild(editBtn);
 
-        card.appendChild(line4);
+        card.appendChild(line3);
         grid.appendChild(card);
       }
     }
@@ -3290,40 +3322,64 @@ import '../styles/kt-components.css';
     /* 1日分でも縦に長くスクロールしないと把握できない、という指摘への対応。
        日別ボードと列・仕様は同じで、複数列（画面が狭ければ自動で1列に）に
        分けて並べることで、スクロールを減らして一望できるようにする */
+    /*
+     * 「全体を把握するには大きすぎる」という指摘で作り直した版。
+     * .ha-select は元々タッチ操作用に min-height 2.75rem あり、1枚のカードに
+     * 2個（状態・担当者）入るとそれだけで縦に長くなってしまうため、
+     * カードの中に限ってセレクトを大幅に小さくする（このカードの外の
+     * .ha-select・日別ボードの見た目には一切影響しない）。
+     */
     .ha-all-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
-      gap: 0.6rem;
+      grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+      gap: 0.25rem;
       align-items: start;
     }
     .ha-all-card {
       background: #fff;
       border: 1px solid #e5e5e5;
-      border-radius: var(--radius-md);
-      padding: 0.5rem 0.65rem;
+      border-radius: 4px;
+      padding: 0.2rem 0.35rem;
     }
     .ha-all-card--unassigned { background: #fffaf0; }
     .ha-all-card--changed { background: #fffbeb; }
     .ha-all-card--cancelled { background: #f4f4f5; }
     .ha-all-card--cancelled { color: #9ca3af; text-decoration: line-through; }
     .ha-all-card--cancelled .ha-select, .ha-all-card--cancelled .ha-check { text-decoration: none; }
-    .ha-all-card--new { box-shadow: inset 4px 0 0 #0e7490; }
-    .ha-all-card__line1 { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem; }
-    .ha-all-card__time { font-weight: 700; font-size: 0.95rem; color: #111; flex-shrink: 0; }
+    .ha-all-card--new { box-shadow: inset 3px 0 0 #0e7490; }
+    /*
+     * .ha-select.ha-status（状態のセレクト）は font-size/padding/min-width を
+     * 個別に上書きしている（同じ詳細度 class×2）。ソース順で後にあるこちらを
+     * 勝たせるため、こちらも .ha-all-card .ha-select という class×2 で揃える
+     */
+    .ha-all-card .ha-select {
+      min-height: 1.3rem;
+      min-width: 0;
+      font-size: 0.64rem;
+      font-weight: 700;
+      padding: 0.02rem 0.15rem;
+    }
+    /* 1行目：時刻＋お客様名（文字のみ） */
+    .ha-all-card__line1 { display: flex; align-items: baseline; gap: 0.3rem; }
+    .ha-all-card__time { font-weight: 700; font-size: 0.72rem; color: #111; flex-shrink: 0; }
     .ha-all-card--cancelled .ha-all-card__time { color: #9ca3af; }
-    .ha-all-card__line1 .ha-select { flex: 1; min-width: 0; }
-    .ha-all-card__line2 { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem; }
-    .ha-all-card__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; color: #111; }
-    .ha-all-card__line2 .ha-select { max-width: 8.5rem; flex-shrink: 0; }
-    .ha-all-card__line3 {
-      font-size: 0.78rem;
+    .ha-all-card__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; font-weight: 700; color: #111; }
+    /* 2行目：迎車場所→行き先メモ */
+    .ha-all-card__line2 {
+      font-size: 0.6rem;
       color: #666;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      margin-bottom: 0.3rem;
     }
-    .ha-all-card__line4 { display: flex; align-items: center; justify-content: space-between; }
+    /* 3行目：状態・担当者・済・編集を1行に詰める */
+    .ha-all-card__line3 { display: flex; align-items: center; gap: 0.2rem; margin-top: 0.15rem; }
+    .ha-all-card__line3 .ha-select.ha-status { flex: 0 1 3.4rem; min-width: 2.6rem; }
+    .ha-all-card__line3 .ha-select:not(.ha-status) { flex: 1 1 auto; min-width: 0; }
+    .ha-all-card__line3 .ha-check { width: 0.85rem; height: 0.85rem; flex-shrink: 0; }
+    .ha-all-card__line3 .ha-linkbtn--icon { min-width: 1.2rem; min-height: 1.2rem; padding: 0.05rem 0.15rem; font-size: 0.64rem; flex-shrink: 0; }
+    .ha-all-card .ha-superseded-note { font-size: 0.58rem; margin-top: 0.1rem; }
+    .ha-all-card .ha-superseded-diff { font-size: 0.55rem; }
 
     /* ── モーダル ── */
     .ha-modal { max-width: 680px; }
@@ -3438,7 +3494,7 @@ import '../styles/kt-components.css';
       /* 「全体で見る」タブの印刷。日別ボードの印刷ルールと揃える */
       .ha-all-card { border-color: #999; break-inside: avoid; }
       .ha-all-card--unassigned { background: #f5f5f5 !important; }
-      .ha-all-card__name, .ha-all-card__line3 { color: #000; }
+      .ha-all-card__name, .ha-all-card__line2 { color: #000; }
       /* クリックできる必要は印刷では無いので、ボタンの見た目を消して文字だけ残す */
       .ha-superseded-note { text-decoration: none; cursor: default; color: #000; }
       .ha-superseded-diff { color: #000; }

@@ -2084,6 +2084,25 @@ import '../styles/kt-components.css';
       card.classList.toggle('ha-all-card--unassigned', !r.staffId && r.status !== 'cancelled');
     }
 
+    /*
+     * 列数を決める。CSSの auto-fit だけに任せると、カードは「行優先」
+     * （左から右へ並べ、右端まで来たら次の行）で並んでしまい、1列の中で
+     * 時系列にならない（ユーザー指摘：「時系列に一列ごとに」）。
+     * 列数だけJSで決め、その列数ぶんの縦積みブロックをこちらで作って
+     * 時系列に振り分ける（1列目の上から下へ、次に2列目の上から下へ…）。
+     */
+    function computeAllColumns() {
+      const grid = $('allGrid');
+      const width = grid.clientWidth || grid.parentElement?.clientWidth || 800;
+      // 文字サイズズーム（documentElementのfont-size）でrem基準が変わるため、
+      // 元のCSSでの目安 10.5rem をその時点のpx換算に直して揃える
+      const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const minColPx = 10.5 * remPx;
+      const gapPx = 0.25 * remPx;
+      const n = Math.floor((width + gapPx) / (minColPx + gapPx));
+      return Math.max(1, n);
+    }
+
     function renderAllView() {
       const dateKey = $('allDatePick').value || todayJst();
       $('allTitle').textContent = `全体で見る　${dateKey.replace(/-/g, '/')}（${weekdayOf(dateKey)}）`;
@@ -2113,7 +2132,23 @@ import '../styles/kt-components.css';
       if (hidden > 0) parts.push(`時間経過で非表示 ${hidden}件`);
       $('allSummary').textContent = parts.join('　');
 
-      for (const r of rows) {
+      // 列数ぶんの縦積みブロックを先に作り、時系列のまま1列目から順に割り振る
+      // （rowsは既に予約時刻順。3件・3列なら1件ずつ、7件・3列なら3/2/2件、という配り方）。
+      // 件数が少ない日は、幅的に置ける列数より少ない列しか使わない
+      // （余った列を空のまま置くと不自然な余白になるため）
+      const maxColCount = computeAllColumns();
+      const perCol = Math.ceil(rows.length / maxColCount);
+      const colCount = Math.min(maxColCount, Math.ceil(rows.length / perCol));
+      lastAllColCount = maxColCount;
+      const cols: HTMLElement[] = [];
+      for (let i = 0; i < colCount; i++) {
+        const col = document.createElement('div');
+        col.className = 'ha-all-col';
+        cols.push(col);
+        grid.appendChild(col);
+      }
+
+      for (const [i, r] of rows.entries()) {
         const card = document.createElement('div');
         card.className = 'ha-all-card';
         applyAllCardStatus(card, r);
@@ -2233,7 +2268,8 @@ import '../styles/kt-components.css';
         line3.appendChild(editBtn);
 
         card.appendChild(line3);
-        grid.appendChild(card);
+        const colIndex = Math.min(colCount - 1, Math.floor(i / perCol));
+        cols[colIndex].appendChild(card);
       }
     }
 
@@ -2242,6 +2278,16 @@ import '../styles/kt-components.css';
     $('allNextDayBtn').onclick = () => { $('allDatePick').value = shiftDate($('allDatePick').value, 1); loadAllView(); };
     $('allTodayBtn').onclick = () => { $('allDatePick').value = todayJst(); loadAllView(); };
     $('allPrintBtn').onclick = () => window.print();
+
+    // 画面幅が変わると列数（computeAllColumns）も変わるはずなので、
+    // 変わったときだけ組み直す。リサイズのたびに毎回作り直すと重いため
+    // 実際に列数が変わったときだけにする
+    let lastAllColCount = -1;
+    window.addEventListener('resize', () => {
+      if ($('allPanel').hidden) return;
+      const n = computeAllColumns();
+      if (n !== lastAllColCount) { lastAllColCount = n; renderAllView(); }
+    });
 
     // ── 編集モーダル ──
     function openEdit(rec: any) {
@@ -3329,12 +3375,14 @@ import '../styles/kt-components.css';
      * カードの中に限ってセレクトを大幅に小さくする（このカードの外の
      * .ha-select・日別ボードの見た目には一切影響しない）。
      */
-    .ha-all-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
-      gap: 0.25rem;
-      align-items: start;
-    }
+    /*
+     * 列＝縦積みブロック（.ha-all-col）はJS側（computeAllColumns/renderAllView）で
+     * 個数を決めて作る。ここはその並べ方（横に並べるだけ）を指定する。
+     * CSS Grid の auto-fit だけに任せると行優先になり、1列の中で時系列に
+     * ならないため（ユーザー指摘）、あえてJSで列を組んでいる
+     */
+    .ha-all-grid { display: flex; gap: 0.25rem; align-items: flex-start; }
+    .ha-all-col { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; min-width: 0; }
     .ha-all-card {
       background: #fff;
       border: 1px solid #e5e5e5;

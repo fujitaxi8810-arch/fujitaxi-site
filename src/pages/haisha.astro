@@ -36,6 +36,9 @@ import '../styles/kt-components.css';
       <div class="ha-tabs">
         <button type="button" class="ha-tab is-active" id="tabBoardBtn">日別の配車ボード</button>
         <button type="button" class="ha-tab" id="tabListBtn">予約一覧</button>
+        <!-- 日別ボードは1日分でも縦に長くスクロールが要る、という指摘への対応。
+             既存のボード・一覧はそのままに、複数列で全件を一望できる版を別タブとして追加する -->
+        <button type="button" class="ha-tab" id="tabAllBtn">全体で見る</button>
       </div>
 
       <!-- ── 引き継ぎ（「新着」判定の基準時刻。交代した人が最初に見る想定で一番上に置く） ──
@@ -151,6 +154,28 @@ import '../styles/kt-components.css';
           <table class="kt-table ha-grid" id="listTable"></table>
         </div>
         <p class="kt-empty" id="listEmpty" hidden>該当する予約はありません。</p>
+      </div>
+
+      <!-- ── ③ 全体で見る（日別ボードと同じ仕様・同じデータを、複数列に分けて
+           スクロール無しで一望できるようにしたもの。「1日分でも縦に長くて
+           スクロールしないと把握できない」という指摘への対応。
+           日別ボード・予約一覧の既存コードには手を加えず、別タブとして追加した ── -->
+      <div class="kt-panel" id="allPanel" hidden>
+        <div class="kt-panel__head">
+          <h2 class="kt-title" id="allTitle">全体で見る</h2>
+          <div class="kt-panel__tools">
+            <button type="button" class="kt-btn kt-btn--ghost" id="allPrevDayBtn">◀</button>
+            <input type="date" id="allDatePick" class="kt-input" />
+            <button type="button" class="kt-btn kt-btn--ghost" id="allNextDayBtn">▶</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="allTodayBtn">今日</button>
+            <button type="button" class="kt-btn" id="allPrintBtn">印刷</button>
+          </div>
+        </div>
+
+        <p class="ha-legend" id="allSummary"></p>
+
+        <div class="ha-all-grid" id="allGrid"></div>
+        <p class="kt-empty" id="allEmpty" hidden>この日の予約はありません。</p>
       </div>
 
       <!-- 管理者ロック（削除のみ管理者限定）。ページ下部の管理者向け機能の
@@ -382,6 +407,7 @@ import '../styles/kt-components.css';
     let latestHandover: any = null;
     let historyRows: any[] = [];
     let editing: any = null;      // 編集中の予約（新規はnull）
+    let allViewRows: any[] = [];  // 「全体で見る」タブ専用。boardRowsとは別に持つ
     let importPlan: any = null;
     // 取り込み計画が「明らかにおかしい」とき真。取り込みボタンで念押しを出すのに使う
     let importLooksWrong = false;
@@ -651,19 +677,31 @@ import '../styles/kt-components.css';
     };
 
     // ── タブ ──
+    // 3つ目のタブ「全体で見る」を追加（3択に拡張しただけで、日別ボード・
+    // 予約一覧それぞれの中身の表示・操作ロジックには一切手を入れていない）。
+    // どのタブも、切り替えるたびに読み直す。担当者などをどちらかで操作した後、
+    // もう一方に切り替えても古いままにならないようにするため
+    // （ユーザー要望：「日別と全体は連動するように」）
     function showTab(which: string) {
       const board = which === 'board';
+      const list = which === 'list';
+      const all = which === 'all';
       $('boardPanel').hidden = !board;
       $('dutyPanel').hidden = !board;
       $('handoverBar').hidden = !board;
       $('historyPanel').hidden = !board;
-      $('listPanel').hidden = board;
+      $('listPanel').hidden = !list;
+      $('allPanel').hidden = !all;
       $('tabBoardBtn').classList.toggle('is-active', board);
-      $('tabListBtn').classList.toggle('is-active', !board);
-      if (!board) loadList();
+      $('tabListBtn').classList.toggle('is-active', list);
+      $('tabAllBtn').classList.toggle('is-active', all);
+      if (board) loadBoard();
+      if (list) loadList();
+      if (all) loadAllView();
     }
     $('tabBoardBtn').onclick = () => showTab('board');
     $('tabListBtn').onclick = () => showTab('list');
+    $('tabAllBtn').onclick = () => showTab('all');
 
     // ── 共通のセル生成 ──
     // label はスマホ幅でカード表示に切り替えたときの見出し（td::beforeで使う）。
@@ -1994,6 +2032,185 @@ import '../styles/kt-components.css';
       }
     }, 60 * 1000);
 
+    // ── ③ 全体で見る ──
+    // 仕様（列・担当者割当・電話番号を出さない・状態選択など）は日別ボードと
+    // 完全に同じにする。違うのは、1時間経過での自動非表示をせず**その日の
+    // 全件を常に表示**する点と、カードを複数列に並べてスクロールを減らす点だけ。
+    // buildStatusSelect / buildStaffSelect / applyStaffColor / pickupText /
+    // destinationText / isNewSinceHandover / buildNewMark / buildSupersededNote /
+    // buildSupersededFromNote / openEdit は日別ボードと共通の関数をそのまま使う
+    // （ボード側のコードは一切変更していない）。
+
+    async function loadAllView() {
+      const dateKey = $('allDatePick').value || todayJst();
+      try {
+        allViewRows = await fetchReservationsByDate(dateKey);
+      } catch (e) {
+        alert(failMsg(e, 'データの読み込み'));
+        return;
+      }
+      renderAllView();
+    }
+
+    /** カードの背景色・打ち消し線。日別ボードの applyRowStatus と同じ判定だが、
+     * カードはtdを持たないdivなので、ここだけ専用クラスにする */
+    function applyAllCardStatus(card: HTMLElement, r: any) {
+      card.classList.toggle('ha-all-card--cancelled', r.status === 'cancelled');
+      card.classList.toggle('ha-all-card--changed', r.status === 'changed');
+      card.classList.toggle('ha-all-card--unassigned', !r.staffId && r.status !== 'cancelled');
+    }
+
+    function renderAllView() {
+      const dateKey = $('allDatePick').value || todayJst();
+      $('allTitle').textContent = `全体で見る　${dateKey.replace(/-/g, '/')}（${weekdayOf(dateKey)}）`;
+
+      const grid = $('allGrid');
+      grid.innerHTML = '';
+      $('allEmpty').hidden = allViewRows.length > 0;
+      if (allViewRows.length === 0) { $('allSummary').textContent = ''; return; }
+
+      // 集計は日別ボードの renderBoardSummary と同じ考え方（キャンセルは母数から外す）
+      const live = allViewRows.filter((r) => r.status !== 'cancelled');
+      const unassigned = live.filter((r) => !r.staffId).length;
+      const done = live.filter((r) => r.checked).length;
+      const changedCount = live.filter((r) => r.status === 'changed').length;
+      const cancelledCount = allViewRows.length - live.length;
+      const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
+      if (changedCount > 0) parts.push(`変更あり ${changedCount}件`);
+      if (cancelledCount > 0) parts.push(`キャンセル ${cancelledCount}件`);
+      $('allSummary').textContent = parts.join('　');
+
+      for (const r of allViewRows) {
+        const card = document.createElement('div');
+        card.className = 'ha-all-card';
+        applyAllCardStatus(card, r);
+        const isNew = isNewSinceHandover(r);
+        if (isNew) card.classList.add('ha-all-card--new');
+
+        const line1 = document.createElement('div');
+        line1.className = 'ha-all-card__line1';
+        const time = document.createElement('span');
+        time.className = 'ha-all-card__time';
+        time.textContent = jstTimeLabel(r.reservedAt);
+        line1.appendChild(time);
+
+        const stSel = buildStatusSelect(r.status, isNew);
+        if (isNew) stSel.title = newBadgeTitle(r);
+        line1.appendChild(stSel);
+
+        let newMark: HTMLElement | null = null;
+        function syncNewMark() {
+          if (newMark) { newMark.remove(); newMark = null; }
+          if (isNew && stSel.value !== 'normal') {
+            newMark = buildNewMark(r);
+            line1.appendChild(newMark);
+          }
+        }
+        syncNewMark();
+
+        stSel.onchange = async () => {
+          const next = stSel.value as 'normal' | 'changed' | 'cancelled';
+          const prev = r.status;
+          stSel.disabled = true;
+          try {
+            await setStatus(r.id, next);
+            r.status = next;
+            const showAsNew = isNew && next === 'normal';
+            stSel.className = `ha-select ha-status ha-status--${showAsNew ? 'new' : next}`;
+            syncNewMark();
+            applyAllCardStatus(card, r);
+            renderAllView();
+          } catch (e) {
+            alert(failMsg(e, '状態の保存'));
+            stSel.value = prev;
+          } finally {
+            stSel.disabled = false;
+          }
+        };
+        card.appendChild(line1);
+
+        const supersededNote = buildSupersededNote(r);
+        if (supersededNote) card.appendChild(supersededNote);
+        const supersededFromNote = buildSupersededFromNote(r);
+        if (supersededFromNote) card.appendChild(supersededFromNote);
+
+        const line2 = document.createElement('div');
+        line2.className = 'ha-all-card__line2';
+        const name = document.createElement('span');
+        name.className = 'ha-all-card__name';
+        name.textContent = r.customerName;
+        line2.appendChild(name);
+
+        const sel = buildStaffSelect(r.staffId);
+        sel.onchange = async () => {
+          const next = sel.value || null;
+          const prev = r.staffId;
+          sel.disabled = true;
+          try {
+            await assignStaff(r.id, next);
+            r.staffId = next;
+            applyStaffColor(sel, next);
+            applyAllCardStatus(card, r);
+            renderAllView();
+          } catch (e) {
+            alert(failMsg(e, '担当者の保存'));
+            sel.value = prev || '';
+          } finally {
+            sel.disabled = false;
+          }
+        };
+        line2.appendChild(sel);
+        card.appendChild(line2);
+
+        // 電話番号は日別ボードと同じく出さない
+        const line3 = document.createElement('div');
+        line3.className = 'ha-all-card__line3';
+        line3.textContent = `${pickupText(r)} → ${destinationText(r)}`;
+        line3.title = line3.textContent;
+        card.appendChild(line3);
+
+        const line4 = document.createElement('div');
+        line4.className = 'ha-all-card__line4';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'ha-check';
+        cb.checked = r.checked;
+        cb.onchange = async () => {
+          const next = cb.checked;
+          cb.disabled = true;
+          try {
+            await setChecked(r.id, next);
+            r.checked = next;
+            renderAllView();
+          } catch (e) {
+            alert(failMsg(e, 'チェックの保存'));
+            cb.checked = !next;
+          } finally {
+            cb.disabled = false;
+          }
+        };
+        line4.appendChild(cb);
+
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'ha-linkbtn ha-linkbtn--icon';
+        editBtn.textContent = '✎';
+        editBtn.title = '編集';
+        editBtn.setAttribute('aria-label', '編集');
+        editBtn.onclick = () => openEdit(r);
+        line4.appendChild(editBtn);
+
+        card.appendChild(line4);
+        grid.appendChild(card);
+      }
+    }
+
+    $('allDatePick').onchange = loadAllView;
+    $('allPrevDayBtn').onclick = () => { $('allDatePick').value = shiftDate($('allDatePick').value, -1); loadAllView(); };
+    $('allNextDayBtn').onclick = () => { $('allDatePick').value = shiftDate($('allDatePick').value, 1); loadAllView(); };
+    $('allTodayBtn').onclick = () => { $('allDatePick').value = todayJst(); loadAllView(); };
+    $('allPrintBtn').onclick = () => window.print();
+
     // ── 編集モーダル ──
     function openEdit(rec: any) {
       editing = rec;
@@ -2357,6 +2574,7 @@ import '../styles/kt-components.css';
       // 過去の予約は消えるわけではなく、開始日を過去に広げれば引き続き検索できる）
       $('fromPick').value = today;
       $('toPick').value = shiftDate(today, 30);
+      $('allDatePick').value = today;
 
       const authResult = await initAuth();
       if (!authResult.ok || !(await hasSession())) {
@@ -3068,6 +3286,45 @@ import '../styles/kt-components.css';
       line-height: 1;
     }
 
+    /* ── 「全体で見る」タブ ── */
+    /* 1日分でも縦に長くスクロールしないと把握できない、という指摘への対応。
+       日別ボードと列・仕様は同じで、複数列（画面が狭ければ自動で1列に）に
+       分けて並べることで、スクロールを減らして一望できるようにする */
+    .ha-all-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+      gap: 0.6rem;
+      align-items: start;
+    }
+    .ha-all-card {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: var(--radius-md);
+      padding: 0.5rem 0.65rem;
+    }
+    .ha-all-card--unassigned { background: #fffaf0; }
+    .ha-all-card--changed { background: #fffbeb; }
+    .ha-all-card--cancelled { background: #f4f4f5; }
+    .ha-all-card--cancelled { color: #9ca3af; text-decoration: line-through; }
+    .ha-all-card--cancelled .ha-select, .ha-all-card--cancelled .ha-check { text-decoration: none; }
+    .ha-all-card--new { box-shadow: inset 4px 0 0 #0e7490; }
+    .ha-all-card__line1 { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem; }
+    .ha-all-card__time { font-weight: 700; font-size: 0.95rem; color: #111; flex-shrink: 0; }
+    .ha-all-card--cancelled .ha-all-card__time { color: #9ca3af; }
+    .ha-all-card__line1 .ha-select { flex: 1; min-width: 0; }
+    .ha-all-card__line2 { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem; }
+    .ha-all-card__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; color: #111; }
+    .ha-all-card__line2 .ha-select { max-width: 8.5rem; flex-shrink: 0; }
+    .ha-all-card__line3 {
+      font-size: 0.78rem;
+      color: #666;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-bottom: 0.3rem;
+    }
+    .ha-all-card__line4 { display: flex; align-items: center; justify-content: space-between; }
+
     /* ── モーダル ── */
     .ha-modal { max-width: 680px; }
     /* 過去履歴は表形式で列数が多いので、通常のモーダルより広くする */
@@ -3178,6 +3435,10 @@ import '../styles/kt-components.css';
       .ha-grid th, .ha-grid td { color: #000; font-size: 0.9rem; }
       .ha-row--unassigned, .ha-row--unassigned td.ha-sticky { background: #f5f5f5 !important; }
       .ha-select { border: none; background: transparent; font-size: 0.95rem; padding: 0; min-height: 0; }
+      /* 「全体で見る」タブの印刷。日別ボードの印刷ルールと揃える */
+      .ha-all-card { border-color: #999; break-inside: avoid; }
+      .ha-all-card--unassigned { background: #f5f5f5 !important; }
+      .ha-all-card__name, .ha-all-card__line3 { color: #000; }
       /* クリックできる必要は印刷では無いので、ボタンの見た目を消して文字だけ残す */
       .ha-superseded-note { text-decoration: none; cursor: default; color: #000; }
       .ha-superseded-diff { color: #000; }

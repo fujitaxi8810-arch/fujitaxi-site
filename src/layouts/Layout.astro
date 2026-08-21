@@ -15,6 +15,12 @@ export interface Props {
   /** 画面下部のCTA（電話で予約／Webお問い合わせ／LINE）を隠す。社内用の作業画面で邪魔になるため */
   hideFloatCta?: boolean;
   /**
+   * 上部のナビゲーションバー（ロゴ・サービス内容・料金・言語切替など）を隠す。
+   * 社内ツール（/haisha・/kintai・/shift）で、その分だけ作業画面を広く使いたい、という要望への対応。
+   * トップページへ戻る手段が無くなる点は承知の上（ブラウザの戻る・ブックマークで運用）
+   */
+  hideNav?: boolean;
+  /**
    * 社内アプリ（/haisha・/kintai・/shift）専用のアイコン・ホーム画面追加設定。
    * 指定しなければ会社ロゴのfaviconのまま（通常の公開ページはこちら）。
    * key はアイコンファイル名の接頭辞（public/icons/{key}.svg 等）と一致させる。
@@ -32,6 +38,7 @@ const {
   localBusinessExtra,
   noindex = false,
   hideFloatCta = false,
+  hideNav = false,
   appIcon,
 } = Astro.props;
 
@@ -154,7 +161,7 @@ const navItems = [
 <body>
 
   <!-- ── ナビゲーション ── -->
-  <header class="nav" role="banner">
+  <header class="nav" role="banner" hidden={hideNav}>
     <nav class="container nav__inner" aria-label="メインナビゲーション">
 
       <!-- ロゴ -->
@@ -292,7 +299,7 @@ const navItems = [
   </header>
 
   <!-- ── ニューステッカー ── -->
-  <div class="news-ticker" role="marquee" aria-label="お知らせ">
+  <div class="news-ticker" role="marquee" aria-label="お知らせ" hidden={hideNav}>
     <span class="news-ticker__label">NEWS</span>
     <div class="news-ticker__track">
       <div class="news-ticker__inner">

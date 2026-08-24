@@ -2287,6 +2287,18 @@ import '../styles/kt-components.css';
 
         tbody.appendChild(tr);
       }
+
+      /*
+       * 横スクロールしても「時刻・状態・担当者」が見えなくなる、というユーザー指摘への対応。
+       * この3列だけ画面左に固定する。列幅は内容（担当者名の長さ・変更ありのメモ等）で
+       * 変わるため、固定値では合わない。実際に描画された幅を測ってCSS変数に入れる
+       * （縦方向のヘッダー固定 `--ha-sticky-top` と同じ手法）。
+       */
+      const headCells = table.querySelectorAll('thead th');
+      const stickyW1 = headCells[0].getBoundingClientRect().width;
+      const stickyW2 = headCells[1].getBoundingClientRect().width;
+      grid.style.setProperty('--ha-all-sticky2', `${stickyW1}px`);
+      grid.style.setProperty('--ha-all-sticky3', `${stickyW1 + stickyW2}px`);
     }
 
     $('allDatePick').onchange = loadAllView;
@@ -3405,6 +3417,30 @@ import '../styles/kt-components.css';
     }
     .ha-all-table td { padding: 0.05rem 0.6rem; border-bottom: 1px solid #eee; color: #111; background: #fff; }
     .ha-all-table tr:last-child td { border-bottom: none; }
+    /*
+     * 時刻・状態・担当者の3列を左に固定（ユーザー指摘：右にスクロールすると
+     * 見えなくなり、どの予約・誰の担当か分からなくなる）。列幅は内容次第で
+     * 変わるため、JS側（renderAllView）が実測して --ha-all-sticky2/3 に入れる。
+     * 固定した列がスクロールで流れてくる他の列の上に重ならないよう、
+     * 各tdはすでに不透明な背景を持っている（未割当等の色分けを含む）ので、
+     * 追加の背景指定は不要
+     */
+    .ha-all-table th:nth-child(1), .ha-all-table td:nth-child(1) {
+      position: sticky; left: 0; z-index: 1;
+    }
+    .ha-all-table th:nth-child(2), .ha-all-table td:nth-child(2) {
+      position: sticky; left: var(--ha-all-sticky2, 3.5rem); z-index: 1;
+    }
+    .ha-all-table th:nth-child(3), .ha-all-table td:nth-child(3) {
+      position: sticky; left: var(--ha-all-sticky3, 11rem); z-index: 1;
+      box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.3);
+    }
+    .ha-all-table thead th:nth-child(1),
+    .ha-all-table thead th:nth-child(2),
+    .ha-all-table thead th:nth-child(3) {
+      z-index: 2;
+      background: var(--fuji-black-card, #1a1a1a);
+    }
     .ha-all-card--unassigned td { background: #fffaf0; }
     .ha-all-card--changed td { background: #fffbeb; }
     .ha-all-card--cancelled td { background: #f4f4f5; color: #9ca3af; text-decoration: line-through; }

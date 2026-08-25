@@ -11,28 +11,21 @@ import Layout from '../layouts/Layout.astro';
   appIcon={{ key: 'shift', name: 'シフト作成' }}
 >
 
-  <section class="page-hero bg-black">
-    <div class="container">
-      <p class="eyebrow">Staff Only</p>
-      <h1>シフト<span class="text-yellow">作成</span></h1>
-      <p class="page-hero__lead">月次の乗務シフト表を作成・確認できます。このページは社内用です。</p>
-    </div>
-  </section>
-
-  <section class="section bg-black" style="padding-top: 1rem;">
+  <!--
+    表に縦幅を回すため、装飾的なページ見出し（Staff Only／シフト作成／説明文）は置かない。
+    ナビも hideNav で隠しているので、開いた瞬間から表が見える。
+    どの画面かはブラウザのタブ名とホーム画面アイコンで分かる
+  -->
+  <section class="section bg-black" style="padding-top: 0.5rem;">
     <div class="container kintai-wrap sf-wrap">
 
-      <!-- 管理者ロック -->
-      <div class="kt-adminbar">
-        <span class="kt-adminbar__label" id="adminState">🔒 閲覧のみ（編集は管理者ロック解除後）</span>
-        <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
-      </div>
-
-      <!-- シフト表 -->
+      <!-- シフト表。管理者ロックは専用の行を作らず、月の切り替えと同じ行に置く（1行分＝約70pxを表に回すため） -->
       <div class="kt-panel">
         <div class="kt-panel__head">
           <h2 class="kt-title">シフト表</h2>
           <div class="kt-panel__tools">
+            <span class="kt-adminbar__label" id="adminState">🔒 閲覧のみ</span>
+            <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="prevMonthBtn">◀</button>
             <input type="month" id="monthPick" class="kt-input" />
             <button type="button" class="kt-btn kt-btn--ghost" id="nextMonthBtn">▶</button>
@@ -289,7 +282,8 @@ import Layout from '../layouts/Layout.astro';
 
     function renderAdminBar() {
       const unlocked = isAdmin();
-      $('adminState').textContent = unlocked ? '🔓 編集可能' : '🔒 閲覧のみ（編集は管理者ロック解除後）';
+      // 月の切り替えと同じ行に置いているので、鍵の状態は短く出す
+      $('adminState').textContent = unlocked ? '🔓 編集可能' : '🔒 閲覧のみ';
       $('adminToggleBtn').textContent = unlocked ? 'ロックする' : '管理者ロック解除';
       $('adminTools').hidden = !unlocked;
       $('noteSaveBtn').hidden = !unlocked;
@@ -1074,16 +1068,11 @@ import Layout from '../layouts/Layout.astro';
     /*
      * ── 表に縦幅を回すための引き締め ──
      * 表の高さは syncTableMaxHeight() が「表の開始位置から画面下端まで」で決めるので、
-     * 表より上の要素を薄くした分がそのまま表の高さになる。
-     * 1280x720で実測したところ、表より上だけで419px（画面の58%）使っており、
-     * うち224pxが装飾的なページ見出しだった。毎日使う社内画面なので、
-     * 見出しは名前だけ残して詰め、説明文は落とす（内容は画面を見れば分かる）
+     * 表より上を薄くした分がそのまま表の高さになる。
+     * 1280x720の実測で、表より上が419px（画面の58%）→94pxまで削れている
+     * （ページ見出しを廃止し、管理者ロックを月切り替えと同じ行に寄せた分）
      */
-    .page-hero { padding: 0.55rem 0 0.35rem !important; min-height: 0 !important; }
-    .page-hero h1 { font-size: 1.35rem !important; line-height: 1.2 !important; margin: 0 !important; }
-    .page-hero .eyebrow,
-    .page-hero__lead { display: none !important; }
-    .section { padding-top: 0.5rem !important; }
+    .section { padding-top: 0.5rem !important; padding-bottom: 0.75rem !important; }
 
     /* ── kintai.astroと共通のコンポーネントスタイル（ページ間でCSSは共有されないため複製） ── */
     .kintai-wrap [hidden],
@@ -1093,33 +1082,28 @@ import Layout from '../layouts/Layout.astro';
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
-    .kt-adminbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-      flex-wrap: wrap;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: var(--radius-lg);
-      /* 表の高さを稼ぐため縦を詰める（ボタンは44pxの最小高さを保つので押しやすさは変わらない） */
-      padding: 0.4rem 1rem;
+    /* 鍵の状態。月切り替えと同じ行に同居するので、余白は持たせない */
+    .kt-adminbar__label {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.9);
+      margin-right: 0.25rem;
+      white-space: nowrap;
     }
-    .kt-adminbar__label { font-size: 0.95rem; font-weight: 700; color: rgba(255,255,255,0.9); }
     .kt-panel {
       background: var(--fuji-black-card, #1a1a1a);
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: var(--radius-xl);
-      padding: 0.9rem 1.1rem;
+      padding: 0.5rem 1.1rem 0.6rem;
     }
     .kt-panel__head {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 1rem;
-      margin-bottom: 0.6rem;
+      gap: 0.75rem;
+      margin-bottom: 0.4rem;
       flex-wrap: wrap;
     }
     .kt-panel__tools { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
@@ -1496,7 +1480,10 @@ import Layout from '../layouts/Layout.astro';
     }
 
     @media print {
-      .nav, .footer, .page-hero, .kt-adminbar, .sf-admintools, #noteSaveBtn { display: none !important; }
+      /* 管理者ロックは専用の行をやめて月切り替えと同じ行に移したので、
+         .kt-adminbar ではなく中身を名指しで消す（紙にボタンを出さないため） */
+      .nav, .footer, .sf-admintools, #noteSaveBtn,
+      #adminState, #adminToggleBtn { display: none !important; }
       body, .section { background: #fff !important; }
       /* 画面用に付けた縦スクロール枠（日付固定のため）は印刷では解除し、全行を紙面に出す */
       #shiftTableWrap { max-height: none; overflow: visible; }

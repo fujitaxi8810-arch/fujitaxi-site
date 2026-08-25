@@ -41,10 +41,18 @@ import Layout from '../layouts/Layout.astro';
 
         <p class="sf-holiday-warn" id="holidayWarn" hidden></p>
 
-        <p class="sf-legend">
-          <span id="legendCodes"></span><br />
-          セルをクリックで順番に切り替わります。右クリックで一覧から直接選べます（電話番の設定もここから）。右上の赤丸は電話番担当を表します。
-        </p>
+        <!--
+          記号の意味・操作方法は毎回読む内容ではないので畳んでおく（既定は閉じた状態）。
+          ユーザー指摘「（表の縦幅が）狭いまま」への対応：常に3行分表示されていたのが
+          表の高さを圧迫していたため、開閉式にして必要なときだけ開けるようにした
+        -->
+        <details class="sf-legend-wrap" id="legendPanel">
+          <summary class="sf-legend-toggle">記号・使い方</summary>
+          <p class="sf-legend">
+            <span id="legendCodes"></span><br />
+            セルをクリックで順番に切り替わります。右クリックで一覧から直接選べます（電話番の設定もここから）。右上の赤丸は電話番担当を表します。
+          </p>
+        </details>
 
         <div class="kt-panel__tools sf-admintools" id="adminTools" hidden>
           <button type="button" class="kt-btn kt-btn--ghost" id="copyPrevBtn">前月の内容をコピー</button>
@@ -1020,6 +1028,7 @@ import Layout from '../layouts/Layout.astro';
     // シフトと実績の差異・拘束時間チェック・変更履歴は、普段は畳んでおいて
     // 必要なときだけ開く（端末ごとに開閉状態を記憶。既定は畳んだ状態）
     const PANEL_OPEN_KEYS = {
+      legendPanel: 'fuji-shift-legend-open',
       discrepancyPanel: 'fuji-shift-discrepancy-open',
       bindingPanel: 'fuji-shift-binding-open',
       historyPanel: 'fuji-shift-history-open',
@@ -1029,6 +1038,8 @@ import Layout from '../layouts/Layout.astro';
       if (localStorage.getItem(key) === 'open') el.open = true;
       el.addEventListener('toggle', () => {
         localStorage.setItem(key, el.open ? 'open' : 'closed');
+        // 開閉で表の開始位置がずれるため、表の高さ枠を再計算する
+        syncTableMaxHeight();
       });
     });
 
@@ -1212,6 +1223,20 @@ import Layout from '../layouts/Layout.astro';
       font-size: 0.9rem;
       margin: 0.25rem 0 0.75rem;
     }
+    .sf-legend-wrap { margin: 0.15rem 0; }
+    .sf-legend-toggle {
+      cursor: pointer;
+      color: var(--fuji-yellow);
+      font-size: 0.85rem;
+      font-weight: 700;
+      list-style: none;
+      user-select: none;
+    }
+    .sf-legend-toggle::-webkit-details-marker { display: none; }
+    .sf-legend-toggle::before { content: '▶ '; display: inline-block; transition: transform 0.15s ease; }
+    .sf-legend-wrap[open] .sf-legend-toggle::before { transform: rotate(90deg); }
+    .sf-legend-toggle:hover { text-decoration: underline; }
+    .sf-legend-toggle:focus-visible { outline: 2px solid var(--fuji-yellow); outline-offset: 2px; }
     .sf-admintools { margin-bottom: 0.75rem; }
     .sf-holiday-warn {
       background: rgba(245,200,0,0.12);

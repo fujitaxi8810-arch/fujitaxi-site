@@ -3469,15 +3469,12 @@ import '../styles/kt-components.css';
     .ha-all-time { font-weight: 700; white-space: nowrap; }
     .ha-all-name { font-weight: 700; white-space: nowrap; }
     /*
-     * 迎車場所・行き先メモが省略されて見えない、という指摘への対応（省略はやめた）。
-     * その後、今度は「行き先メモが横にスクロールしないと見れない」という
-     * 逆向きの指摘。1行に収めようとすると内容の長さなりに表がどこまでも
-     * 横に伸びてしまうため、幅を決めて折り返す方式に変更した。
-     * 長いメモの行だけ縦に少し伸びるが、横スクロールしないと読めないより良い、
-     * という判断（元のnowrapは「行の高さを崩したくない」という理由だったが、
-     * 「横スクロールなしで読めること」を優先する）
+     * 迎車場所・行き先メモが省略されて見えない、という指摘への対応。
+     * max-widthで省略していたのをやめ、内容の長さなりに表を横に伸ばす。
+     * はみ出す場合は .ha-all-grid の overflow-x: auto で横スクロールする
+     * （縦の行の高さは崩したくないので white-space: nowrap のままにする）
      */
-    .ha-all-place { white-space: normal; overflow-wrap: break-word; max-width: 18rem; color: #444; }
+    .ha-all-place { white-space: nowrap; color: #444; }
     .ha-all-status { white-space: nowrap; }
     .ha-all-table .ha-select {
       min-width: 6rem;

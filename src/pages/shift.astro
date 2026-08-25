@@ -20,7 +20,7 @@ import Layout from '../layouts/Layout.astro';
     <div class="container kintai-wrap sf-wrap">
 
       <!-- シフト表。管理者ロックは専用の行を作らず、月の切り替えと同じ行に置く（1行分＝約70pxを表に回すため） -->
-      <div class="kt-panel">
+      <div class="kt-panel" id="shiftPanel">
         <div class="kt-panel__head">
           <h2 class="kt-title">シフト表</h2>
           <div class="kt-panel__tools">
@@ -29,6 +29,7 @@ import Layout from '../layouts/Layout.astro';
             <button type="button" class="kt-btn kt-btn--ghost" id="prevMonthBtn">◀</button>
             <input type="month" id="monthPick" class="kt-input" />
             <button type="button" class="kt-btn kt-btn--ghost" id="nextMonthBtn">▶</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="fullscreenBtn" aria-pressed="false">⛶ 全画面</button>
           </div>
         </div>
 
@@ -503,12 +504,51 @@ import Layout from '../layouts/Layout.astro';
      */
     function syncTableMaxHeight() {
       const wrap = $('shiftTableWrap');
+      // 全画面のときは高さをCSS（flex:1）に任せる。ここでpxを入れるとそちらが優先されてしまう
+      if (document.body.classList.contains('sf-fullscreen')) {
+        wrap.style.maxHeight = '';
+        return;
+      }
       const top = wrap.getBoundingClientRect().top;
       const margin = 16; // 下端に少し余白を残す（表の下端が画面ぎりぎりだと窮屈なため）
       const h = Math.max(240, Math.floor(window.innerHeight - top - margin));
       wrap.style.maxHeight = `${h}px`;
     }
     window.addEventListener('resize', syncTableMaxHeight);
+
+    /*
+     * ── 全画面表示 ──
+     * 表以外（備考・管理者パネル等）を隠して、シフト表だけを画面いっぱいに広げる。
+     * ブラウザの全画面API（アドレスバーごと消える）も併せて要求するが、
+     * 環境によっては拒否されるので、CSSだけでも成立するようにしてある。
+     * ESCで全画面APIから抜けたときは fullscreenchange でCSS側も戻す
+     */
+    function setFullscreen(on) {
+      document.body.classList.toggle('sf-fullscreen', on);
+      const btn = $('fullscreenBtn');
+      btn.textContent = on ? '⛶ 全画面を終了' : '⛶ 全画面';
+      btn.setAttribute('aria-pressed', String(on));
+      syncTableMaxHeight();
+    }
+    $('fullscreenBtn').onclick = async () => {
+      const next = !document.body.classList.contains('sf-fullscreen');
+      setFullscreen(next);
+      try {
+        if (next && document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        } else if (!next && document.fullscreenElement && document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      } catch (e) {
+        // 全画面APIが使えなくてもCSS側の拡大は効いているので、何も出さずに続行する
+      }
+    };
+    document.addEventListener('fullscreenchange', () => {
+      // ESCなどでブラウザ側の全画面が解除されたら、表示も通常に戻す
+      if (!document.fullscreenElement && document.body.classList.contains('sf-fullscreen')) {
+        setFullscreen(false);
+      }
+    });
 
     function shiftTypeLabel(t) {
       return t === 'normal' ? '①普通番' : t === 'late' ? '③遅番' : t === 'part' ? '出勤（単一打刻）' : '不明';
@@ -1073,6 +1113,32 @@ import Layout from '../layouts/Layout.astro';
      * （ページ見出しを廃止し、管理者ロックを月切り替えと同じ行に寄せた分）
      */
     .section { padding-top: 0.5rem !important; padding-bottom: 0.75rem !important; }
+
+    /*
+     * ── 全画面表示（⛶ 全画面ボタン） ──
+     * シフト表のパネルだけを画面全面に固定し、それ以外は覆い隠す。
+     * パネル自身を縦のflexにして、表の枠（#shiftTableWrap）に残り全部を渡す。
+     * min-height:0 が無いと、中身の高さで突っ張って画面外にはみ出す
+     */
+    body.sf-fullscreen { overflow: hidden; }
+    body.sf-fullscreen #shiftPanel {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      margin: 0;
+      border: none;
+      border-radius: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 0.5rem 0.75rem 0.75rem;
+    }
+    body.sf-fullscreen #shiftTableWrap {
+      flex: 1;
+      min-height: 0;
+      max-height: none;
+    }
+    /* 全画面のときは表に集中したいので、畳んである凡例の見出しだけ残して警告類は詰める */
+    body.sf-fullscreen .sf-holiday-warn { margin: 0 0 0.35rem; }
 
     /* ── kintai.astroと共通のコンポーネントスタイル（ページ間でCSSは共有されないため複製） ── */
     .kintai-wrap [hidden],

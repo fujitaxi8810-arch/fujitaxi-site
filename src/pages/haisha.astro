@@ -1458,13 +1458,11 @@ import '../styles/kt-components.css';
       // 画面幅に対する割合（vw）だけで決めるようにする。
       /*
        * 標準（100%）でも、サイト共通の1200px上限のままだと表が中央の帯に
-       * 寄って狭く見える、というユーザー指摘への対応。文字を大きくしなくても
-       * 横幅だけは広げられるよう、標準でも画面幅に対する割合（vw）を使う
-       * （上の理由と同じく、このページは表・パネル中心で読みにくくなる心配がない）
+       * 寄って狭く見える、というユーザー指摘への対応。文字サイズに関わらず、
+       * どのモードでも同じ96vwまで広げる（「もう少し広げられないか」との
+       * 追加要望を受けて、文字サイズごとに幅を変える意味は薄いと判断し統一した）
        */
-      if (pct >= 165) document.documentElement.style.setProperty('--container-max', '96vw');
-      else if (pct >= 130) document.documentElement.style.setProperty('--container-max', '92vw');
-      else document.documentElement.style.setProperty('--container-max', '90vw');
+      document.documentElement.style.setProperty('--container-max', '96vw');
       localStorage.setItem(ZOOM_KEY, String(pct));
       // ヘッダーの高さも一緒に変わるので、乗務割の貼り付き位置を取り直す
       syncStickyOffset();

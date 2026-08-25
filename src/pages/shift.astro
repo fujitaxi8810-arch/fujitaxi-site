@@ -72,14 +72,19 @@ import Layout from '../layouts/Layout.astro';
         <p class="kt-empty" id="staffEmpty" hidden>スタッフが登録されていません。</p>
       </div>
 
-      <!-- 月次サマリー（管理者のみ） -->
-      <div class="kt-panel" id="summaryPanel" hidden>
-        <h2 class="kt-title">月次サマリー（管理者）</h2>
-        <p class="sf-legend">稼働日数＝①＋③＋SH＋S＋貸切の合計（公休・有給・未入力は含みません）</p>
-        <div class="kt-table-wrap sf-grid-wrap">
-          <table class="kt-table sf-grid" id="summaryTable"></table>
+      <!-- 月次サマリー（管理者のみ）。普段は畳んでおく -->
+      <details class="kt-panel sf-details" id="summaryPanel" hidden>
+        <summary class="sf-details__summary">
+          <span class="kt-title">月次サマリー（管理者）</span>
+          <span class="sf-details__hint">クリックで開く</span>
+        </summary>
+        <div class="sf-details__body">
+          <p class="sf-legend">稼働日数＝①＋①S＋①H＋③＋SH＋SHS＋S＋貸切の合計（公休・有給・未入力は含みません）</p>
+          <div class="kt-table-wrap sf-grid-wrap">
+            <table class="kt-table sf-grid" id="summaryTable"></table>
+          </div>
         </div>
-      </div>
+      </details>
 
       <!-- シフトと実績の差異（管理者のみ）。普段は畳んでおく -->
       <details class="kt-panel sf-details" id="discrepancyPanel" hidden>
@@ -1029,6 +1034,7 @@ import Layout from '../layouts/Layout.astro';
     // 必要なときだけ開く（端末ごとに開閉状態を記憶。既定は畳んだ状態）
     const PANEL_OPEN_KEYS = {
       legendPanel: 'fuji-shift-legend-open',
+      summaryPanel: 'fuji-shift-summary-open',
       discrepancyPanel: 'fuji-shift-discrepancy-open',
       bindingPanel: 'fuji-shift-binding-open',
       historyPanel: 'fuji-shift-history-open',

@@ -1223,6 +1223,16 @@ import Layout from '../layouts/Layout.astro';
     #shiftTableWrap {
       max-height: 68vh;
       overflow-y: auto;
+      /*
+       * タッチパネルでの指スワイプが、この枠の中ではなくページ全体の
+       * スクロールとして処理されてしまう不具合への対応（ユーザー報告：
+       * 「ページ全体は動くが、表の中（氏名の一覧）は動かない」）。
+       * 表の中身がほぼ全てボタン（コードのセル）のため、touch-action を
+       * 明示しないと、タッチパネル側がこの枠自体のスクロールと認識せず
+       * 外側（ページ）のスクロールに流れてしまうことがある
+       */
+      touch-action: pan-x pan-y;
+      -webkit-overflow-scrolling: touch;
     }
     .sf-grid { border-collapse: collapse; }
     .sf-grid th, .sf-grid td { text-align: center; padding: 0.4rem 0.5rem; color: #111; font-size: 1.05rem; }

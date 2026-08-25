@@ -484,7 +484,24 @@ import Layout from '../layouts/Layout.astro';
         renderDiscrepancies(month, days, staff);
         renderBindingChecks(month, days, staff);
       }
+      syncTableMaxHeight();
     }
+
+    /*
+     * 表の高さ枠を「画面の68%」のような決め打ちにすると、機種や管理者バーの
+     * 有無で上の余白の取られ方が変わり、画面を無駄に狭く使ってしまう
+     * （ユーザー指摘：「画面が狭くなったのでもっと広く使いたい」）。
+     * 表の開始位置から画面の下端までの実測残りスペースを使う（--ha-sticky-top
+     * などと同じ、決め打ちを避けて実測する方針）
+     */
+    function syncTableMaxHeight() {
+      const wrap = $('shiftTableWrap');
+      const top = wrap.getBoundingClientRect().top;
+      const margin = 16; // 下端に少し余白を残す（表の下端が画面ぎりぎりだと窮屈なため）
+      const h = Math.max(240, Math.floor(window.innerHeight - top - margin));
+      wrap.style.maxHeight = `${h}px`;
+    }
+    window.addEventListener('resize', syncTableMaxHeight);
 
     function shiftTypeLabel(t) {
       return t === 'normal' ? '①普通番' : t === 'late' ? '③遅番' : t === 'part' ? '出勤（単一打刻）' : '不明';

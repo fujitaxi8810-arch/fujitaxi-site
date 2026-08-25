@@ -1086,10 +1086,13 @@ import '../styles/kt-components.css';
 
     // ── この日の勤務（/shift から読むだけ） ──
     // 配車確認シート上部の勤務区分に対応する。記号の対応はユーザー確認済み。
-    // 「交流」は /shift に該当記号が無いため未対応。
     // 配車確認シートの並び順に合わせる。
     // shiftKey … /shift のコードから引く（表示のみ。変更は /shift 側）。配列なら複数コードをまとめて拾う
     //   （スクールは旧コードS・新コード①Sの両方、2026-08-17時点でSを使っている人が残っているため併用）
+    // shiftFlagKey … /shift 側で「コードとは別に立てる印」から拾う（DutyEntryの真偽値フィールド名）。
+    //   交流はどのコードの日でも担当しうる（②普通番の日も③遅番の日もありうる）ため、
+    //   コード一致では拾えない。/shift 側にチェックボックスの印を追加し、それを見る
+    //   （2026-08-25追加。ユーザー要望：「交流の送迎を追加したい。シフトに印で対応」）
     // dailyKey … この画面で日ごとに足す分（×で外せる）
     // 貸切・スクールは両方持つ：基本はシフト通りだが、当日変わることがあるため追加もできる
     //
@@ -1103,13 +1106,13 @@ import '../styles/kt-components.css';
     // スクール原町・交流と同じ行にまとめたいというユーザー要望により、
     // 乗合を貸切の前に移動している。narrow の3区分を隣り合わせにしないと、
     // 間に wide の貸切が挟まって別の行に落ちてしまうため。
-    const DUTY_GROUPS: { label: string; shiftKey?: string | string[]; dailyKey?: DutyCat; wide?: boolean }[] = [
+    const DUTY_GROUPS: { label: string; shiftKey?: string | string[]; shiftFlagKey?: 'exchangeDuty'; dailyKey?: DutyCat; wide?: boolean }[] = [
       { label: '普通', shiftKey: '①', wide: true },
       { label: '遅番', shiftKey: '③', wide: true },
       // SHS（乗合＋スクール）は1人で2役なので、乗合とスクールの両方に同じ人が出る
       { label: 'スクール', shiftKey: ['S', '①S', 'SHS'], dailyKey: 'school', wide: true },
       { label: 'スクール原町', shiftKey: '①H', dailyKey: 'school_haramachi' },
-      { label: '交流', dailyKey: 'exchange' },
+      { label: '交流', shiftFlagKey: 'exchangeDuty', dailyKey: 'exchange' },
       { label: '乗合', shiftKey: ['SH', 'SHS'] },
       { label: '貸切', shiftKey: '貸切', dailyKey: 'charter', wide: true },
     ];
@@ -1183,14 +1186,21 @@ import '../styles/kt-components.css';
         // 配車に関わらない人（事務など）はシフトに入っていても乗務割には出さない。
         // 出す・出さないは「配車担当者の設定」の チェックボックス（staff.haisha_assignable）で決まる。
         const shiftKeys = g.shiftKey ? (Array.isArray(g.shiftKey) ? g.shiftKey : [g.shiftKey]) : [];
-        const fromShift = shiftKeys.length
-          ? sortByShiftOrder(
-              shiftKeys
-                .flatMap((k) => byCode.get(k) || [])
-                .map((d) => ({ ...d, staff: staff.find((s) => s.id === d.staffId) }))
-                .filter((d) => d.staff && d.staff.haishaAssignable !== false)
-            )
+        const fromShiftByCode = shiftKeys.length
+          ? shiftKeys.flatMap((k) => byCode.get(k) || [])
           : [];
+        /*
+         * shiftFlagKey（交流の印）は、どのコードの日でも立てられるため byCode では拾えない。
+         * dutyRows全体から真偽値で絞り込む
+         */
+        const fromShiftByFlag = g.shiftFlagKey
+          ? dutyRows.filter((d: any) => d[g.shiftFlagKey!])
+          : [];
+        const fromShift = sortByShiftOrder(
+          [...fromShiftByCode, ...fromShiftByFlag]
+            .map((d) => ({ ...d, staff: staff.find((s) => s.id === d.staffId) }))
+            .filter((d) => d.staff && d.staff.haishaAssignable !== false)
+        );
         shiftShown += fromShift.length;
         for (const m of fromShift) {
           names.appendChild(dutyBadge(m.staff, { phoneDuty: m.phoneDuty }));
@@ -1259,7 +1269,7 @@ import '../styles/kt-components.css';
       }
 
       $('dutyNote').textContent = shiftShown === 0
-        ? 'この日のシフトが未入力です。/shift で作成すると、普通・遅番・スクール・スクール原町・貸切・乗合がここに出ます。'
+        ? 'この日のシフトが未入力です。/shift で作成すると、普通・遅番・スクール・スクール原町・交流・貸切・乗合がここに出ます。'
         : '× が付いた名前がこの画面で足した分です。それ以外はシフトの内容なので、変更は /shift で行ってください。';
     }
 

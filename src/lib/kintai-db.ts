@@ -516,6 +516,11 @@ export type Shift = {
   workDate: string; // 'YYYY-MM-DD'
   code: ShiftCode;
   phoneDuty: boolean;
+  /**
+   * 交流の送迎を担当するかの印。コードとは独立（どのシフトコードの日でも立てられる）。
+   * phoneDuty と同じ考え方で、シフト表のセルに小さな印（下線）を出すためのフラグ
+   */
+  exchangeDuty: boolean;
 };
 
 function rowToShift(row: any): Shift {
@@ -524,6 +529,7 @@ function rowToShift(row: any): Shift {
     workDate: row.work_date,
     code: row.code,
     phoneDuty: row.phone_duty,
+    exchangeDuty: row.exchange_duty ?? false,
   };
 }
 
@@ -548,7 +554,13 @@ export async function upsertShift(rec: Shift): Promise<void> {
   const { error } = await supabase
     .from('shifts')
     .upsert(
-      { staff_id: rec.staffId, work_date: rec.workDate, code: rec.code, phone_duty: rec.phoneDuty },
+      {
+        staff_id: rec.staffId,
+        work_date: rec.workDate,
+        code: rec.code,
+        phone_duty: rec.phoneDuty,
+        exchange_duty: rec.exchangeDuty,
+      },
       { onConflict: 'staff_id,work_date' }
     );
   if (error) throw error;

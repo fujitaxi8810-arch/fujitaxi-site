@@ -311,7 +311,13 @@ export async function setStatus(id: string, status: ReservationStatus): Promise<
 
 // ── その日の勤務（/shift の内容を読むだけ。編集は /shift 側で行う） ──
 
-export type DutyEntry = { staffId: string; code: string; phoneDuty: boolean };
+export type DutyEntry = {
+  staffId: string;
+  code: string;
+  phoneDuty: boolean;
+  /** 交流の送迎を担当する印（/shift 側でコードとは別に立てる。§5.5参照） */
+  exchangeDuty: boolean;
+};
 
 /**
  * 指定日のシフトを取得する。
@@ -321,10 +327,15 @@ export type DutyEntry = { staffId: string; code: string; phoneDuty: boolean };
 export async function fetchShiftsByDate(dateKey: string): Promise<DutyEntry[]> {
   const { data, error } = await supabase
     .from('shifts')
-    .select('staff_id, code, phone_duty')
+    .select('staff_id, code, phone_duty, exchange_duty')
     .eq('work_date', dateKey);
   if (error) throw error;
-  return (data || []).map((r: any) => ({ staffId: r.staff_id, code: r.code, phoneDuty: r.phone_duty }));
+  return (data || []).map((r: any) => ({
+    staffId: r.staff_id,
+    code: r.code,
+    phoneDuty: r.phone_duty,
+    exchangeDuty: r.exchange_duty ?? false,
+  }));
 }
 
 // ── 変更履歴（DBトリガーが自動記録。クライアントからは読み取りと復元のみ） ──

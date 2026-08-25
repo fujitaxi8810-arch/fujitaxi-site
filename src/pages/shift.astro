@@ -134,6 +134,7 @@ import Layout from '../layouts/Layout.astro';
       <h2 class="kt-title" id="codeModalTitle"></h2>
       <div class="sf-code-options" id="codeOptions"></div>
       <div id="phoneToggleWrap"></div>
+      <div id="exchangeToggleWrap"></div>
       <div class="kt-modal__actions">
         <button type="button" class="kt-btn kt-btn--danger" id="codeClearBtn">クリア</button>
         <button type="button" class="kt-btn kt-btn--ghost" id="codeCancelBtn">キャンセル</button>
@@ -206,7 +207,8 @@ import Layout from '../layouts/Layout.astro';
         .join('・');
       const normal = exceptions ? `①＝普通番(7:00-16:00・${exceptions})` : '①＝普通番(7:00-16:00)';
       $('legendCodes').textContent =
-        `公＝公休　${normal}　①S＝スクール　①H＝スクール原町　③＝遅番(15:30-24:30)　SH＝乗合　SHS＝乗合＋スクール　S　貸切　有給`;
+        `公＝公休　${normal}　①S＝スクール　①H＝スクール原町　③＝遅番(15:30-24:30)　SH＝乗合　SHS＝乗合＋スクール　S　貸切　有給　`
+        + '｜下線＝交流の送迎を担当（コードとは別に立てる印）';
     }
 
     let staff = [];
@@ -267,7 +269,7 @@ import Layout from '../layouts/Layout.astro';
         fetchShiftNote(month),
         fetchMonth(month),
       ]);
-      shiftMap = new Map(rows.map((r) => [shiftKey(r.staffId, r.workDate), { code: r.code, phoneDuty: r.phoneDuty }]));
+      shiftMap = new Map(rows.map((r) => [shiftKey(r.staffId, r.workDate), { code: r.code, phoneDuty: r.phoneDuty, exchangeDuty: r.exchangeDuty }]));
       attendanceMap = new Map(attRows.map((r) => [shiftKey(r.staffId, r.date), r]));
       noteText = note;
     }
@@ -403,7 +405,7 @@ import Layout from '../layouts/Layout.astro';
         tr.appendChild(nameTh);
         for (let d = 1; d <= days; d++) {
           const workDate = `${month}-${String(d).padStart(2, '0')}`;
-          const cell = shiftMap.get(shiftKey(s.id, workDate)) || { code: '', phoneDuty: false };
+          const cell = shiftMap.get(shiftKey(s.id, workDate)) || { code: '', phoneDuty: false, exchangeDuty: false };
           const wd = new Date(y, m - 1, d).getDay();
           const td = document.createElement('td');
           td.classList.add('sf-cell');
@@ -413,13 +415,15 @@ import Layout from '../layouts/Layout.astro';
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = classForCode(cell.code);
+          if (cell.exchangeDuty) btn.classList.add('sf-exchange-mark');
           btn.textContent = cell.code || '－';
+          if (cell.exchangeDuty) btn.title = '交流の送迎を担当';
           if (unlocked) {
             btn.onclick = () => cycleCell(s, workDate, btn);
             btn.oncontextmenu = (e) => {
               e.preventDefault();
-              const c = shiftMap.get(shiftKey(s.id, workDate)) || { code: '', phoneDuty: false };
-              openCodeModal(s, workDate, c.code, c.phoneDuty);
+              const c = shiftMap.get(shiftKey(s.id, workDate)) || { code: '', phoneDuty: false, exchangeDuty: false };
+              openCodeModal(s, workDate, c.code, c.phoneDuty, c.exchangeDuty);
             };
           } else {
             btn.disabled = true;
@@ -683,8 +687,11 @@ import Layout from '../layouts/Layout.astro';
       if (!confirm(`${s.name}　${entry.workDate}\nこの内容に戻します：${beforeText}\nよろしいですか？`)) return;
       try {
         if (entry.oldCode) {
-          await upsertShift({ staffId: entry.staffId, workDate: entry.workDate, code: entry.oldCode, phoneDuty: !!entry.oldPhoneDuty });
-          shiftMap.set(shiftKey(entry.staffId, entry.workDate), { code: entry.oldCode, phoneDuty: !!entry.oldPhoneDuty });
+          // 交流の印は履歴に記録していないため、戻す操作では今の値をそのまま保つ
+          // （電話番・コードだけを過去の値に戻す）
+          const currentExchangeDuty = (shiftMap.get(shiftKey(entry.staffId, entry.workDate)) || {}).exchangeDuty || false;
+          await upsertShift({ staffId: entry.staffId, workDate: entry.workDate, code: entry.oldCode, phoneDuty: !!entry.oldPhoneDuty, exchangeDuty: currentExchangeDuty });
+          shiftMap.set(shiftKey(entry.staffId, entry.workDate), { code: entry.oldCode, phoneDuty: !!entry.oldPhoneDuty, exchangeDuty: currentExchangeDuty });
         } else {
           await deleteShift(entry.staffId, entry.workDate);
           shiftMap.delete(shiftKey(entry.staffId, entry.workDate));
@@ -775,19 +782,23 @@ import Layout from '../layouts/Layout.astro';
     async function cycleCell(s, workDate, btn) {
       if (btn.disabled) return;
       const cycle = ['', ...codesFor(s)];
-      const cell = shiftMap.get(shiftKey(s.id, workDate)) || { code: '', phoneDuty: false };
+      const cell = shiftMap.get(shiftKey(s.id, workDate)) || { code: '', phoneDuty: false, exchangeDuty: false };
       const nextCode = cycle[(cycle.indexOf(cell.code) + 1) % cycle.length];
       const nextPhoneDuty = nextCode ? cell.phoneDuty : false;
+      // 交流の印もコードが空になったら一緒に外す（電話番と同じ考え方）
+      const nextExchangeDuty = nextCode ? cell.exchangeDuty : false;
       btn.disabled = true;
       try {
         if (nextCode) {
-          await upsertShift({ staffId: s.id, workDate, code: nextCode, phoneDuty: nextPhoneDuty });
+          await upsertShift({ staffId: s.id, workDate, code: nextCode, phoneDuty: nextPhoneDuty, exchangeDuty: nextExchangeDuty });
         } else {
           await deleteShift(s.id, workDate);
         }
-        shiftMap.set(shiftKey(s.id, workDate), { code: nextCode, phoneDuty: nextPhoneDuty });
+        shiftMap.set(shiftKey(s.id, workDate), { code: nextCode, phoneDuty: nextPhoneDuty, exchangeDuty: nextExchangeDuty });
         btn.textContent = nextCode || '－';
         btn.className = classForCode(nextCode);
+        btn.classList.toggle('sf-exchange-mark', !!nextExchangeDuty);
+        btn.title = nextExchangeDuty ? '交流の送迎を担当' : '';
         const badge = btn.parentElement.querySelector('.sf-phone-badge');
         if (badge && !nextPhoneDuty) badge.remove();
       } catch (e) {
@@ -796,7 +807,7 @@ import Layout from '../layouts/Layout.astro';
       btn.disabled = false;
     }
 
-    function openCodeModal(s, workDate, currentCode, currentPhoneDuty) {
+    function openCodeModal(s, workDate, currentCode, currentPhoneDuty, currentExchangeDuty) {
       modalTarget = { staffId: s.id, workDate };
       $('codeModalTitle').textContent = `${s.name}　${workDate}`;
       const wrap = $('codeOptions');
@@ -811,8 +822,8 @@ import Layout from '../layouts/Layout.astro';
           const target = modalTarget;
           if (!target) return;
           try {
-            await upsertShift({ staffId: target.staffId, workDate: target.workDate, code, phoneDuty: currentPhoneDuty });
-            shiftMap.set(shiftKey(target.staffId, target.workDate), { code, phoneDuty: currentPhoneDuty });
+            await upsertShift({ staffId: target.staffId, workDate: target.workDate, code, phoneDuty: currentPhoneDuty, exchangeDuty: currentExchangeDuty });
+            shiftMap.set(shiftKey(target.staffId, target.workDate), { code, phoneDuty: currentPhoneDuty, exchangeDuty: currentExchangeDuty });
             closeCodeModal();
             renderGrid();
           } catch (e) {
@@ -833,15 +844,15 @@ import Layout from '../layouts/Layout.astro';
         checkbox.onchange = async () => {
           const target = modalTarget;
           if (!target) return;
-          const cell = shiftMap.get(shiftKey(target.staffId, target.workDate)) || { code: '', phoneDuty: false };
+          const cell = shiftMap.get(shiftKey(target.staffId, target.workDate)) || { code: '', phoneDuty: false, exchangeDuty: false };
           if (!cell.code) {
             alert('先にシフトのコードを選んでください。');
             checkbox.checked = false;
             return;
           }
           try {
-            await upsertShift({ staffId: target.staffId, workDate: target.workDate, code: cell.code, phoneDuty: checkbox.checked });
-            shiftMap.set(shiftKey(target.staffId, target.workDate), { code: cell.code, phoneDuty: checkbox.checked });
+            await upsertShift({ staffId: target.staffId, workDate: target.workDate, code: cell.code, phoneDuty: checkbox.checked, exchangeDuty: cell.exchangeDuty });
+            shiftMap.set(shiftKey(target.staffId, target.workDate), { code: cell.code, phoneDuty: checkbox.checked, exchangeDuty: cell.exchangeDuty });
             closeCodeModal();
             renderGrid();
           } catch (e) {
@@ -852,6 +863,44 @@ import Layout from '../layouts/Layout.astro';
         label.appendChild(checkbox);
         label.appendChild(document.createTextNode('電話番を担当'));
         toggleWrap.appendChild(label);
+      }
+
+      /*
+       * 交流の送迎を担当するかの印。コードとは独立で立てられる（電話番と同じ仕組み）。
+       * ユーザー要望：「交流の送迎を追加したい。シフトに印で対応」「チェックすると
+       * 下に棒線とかにしたい」。新しいコード（文字）を増やすのではなく、既存の
+       * コードの上にチェックで印（下線）を重ねる形にした
+       */
+      const exchangeWrap = $('exchangeToggleWrap');
+      exchangeWrap.innerHTML = '';
+      {
+        const label = document.createElement('label');
+        label.className = 'sf-phone-check';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = !!currentExchangeDuty;
+        checkbox.onchange = async () => {
+          const target = modalTarget;
+          if (!target) return;
+          const cell = shiftMap.get(shiftKey(target.staffId, target.workDate)) || { code: '', phoneDuty: false, exchangeDuty: false };
+          if (!cell.code) {
+            alert('先にシフトのコードを選んでください。');
+            checkbox.checked = false;
+            return;
+          }
+          try {
+            await upsertShift({ staffId: target.staffId, workDate: target.workDate, code: cell.code, phoneDuty: cell.phoneDuty, exchangeDuty: checkbox.checked });
+            shiftMap.set(shiftKey(target.staffId, target.workDate), { code: cell.code, phoneDuty: cell.phoneDuty, exchangeDuty: checkbox.checked });
+            closeCodeModal();
+            renderGrid();
+          } catch (e) {
+            alert(SAVE_FAIL_MSG);
+            checkbox.checked = !checkbox.checked;
+          }
+        };
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode('交流の送迎を担当'));
+        exchangeWrap.appendChild(label);
       }
 
       $('codeModal').hidden = false;
@@ -922,8 +971,8 @@ import Layout from '../layouts/Layout.astro';
             .map(async (rec) => {
               const day = rec.workDate.slice(8, 10);
               const workDate = `${month}-${day}`;
-              await upsertShift({ staffId: rec.staffId, workDate, code: rec.code, phoneDuty: rec.phoneDuty });
-              shiftMap.set(shiftKey(rec.staffId, workDate), { code: rec.code, phoneDuty: rec.phoneDuty });
+              await upsertShift({ staffId: rec.staffId, workDate, code: rec.code, phoneDuty: rec.phoneDuty, exchangeDuty: rec.exchangeDuty });
+              shiftMap.set(shiftKey(rec.staffId, workDate), { code: rec.code, phoneDuty: rec.phoneDuty, exchangeDuty: rec.exchangeDuty });
             })
         );
         renderGrid();
@@ -1279,6 +1328,16 @@ import Layout from '../layouts/Layout.astro';
       background: #eef2ff;
       border-color: #4338ca;
       color: #4338ca;
+    }
+    /*
+     * 交流の送迎を担当する印。新しいコード（文字）を増やすのではなく、
+     * どのコードの上にも重ねられる下線として付ける（ユーザー要望：
+     * 「交流の送迎を追加したい。シフトに印で対応」「チェックすると下に棒線」）。
+     * 電話番（.sf-phone-badge、右上の丸）とは別の場所に出して、
+     * 同じ日に両方付いても互いに隠れないようにしている
+     */
+    .sf-exchange-mark {
+      box-shadow: inset 0 -3px 0 #0e7490;
     }
     .sf-note {
       width: 100%;

@@ -1065,6 +1065,20 @@ import Layout from '../layouts/Layout.astro';
   </script>
 
   <style is:global>
+    /*
+     * ── 表に縦幅を回すための引き締め ──
+     * 表の高さは syncTableMaxHeight() が「表の開始位置から画面下端まで」で決めるので、
+     * 表より上の要素を薄くした分がそのまま表の高さになる。
+     * 1280x720で実測したところ、表より上だけで419px（画面の58%）使っており、
+     * うち224pxが装飾的なページ見出しだった。毎日使う社内画面なので、
+     * 見出しは名前だけ残して詰め、説明文は落とす（内容は画面を見れば分かる）
+     */
+    .page-hero { padding: 0.55rem 0 0.35rem !important; min-height: 0 !important; }
+    .page-hero h1 { font-size: 1.35rem !important; line-height: 1.2 !important; margin: 0 !important; }
+    .page-hero .eyebrow,
+    .page-hero__lead { display: none !important; }
+    .section { padding-top: 0.5rem !important; }
+
     /* ── kintai.astroと共通のコンポーネントスタイル（ページ間でCSSは共有されないため複製） ── */
     .kintai-wrap [hidden],
     .kt-modal-overlay[hidden] { display: none !important; }
@@ -1084,7 +1098,8 @@ import Layout from '../layouts/Layout.astro';
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.15);
       border-radius: var(--radius-lg);
-      padding: 0.85rem 1.25rem;
+      /* 表の高さを稼ぐため縦を詰める（ボタンは44pxの最小高さを保つので押しやすさは変わらない） */
+      padding: 0.4rem 1rem;
     }
     .kt-adminbar__label { font-size: 0.95rem; font-weight: 700; color: rgba(255,255,255,0.9); }
     .kt-panel {

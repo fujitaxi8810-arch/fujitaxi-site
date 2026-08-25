@@ -43,7 +43,7 @@ import Layout from '../../layouts/Layout.astro';
   </div>
 
   <script>
-    import { fetchStaff, fetchShiftMonth, type Staff, type Shift } from '../../lib/kintai-db';
+    import { initAuth, fetchStaff, fetchShiftMonth, type Staff, type Shift } from '../../lib/kintai-db';
     import { HOLIDAYS, isBeyondHolidayData, holidayDataWarning } from '../../lib/holidays';
 
     const $ = (id: string) => document.getElementById(id) as HTMLElement;
@@ -110,6 +110,15 @@ import Layout from '../../layouts/Layout.astro';
 
     async function loadMonth() {
       const month = currentMonth();
+      // 先にセッションを用意する。未ログインだとSupabaseは401ではなく
+      // 「200＋空配列」を返すため、これを忘れると中身が空のまま
+      // 正常な画面に見えてしまう（スタッフ未登録と区別がつかない）。
+      // 常時表示のモニターでセッションが切れた場合にも張り直せるよう、毎回通す
+      const auth = await initAuth();
+      if (!auth.ok) {
+        setStatus(auth.error || 'ログインできませんでした。ページを再読み込みしてください。');
+        return;
+      }
       try {
         const [sList, shifts] = await Promise.all([fetchStaff(), fetchShiftMonth(month)]);
         staffList = sList;
@@ -332,13 +341,18 @@ import Layout from '../../layouts/Layout.astro';
   html, body { background: #f4f4f4; padding-bottom: 0 !important; }
   main#main-content { min-height: 100vh; }
 
+  /* 画面の高さいっぱいを使う。余った縦を表の行に配分して、
+     大きいモニターほど行が背高く＝読みやすくなるようにしている
+     （高さを決め打ちすると、画面によって余白が余ったり溢れたりするため） */
   .sl-page {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 0.75rem 1rem 1.25rem;
+    padding: 0.75rem 1rem 1rem;
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
+    height: 100vh;
+    box-sizing: border-box;
   }
   .sl-bar {
     display: flex;
@@ -400,27 +414,42 @@ import Layout from '../../layouts/Layout.astro';
   .sl-empty { color: #666; font-size: 0.9rem; }
 
   /* ── 全体表示（できる限りスクロール無しで収まるよう詰めたレイアウト） ── */
+  /* 「全体」タブを縦に伸ばすための入れ子。min-height:0 が無いと
+     flexの子が中身の高さで突っ張って、はみ出した分が画面外に出る */
+  #allView {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  /* display を指定すると hidden 属性（＝UA既定の display:none）が負けてしまい、
+     隠しているはずのタブが縦幅を食う。明示的に打ち消しておく */
+  #allView[hidden], #mineView[hidden] { display: none !important; }
   .sl-grid-wrap {
-    overflow-x: auto;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
     background: #fff;
     border-radius: var(--radius-md, 8px);
     border: 1px solid #e0e0e0;
   }
-  .sl-grid { border-collapse: collapse; width: 100%; }
+  /* height:100% で、余った縦を各行に配ってもらう。
+     人数が増えて入り切らないときは .sl-grid-wrap 側でスクロールする */
+  .sl-grid { border-collapse: collapse; width: 100%; height: 100%; }
   .sl-grid th, .sl-grid td {
     text-align: center;
-    padding: 0.12rem 0.15rem;
-    font-size: 0.68rem;
-    line-height: 1.1;
+    padding: 0.2rem 0.15rem;
+    font-size: 0.95rem;
+    line-height: 1.15;
     border: 1px solid #eee;
   }
   .sl-name {
     text-align: left !important;
     white-space: nowrap;
-    font-size: 0.72rem;
+    font-size: 1rem;
     font-weight: 700;
     color: #111;
-    padding-left: 0.5rem !important;
+    padding-left: 0.6rem !important;
     position: sticky;
     left: 0;
     background: #fff;
@@ -432,8 +461,8 @@ import Layout from '../../layouts/Layout.astro';
     background: #fff;
     z-index: 2;
   }
-  .sl-daynum { font-weight: 900; color: #111; min-width: 22px; }
-  .sl-weekday { color: #888; font-size: 0.6rem; }
+  .sl-daynum { font-weight: 900; color: #111; min-width: 24px; }
+  .sl-weekday { color: #888; font-size: 0.8rem; }
   .sl-weekend { background: #fdeaea; }
   .sl-saturday { background: #eaf2fb; }
   .sl-today { box-shadow: inset 0 0 0 2px #f5c800; }
@@ -442,8 +471,8 @@ import Layout from '../../layouts/Layout.astro';
     background: #fff9e0;
     color: #7a5c00;
     font-weight: 900;
-    font-size: 0.68rem;
-    padding: 0.15rem 0.5rem !important;
+    font-size: 0.9rem;
+    padding: 0.2rem 0.6rem !important;
   }
   .sl-cell.sl-code { font-weight: 900; }
   .sl-cell.sl-phone { position: relative; }
@@ -472,15 +501,28 @@ import Layout from '../../layouts/Layout.astro';
 
   /* ── 個別表示（カレンダー形式） ── */
   .sl-mine-name { font-size: 1.05rem; font-weight: 900; color: #111; margin: 0; }
+  /* 個別タブも「全体」と同じく縦を使い切る。曜日見出しの1行だけ内容なりの高さにして、
+     残りの週の行で余った縦を等分する */
+  #mineView {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
   .sl-cal {
+    flex: 1;
+    min-height: 0;
     display: grid;
     grid-template-columns: repeat(7, 1fr);
+    /* 1行目＝曜日見出しは文字なりの高さ、以降の最大6週分で残りを等分する */
+    grid-template-rows: auto repeat(6, minmax(0, 1fr));
     gap: 3px;
-    max-width: 560px;
+    max-width: 760px;
   }
   .sl-cal-head {
     text-align: center;
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     font-weight: 700;
     color: #888;
     padding: 0.2rem 0;
@@ -490,17 +532,17 @@ import Layout from '../../layouts/Layout.astro';
     border: 1px solid #e0e0e0;
     border-radius: 6px;
     min-height: 56px;
-    padding: 0.25rem;
+    padding: 0.3rem;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
-    gap: 0.2rem;
+    justify-content: center;
+    gap: 0.25rem;
   }
   .sl-cal-cell--blank { background: transparent; border-color: transparent; }
-  .sl-cal-daynum { font-size: 0.75rem; font-weight: 700; color: #333; }
+  .sl-cal-daynum { font-size: 0.9rem; font-weight: 700; color: #333; }
   .sl-cal-code {
-    font-size: 0.95rem;
+    font-size: 1.25rem;
     font-weight: 900;
     border-radius: 5px;
     padding: 0.1rem 0.4rem;
@@ -529,7 +571,11 @@ import Layout from '../../layouts/Layout.astro';
   }
 
   @media (max-width: 640px) {
-    .sl-grid th, .sl-grid td { font-size: 0.62rem; padding: 0.08rem 0.1rem; }
+    /* スマホは横に31日分を並べる都合で、PCほど大きくはできない */
+    .sl-grid th, .sl-grid td { font-size: 0.72rem; padding: 0.12rem 0.1rem; }
+    .sl-name { font-size: 0.76rem; }
+    .sl-weekday { font-size: 0.62rem; }
+    .sl-group-header { font-size: 0.72rem; }
     .sl-cal { max-width: 100%; }
     .sl-cal-cell { min-height: 44px; }
   }

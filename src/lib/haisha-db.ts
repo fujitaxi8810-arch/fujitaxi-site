@@ -9,7 +9,7 @@ import type { NormalizedRow } from './haisha-csv';
 import { normalizePhoneKey } from './haisha-csv';
 
 // 認証まわりとスタッフマスタは勤怠のものを再利用する
-export { supabase, initAuth, isAdmin, isSuperAdmin, signInAdmin, signOutToKiosk, fetchStaff } from './kintai-db';
+export { supabase, initAuth, isAdmin, isSuperAdmin, signInAdmin, signOutToKiosk, fetchStaff, isBackendOutage } from './kintai-db';
 export type { Staff } from './kintai-db';
 export type { NormalizedRow } from './haisha-csv';
 

@@ -156,6 +156,7 @@ import Layout from '../layouts/Layout.astro';
       fetchShiftMonth, upsertShift, deleteShift,
       fetchShiftNote, upsertShiftNote,
       fetchShiftHistory,
+      isBackendOutage,
     } from '../lib/kintai-db';
     import { HOLIDAYS, isBeyondHolidayData, holidayDataWarning } from '../lib/holidays';
     // シフト選択なしの単一出勤ボタンを使う区分（kintai.astroのusesSimplePunchと同じ判定）
@@ -1093,7 +1094,16 @@ import Layout from '../layouts/Layout.astro';
         staff = await fetchStaff();
         await refreshData();
       } catch (e) {
-        alert('データの読み込みに失敗しました。ページを再読み込みしてもう一度お試しください。');
+        /*
+         * Supabase側の一時的な障害（2026-08-14〜の「401 errors due to JWT
+         * rejections」で実際に発生）を、端末の設定・電波状況の問題と誤解しないよう
+         * 分かる場合は専用の案内を出す
+         */
+        alert(isBackendOutage(e)
+          ? 'データの読み込みに失敗しました。システム（Supabase）側で一時的な問題が'
+            + '発生している可能性があります。端末の設定は関係ありません。'
+            + '少し時間をおいてから、もう一度お試しください。'
+          : 'データの読み込みに失敗しました。ページを再読み込みしてもう一度お試しください。');
         return;
       }
       renderAdminBar();

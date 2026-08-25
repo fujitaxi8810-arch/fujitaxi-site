@@ -383,7 +383,7 @@ import '../styles/kt-components.css';
       fetchDeletedReservations,
       buildImportPlan, applyImportPlan, fetchLatestImportLog,
       jstDateKey, jstTimeLabel, todayJst,
-      hasSession, isAuthError,
+      hasSession, isAuthError, isBackendOutage,
     } from '../lib/haisha-db';
     import { parseReservationCsv, decodeCsvBuffer } from '../lib/haisha-csv';
     import { HOLIDAYS, isBeyondHolidayData, holidayDataWarning } from '../lib/holidays';
@@ -396,6 +396,15 @@ import '../styles/kt-components.css';
       if (isAuthError(e)) {
         showLoggedOut('ログインの有効期限が切れた可能性があります。');
         return `${what}できませんでした。ログインし直してください。`;
+      }
+      /*
+       * Supabase側の一時的な障害（2026-08-14〜の「401 errors due to JWT rejections」で
+       * 実際に発生）と分かっている場合は、端末の設定・電波状況の問題と誤解されないよう
+       * 専用の案内を出す。この案内が出たら、端末側を疑わず少し待って再試行すればよい
+       */
+      if (isBackendOutage(e)) {
+        return `${what}に失敗しました。システム（Supabase）側で一時的な問題が発生している可能性があります。`
+          + '端末の設定は関係ありません。少し時間をおいてから、もう一度お試しください。';
       }
       return `${what}に失敗しました。電波状況を確認して、もう一度お試しください。`;
     }

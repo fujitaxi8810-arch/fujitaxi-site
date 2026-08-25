@@ -182,6 +182,20 @@ export async function initAuth(): Promise<{ ok: boolean; error?: string }> {
   return result;
 }
 
+/**
+ * 端末側ではなく、Supabase側の一時的な障害と分かっている失敗かどうか。
+ * 2026-08-14〜のSupabase障害「401 errors due to JWT rejections」で、
+ * データの読み込みが軒並み PGRST303 (JWT issued at future) で失敗する事例を確認した
+ * （端末の時計・電波状況は正常で、プロジェクトの再起動で解消した）。
+ * このエラーを「電波状況を確認してください」と案内すると、端末側の問題だと
+ * 誤解して時間を浪費してしまうため、分かる範囲では専用の案内を出す
+ */
+export function isBackendOutage(e: any): boolean {
+  const code = e?.code ?? '';
+  const status = Number(e?.status ?? 0);
+  return code === 'PGRST303' || status === 503 || status === 502 || status === 504;
+}
+
 export async function signInAdmin(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.session) return { ok: false, error: error?.message || '認証に失敗しました。' };

@@ -58,7 +58,7 @@ import Layout from '../layouts/Layout.astro';
           <button type="button" class="kt-btn" id="printBtn">印刷</button>
         </div>
 
-        <div class="kt-table-wrap sf-grid-wrap" id="shiftTableWrap">
+        <div class="kt-table-wrap sf-grid-wrap">
           <table class="kt-table sf-grid" id="shiftTable"></table>
         </div>
         <p class="kt-empty" id="staffEmpty" hidden>スタッフが登録されていません。</p>
@@ -1006,33 +1006,6 @@ import Layout from '../layouts/Layout.astro';
         localStorage.setItem(key, el.open ? 'open' : 'closed');
       });
     });
-
-    /*
-     * 日付（列）が31日分あり、表は横に長い。マウスホイール／トラックパッドの
-     * 縦スクロールで日付を送れるようにしてほしい、というユーザー要望への対応
-     * （「日付を下にスクロールするようにしてほしい」）。
-     *
-     * 表の中は常に横スクロールを奪うのではなく、**表がまだ横に送れる間だけ**
-     * 縦ホイールを横スクロールに変換する。右端（または左端）まで来たら奪うのを
-     * やめ、そのまま普通の縦スクロール（ページ送り）に委ねる。こうしないと、
-     * 表の上にカーソルがある間ずっとページを下にスクロールできなくなってしまう。
-     *
-     * タッチパネルの指スワイプはブラウザが直接ネイティブスクロールとして処理し
-     * wheel イベントを発生させないため、このハンドラは効かない（従来通り横に
-     * スワイプする）。マウス・トラックパッドでの操作を想定した対応
-     */
-    function enableWheelPan(wrap) {
-      wrap.addEventListener('wheel', (e) => {
-        if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; // 元から横方向の操作はそのまま
-        const atRightEdge = wrap.scrollLeft + wrap.clientWidth >= wrap.scrollWidth - 1;
-        const atLeftEdge = wrap.scrollLeft <= 0;
-        if (e.deltaY > 0 && atRightEdge) return; // 右端を超えたら普通に下スクロールさせる
-        if (e.deltaY < 0 && atLeftEdge) return;  // 左端を超えたら普通に上スクロールさせる
-        wrap.scrollLeft += e.deltaY;
-        e.preventDefault();
-      }, { passive: false });
-    }
-    enableWheelPan($('shiftTableWrap'));
 
     async function boot() {
       const authResult = await initAuth();

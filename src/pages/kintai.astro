@@ -117,6 +117,58 @@ import Layout from '../layouts/Layout.astro';
         </div>
       </div>
 
+      <!-- 打刻の手入力モーダル（管理者専用・電波障害等で打刻できなかった分をあとから入力） -->
+      <div class="kt-modal-overlay" id="manualEntryModal" hidden>
+        <div class="kt-modal" role="dialog" aria-modal="true" aria-labelledby="manualEntryModalTitle">
+          <h2 class="kt-title" id="manualEntryModalTitle">打刻の手入力（管理者）</h2>
+          <p class="kt-note">※ 電波障害などで打刻できなかった場合に、あとから出勤・退勤・休憩の時刻を入力できます。既に記録がある日を選ぶと、その内容を修正できます。</p>
+
+          <label class="kt-field">
+            <span>スタッフ</span>
+            <select id="manualEntryStaff" class="kt-input"></select>
+          </label>
+          <label class="kt-field">
+            <span>日付</span>
+            <input type="date" id="manualEntryDate" class="kt-input" />
+          </label>
+          <p class="kt-modal__taxnote" id="manualEntryExisting"></p>
+
+          <p class="kt-shift-select__label">シフト区分</p>
+          <div class="kt-settings-grid">
+            <label class="kt-field"><input type="radio" name="manualEntryShift" value="normal" checked /> 普通番</label>
+            <label class="kt-field"><input type="radio" name="manualEntryShift" value="late" /> 遅番</label>
+            <label class="kt-field"><input type="radio" name="manualEntryShift" value="part" /> パート</label>
+          </div>
+          <label class="kt-field">
+            <input type="checkbox" id="manualEntryPhoneDuty" /> 電話番を担当
+          </label>
+
+          <div class="kt-settings-grid">
+            <label class="kt-field">
+              <span>出勤時刻</span>
+              <input type="time" id="manualEntryIn" class="kt-input" />
+            </label>
+            <label class="kt-field">
+              <span>退勤時刻</span>
+              <input type="time" id="manualEntryOut" class="kt-input" />
+            </label>
+            <label class="kt-field">
+              <span>休憩開始（任意）</span>
+              <input type="time" id="manualEntryBreakStart" class="kt-input" />
+            </label>
+            <label class="kt-field">
+              <span>休憩終了（任意）</span>
+              <input type="time" id="manualEntryBreakEnd" class="kt-input" />
+            </label>
+          </div>
+
+          <div class="kt-modal__actions">
+            <button type="button" class="kt-punch kt-punch--out" id="manualEntrySubmit">保存する</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="manualEntryCancel">キャンセル</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 本日の状況 -->
       <div class="kt-panel">
         <h2 class="kt-title">本日の状況</h2>
@@ -144,6 +196,7 @@ import Layout from '../layouts/Layout.astro';
             <input type="month" id="monthPick" class="kt-input" />
             <button type="button" class="kt-btn" id="csvBtn">CSV出力</button>
             <button type="button" class="kt-btn" id="timecardBtn">給与計算Excel出力</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="manualEntryOpenBtn">📝 打刻を手入力で追加・修正</button>
           </div>
         </div>
         <div class="kt-exportstatus" id="exportStatus">
@@ -261,7 +314,7 @@ import Layout from '../layouts/Layout.astro';
     initAuth, isAdmin, isSuperAdmin, signInAdmin, signOutToKiosk,
     fetchStaff, insertStaff, updateStaff, deactivateStaff,
     fetchSettings, updateSettings as dbUpdateSettings,
-    fetchMonth, fetchTodayOrOpen, fetchOpenAttendance, fetchAllAttendance, upsertAttendance, deleteAllAttendance, deleteAttendance,
+    fetchMonth, fetchTodayOrOpen, fetchOpenAttendance, fetchAllAttendance, fetchOne, upsertAttendance, deleteAllAttendance, deleteAttendance,
     fetchExportLog, recordExport,
     fetchAllShifts, fetchAllShiftNotes,
     isBackendOutage,
@@ -1184,20 +1237,10 @@ import Layout from '../layouts/Layout.astro';
     $('undoBtn').hidden = !lastActions.has(selectedId);
   }
 
-  async function punchIn(shiftType) {
-    if (!selectedId) return;
-    const s = staff.find(x => x.id === selectedId);
-    if (!s) return;
-    const now = new Date().toISOString();
-    const existing = todayRec(selectedId);
+  // 給与計算条件を出勤時点でレコードに固定するためのスナップショット（後から区分や時給・交通費を変えても過去分に影響しない）
+  function buildEmploymentSnapshot(s) {
     const empType = staffType(s);
-    const patch = {
-      staffId: selectedId,
-      date: dateKey(),
-      in: now,
-      shiftType,
-      phoneDuty: (shiftType === 'part' || s.phoneDutyDisabled) ? false : $('phoneDutyCheck').checked,
-      // 給与計算条件を出勤時点でレコードに固定（後から区分や時給・交通費を変えても過去分に影響しない）
+    const snap = {
       empType,
       commute: s.commuteAllowance != null ? s.commuteAllowance : 0,
       commuteType: s.commuteType || 'monthly',
@@ -1206,10 +1249,26 @@ import Layout from '../layouts/Layout.astro';
       managerAllowance: s.managerAllowance != null ? s.managerAllowance : 0,
       housingAllowance: s.housingAllowance != null ? s.housingAllowance : 0,
     };
+    if (isHourlyType(empType)) snap.hourlyWage = s.hourlyWage != null ? s.hourlyWage : settings.minWage;
+    if (isMonthlyType(empType)) snap.monthlyWage = s.monthlyWage != null ? s.monthlyWage : 0;
+    if (s.dailyWage != null) snap.dailyWage = s.dailyWage;
+    return snap;
+  }
+  async function punchIn(shiftType) {
+    if (!selectedId) return;
+    const s = staff.find(x => x.id === selectedId);
+    if (!s) return;
+    const now = new Date().toISOString();
+    const existing = todayRec(selectedId);
+    const patch = {
+      staffId: selectedId,
+      date: dateKey(),
+      in: now,
+      shiftType,
+      phoneDuty: (shiftType === 'part' || s.phoneDutyDisabled) ? false : $('phoneDutyCheck').checked,
+      ...buildEmploymentSnapshot(s),
+    };
     if (!existing) { patch.breaks = []; patch.leaves = []; }
-    if (isHourlyType(empType)) patch.hourlyWage = s.hourlyWage != null ? s.hourlyWage : settings.minWage;
-    if (isMonthlyType(empType)) patch.monthlyWage = s.monthlyWage != null ? s.monthlyWage : 0;
-    if (s.dailyWage != null) patch.dailyWage = s.dailyWage;
 
     const shiftBtnIds = ['punchInNormal', 'punchInLate', 'punchInPart'];
     shiftBtnIds.forEach(id => { $(id).disabled = true; });
@@ -1353,6 +1412,123 @@ import Layout from '../layouts/Layout.astro';
   $('salesModalSubmit').onclick = () => saveSalesModal();
   $('salesModalCancel').onclick = () => closeSalesModal();
   $('salesTotalInput').addEventListener('input', updateSalesNetPreview);
+
+  // ── 打刻の手入力モーダル（電波障害等で打刻できなかった分をあとから入力） ──
+  function timeInputToIso(dateStr, timeStr) {
+    if (!dateStr || !timeStr) return null;
+    return new Date(`${dateStr}T${timeStr}:00`).toISOString();
+  }
+  function isoToTimeInput(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+  function fillManualEntryStaffOptions() {
+    const sel = $('manualEntryStaff');
+    sel.innerHTML = '';
+    for (const s of staff) {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      sel.appendChild(opt);
+    }
+  }
+  async function loadManualEntryForDate() {
+    const staffId = $('manualEntryStaff').value;
+    const date = $('manualEntryDate').value;
+    if (!staffId || !date) return;
+    let rec = null;
+    try {
+      rec = await fetchOne(staffId, date);
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
+      return;
+    }
+    if (rec) {
+      $('manualEntryExisting').textContent = '※ この日はすでに記録があります。内容を修正して保存できます。';
+      const radio = document.querySelector(`input[name="manualEntryShift"][value="${rec.shiftType || 'normal'}"]`);
+      if (radio) radio.checked = true;
+      $('manualEntryPhoneDuty').checked = !!rec.phoneDuty;
+      $('manualEntryIn').value = isoToTimeInput(rec.in);
+      $('manualEntryOut').value = isoToTimeInput(rec.out);
+      const firstBreak = (rec.breaks || [])[0];
+      $('manualEntryBreakStart').value = firstBreak ? isoToTimeInput(firstBreak.start) : '';
+      $('manualEntryBreakEnd').value = firstBreak ? isoToTimeInput(firstBreak.end) : '';
+    } else {
+      $('manualEntryExisting').textContent = 'この日はまだ記録がありません（新規に追加します）。';
+      document.querySelector('input[name="manualEntryShift"][value="normal"]').checked = true;
+      $('manualEntryPhoneDuty').checked = false;
+      $('manualEntryIn').value = '';
+      $('manualEntryOut').value = '';
+      $('manualEntryBreakStart').value = '';
+      $('manualEntryBreakEnd').value = '';
+    }
+  }
+  function openManualEntryModal() {
+    fillManualEntryStaffOptions();
+    $('manualEntryDate').value = dateKey();
+    $('manualEntryModal').hidden = false;
+    loadManualEntryForDate();
+  }
+  function closeManualEntryModal() {
+    $('manualEntryModal').hidden = true;
+  }
+  async function saveManualEntry() {
+    const staffId = $('manualEntryStaff').value;
+    const date = $('manualEntryDate').value;
+    if (!staffId || !date) { alert('スタッフと日付を指定してください。'); return; }
+    const s = staff.find(x => x.id === staffId);
+    if (!s) return;
+    const shiftType = document.querySelector('input[name="manualEntryShift"]:checked').value;
+    const inIso = timeInputToIso(date, $('manualEntryIn').value);
+    const outIso = timeInputToIso(date, $('manualEntryOut').value);
+    if (!inIso) { alert('出勤時刻を入力してください。'); return; }
+    if (outIso && new Date(outIso) < new Date(inIso)) {
+      alert('退勤時刻が出勤時刻より前になっています。時刻を確認してください。');
+      return;
+    }
+    const breakStartIso = timeInputToIso(date, $('manualEntryBreakStart').value);
+    const breakEndIso = timeInputToIso(date, $('manualEntryBreakEnd').value);
+    const breaks = breakStartIso ? [{ start: breakStartIso, end: breakEndIso || null }] : [];
+
+    let existing = null;
+    try {
+      existing = await fetchOne(staffId, date);
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
+      return;
+    }
+    const patch = {
+      staffId,
+      date,
+      in: inIso,
+      out: outIso || null,
+      shiftType,
+      phoneDuty: $('manualEntryPhoneDuty').checked,
+      breaks,
+    };
+    // 既存記録が無い場合のみ、現在のスタッフ設定を給与計算条件としてスナップショットする
+    // （既存記録がある場合は、出勤当時のスナップショットを上書きしないよう触らない）
+    if (!existing) Object.assign(patch, buildEmploymentSnapshot(s));
+
+    $('manualEntrySubmit').disabled = true;
+    try {
+      await upsertAttendance(patch);
+      await refreshData();
+      renderStaff(); renderPunch(); renderToday(); renderHist(); renderWage();
+      alert(`${s.name} さんの${date.slice(5).replace('-', '/')}分の打刻を保存しました。`);
+      closeManualEntryModal();
+    } catch (e) {
+      alert(SAVE_FAIL_MSG);
+    } finally {
+      $('manualEntrySubmit').disabled = false;
+    }
+  }
+  $('manualEntryOpenBtn').onclick = () => openManualEntryModal();
+  $('manualEntryCancel').onclick = () => closeManualEntryModal();
+  $('manualEntrySubmit').onclick = () => saveManualEntry();
+  $('manualEntryStaff').addEventListener('change', loadManualEntryForDate);
+  $('manualEntryDate').addEventListener('change', loadManualEntryForDate);
 
   async function punch(type) {
     if (!selectedId) return;

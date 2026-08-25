@@ -3407,7 +3407,13 @@ import '../styles/kt-components.css';
      * これが1行の高さ（実測58px）の主な原因だったため、この表の中に限って
      * セレクト・ボタン・チェックの高さを詰める（他の画面には影響しない）
      */
-    .ha-all-grid { overflow-x: auto; }
+    /*
+     * ユーザー指摘「形が角ばっているのが気になる」。日別の配車ボード（.ha-grid-wrap）は
+     * 白背景＋角丸のカードに乗っているのに対し、全体配車ボードはこの白いカードが無く、
+     * 表がむき出しのままパネルの黒背景に直接乗っていた（角が四角いまま目立っていた）。
+     * 日別ボードと同じ見た目（白背景・角丸・余白）に揃える
+     */
+    .ha-all-grid { overflow-x: auto; background: #fff; border-radius: var(--radius-md); padding: 0.5rem; }
     /*
      * ページ（kt-panel）はダークテーマの黒背景。この表のtdは背景を指定していなかったため、
      * 未割当・変更あり・キャンセルの色分けが付かない通常行（＝担当者を割り当てた直後の状態）は
@@ -3448,7 +3454,8 @@ import '../styles/kt-components.css';
     .ha-all-table thead th:nth-child(2),
     .ha-all-table thead th:nth-child(3) {
       z-index: 2;
-      background: var(--fuji-black-card, #1a1a1a);
+      /* .ha-all-grid が白背景の角丸カードになったため、他の見出しセルと同じ白に揃える */
+      background: #fff;
     }
     .ha-all-card--unassigned td { background: #fffaf0; }
     .ha-all-card--changed td { background: #fffbeb; }

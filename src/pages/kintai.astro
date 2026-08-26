@@ -586,8 +586,10 @@ import Layout from '../layouts/Layout.astro';
 
   // 列幅・見出しの書式・ウィンドウ枠の固定などを壊さずに読み書きするため、
   // 自動保存の書き込みはExcelJS（読み込み時の書式を保持できる）で行う
-  async function appendRecordsToExcel(recs) {
-    if (!recs.length) return { ok: true, count: 0 };
+  // recs＝給与関連タブに書き出す打刻（未反映のみ）、opsRecs＝運行実績タブに書き出す対象
+  // （給与タブは反映済みでも、後から元帳取り込みで運行実績だけ追加された打刻も含む）
+  async function appendRecordsToExcel(recs, opsRecs) {
+    if (!recs.length && !opsRecs.length) return { ok: true, count: 0, opsCount: 0 };
     const handle = await getExcelHandle();
     if (!handle) return { ok: false, reason: 'no-handle' };
     if (!(await ensureExcelPermission(handle))) return { ok: false, reason: 'no-permission' };
@@ -606,7 +608,7 @@ import Layout from '../layouts/Layout.astro';
     });
 
     // 運行実績は別タブに書き出す。古いテンプレートで作られたファイルにはタブが無いので、その場合は作る
-    const opsRows = recs.map(opsRowFromRec).filter(Boolean);
+    const opsRows = opsRecs.map(opsRowFromRec).filter(Boolean);
     if (opsRows.length) {
       let wsOps = wb.getWorksheet(EXCEL_OPS_SHEET_NAME);
       if (!wsOps) {
@@ -624,12 +626,15 @@ import Layout from '../layouts/Layout.astro';
     const writable = await handle.createWritable();
     await writable.write(outBuf);
     await writable.close();
-    return { ok: true, count: recs.length };
+    return { ok: true, count: recs.length, opsCount: opsRows.length };
   }
 
   // Excel自動保存の「送信済み」フラグはこの端末だけのローカルな状態（データ本体はSupabase共有のため、
-  // 打刻レコードにフラグを持たせると他端末にも波及してしまう）
+  // 打刻レコードにフラグを持たせると他端末にも波及してしまう）。
+  // 給与関連タブと運行実績タブは別々に追跡する（給与タブに反映済みでも、後から元帳取り込みで
+  // 運行実績だけ追加された打刻は、運行実績タブにはまだ書き込まれていないことがあるため）
   const EXCEL_SYNCED_KEY = 'fuji-kintai-excel-synced-ids';
+  const EXCEL_OPS_SYNCED_KEY = 'fuji-kintai-excel-ops-synced-ids';
   function getSyncedIds() {
     try { return new Set(JSON.parse(localStorage.getItem(EXCEL_SYNCED_KEY) || '[]')); } catch { return new Set(); }
   }
@@ -638,9 +643,18 @@ import Layout from '../layouts/Layout.astro';
     for (const id of ids) cur.add(id);
     localStorage.setItem(EXCEL_SYNCED_KEY, JSON.stringify([...cur]));
   }
+  function getSyncedOpsIds() {
+    try { return new Set(JSON.parse(localStorage.getItem(EXCEL_OPS_SYNCED_KEY) || '[]')); } catch { return new Set(); }
+  }
+  function markOpsSynced(ids) {
+    const cur = getSyncedOpsIds();
+    for (const id of ids) cur.add(id);
+    localStorage.setItem(EXCEL_OPS_SYNCED_KEY, JSON.stringify([...cur]));
+  }
 
   async function syncUnsyncedToExcel(showAlert) {
     const syncedIds = getSyncedIds();
+    const syncedOpsIds = getSyncedOpsIds();
     // 表示中の月（log）だけでなく、過去分も含めた全期間のデータを対象にする
     let allRecs;
     try {
@@ -650,10 +664,17 @@ import Layout from '../layouts/Layout.astro';
       return { ok: false, reason: 'fetch-failed' };
     }
     const unsynced = allRecs.filter(r => r.out && !syncedIds.has(r.id));
-    const result = await appendRecordsToExcel(unsynced);
+    const unsyncedOps = allRecs.filter(r => hasOperationDetail(r) && !syncedOpsIds.has(r.id));
+    const result = await appendRecordsToExcel(unsynced, unsyncedOps);
     if (result.ok) {
       if (result.count) markSynced(unsynced.map(r => r.id));
-      if (showAlert) alert(result.count ? `${result.count}件をExcelに書き込みました。` : '未反映のデータはありませんでした。');
+      if (result.opsCount) markOpsSynced(unsyncedOps.map(r => r.id));
+      if (showAlert) {
+        const parts = [];
+        if (result.count) parts.push(`打刻${result.count}件`);
+        if (result.opsCount) parts.push(`運行実績${result.opsCount}件`);
+        alert(parts.length ? `${parts.join('・')}をExcelに書き込みました。` : '未反映のデータはありませんでした。');
+      }
     } else if (showAlert) {
       const messages = {
         'no-handle': 'Excelファイルが選択されていません。「Excelファイルを選択」から設定してください。',
@@ -820,6 +841,7 @@ import Layout from '../layouts/Layout.astro';
     if (!confirm(`「${handle.name}」への接続を解除しますか？\nファイル自体は削除されません。`)) return;
     await idbDelete(IDB_KEY);
     localStorage.removeItem(EXCEL_SYNCED_KEY);
+    localStorage.removeItem(EXCEL_OPS_SYNCED_KEY);
     renderExcelSyncBox();
   };
 

@@ -1888,8 +1888,52 @@ import Layout from '../layouts/Layout.astro';
         btn.onclick = () => editManualBreak(rec.staffId, rec.date, rec.manualBreakMinutes);
         tr.lastElementChild.appendChild(btn);
       }
+      // 元帳から取り込んだ運行実績がある行は、クリックで詳細を開けるようにする
+      if (hasOperationDetail(rec)) {
+        tr.classList.add('kt-hist-row--hasdetail');
+        tr.title = 'クリックで運行実績を表示';
+        tr.onclick = (e) => {
+          if (e.target.closest('button')) return; // 操作ボタンのクリックは無視
+          toggleHistDetail(rec.staffId + '|' + rec.date);
+        };
+      }
       body.appendChild(tr);
+
+      if (hasOperationDetail(rec) && histOpenDetails.has(rec.staffId + '|' + rec.date)) {
+        const detailTr = document.createElement('tr');
+        detailTr.className = 'kt-hist-detailrow';
+        detailTr.innerHTML = `<td colspan="${HIST_COLSPAN}"><span class="kt-hist-detailrow__inner">${operationDetailHtml(rec)}</span></td>`;
+        body.appendChild(detailTr);
+      }
     }
+  }
+
+  // ── 運行実績の詳細（元帳から取り込んだ項目。給与計算には使わない） ──
+  let histOpenDetails = new Set();
+  function toggleHistDetail(key) {
+    if (histOpenDetails.has(key)) histOpenDetails.delete(key);
+    else histOpenDetails.add(key);
+    renderHist();
+  }
+  function hasOperationDetail(rec) {
+    return rec.distanceKm != null || rec.actualDistanceKm != null
+      || rec.transportCount != null || rec.transportPersons != null
+      || rec.fuelLiters != null || rec.fuelAmount != null
+      || rec.disabilityCount != null || rec.disabilityDiscount != null;
+  }
+  function operationDetailHtml(rec) {
+    const items = [
+      ['走行距離', rec.distanceKm != null ? `${yen(rec.distanceKm)}km` : null],
+      ['実車距離', rec.actualDistanceKm != null ? `${yen(rec.actualDistanceKm)}km` : null],
+      ['実車率', (rec.distanceKm && rec.actualDistanceKm) ? `${Math.round(rec.actualDistanceKm / rec.distanceKm * 100)}%` : null],
+      ['輸送回数', rec.transportCount != null ? `${yen(rec.transportCount)}回` : null],
+      ['輸送人数', rec.transportPersons != null ? `${yen(rec.transportPersons)}人` : null],
+      ['給油量', rec.fuelLiters != null ? `${rec.fuelLiters}L` : null],
+      ['給油金額', rec.fuelAmount != null ? `${yen(rec.fuelAmount)}円` : null],
+      ['障がい回数', rec.disabilityCount != null ? `${yen(rec.disabilityCount)}回` : null],
+      ['身障者割引', rec.disabilityDiscount != null ? `${yen(rec.disabilityDiscount)}円` : null],
+    ].filter(([, v]) => v !== null);
+    return items.map(([k, v]) => `<span class="kt-hist-detailrow__item"><em>${k}</em>${v}</span>`).join('');
   }
 
   // ── 月次給与サマリー ──
@@ -2030,9 +2074,24 @@ import Layout from '../layouts/Layout.astro';
         const uncollected = parseYen(r[10]);
         if (!sales) continue;
         const key = day + '|' + name;
-        if (!agg[key]) agg[key] = { day, name, rawName, sales: 0, uncollected: 0 };
+        if (!agg[key]) {
+          agg[key] = {
+            day, name, rawName, sales: 0, uncollected: 0,
+            disabilityCount: 0, disabilityDiscount: 0, transportCount: 0, transportPersons: 0,
+            distanceKm: 0, actualDistanceKm: 0, fuelLiters: 0, fuelAmount: 0,
+          };
+        }
         agg[key].sales += sales;
         agg[key].uncollected += uncollected;
+        // 運行実績（同じ日に複数車両分あれば合算）
+        agg[key].disabilityCount += parseYen(r[14]);
+        agg[key].disabilityDiscount += parseYen(r[15]);
+        agg[key].transportCount += parseYen(r[16]);
+        agg[key].transportPersons += parseYen(r[17]);
+        agg[key].distanceKm += parseYen(r[18]);
+        agg[key].actualDistanceKm += parseYen(r[19]);
+        agg[key].fuelLiters += parseYen(r[22]);
+        agg[key].fuelAmount += parseYen(r[23]);
       }
 
       const monthRecs = await fetchMonth(month);
@@ -2062,6 +2121,10 @@ import Layout from '../layouts/Layout.astro';
         results.push({
           date, staffId, staffName: matchedStaff ? matchedStaff.name : null, sheetName: item.rawName,
           sales: item.sales, uncollected: item.uncollected, status, applyDefault, existingSales,
+          disabilityCount: item.disabilityCount, disabilityDiscount: item.disabilityDiscount,
+          transportCount: item.transportCount, transportPersons: item.transportPersons,
+          distanceKm: item.distanceKm, actualDistanceKm: item.actualDistanceKm,
+          fuelLiters: item.fuelLiters, fuelAmount: item.fuelAmount,
         });
       }
       importRows = results;
@@ -2116,6 +2179,15 @@ import Layout from '../layouts/Layout.astro';
           salesGross: row.sales,
           sales: taxExcluded(row.sales),
           uncollected: row.uncollected,
+          // 運行実績（0はデータ無しとみなしてnullで保存する）
+          distanceKm: row.distanceKm || null,
+          actualDistanceKm: row.actualDistanceKm || null,
+          transportCount: row.transportCount || null,
+          transportPersons: row.transportPersons || null,
+          fuelLiters: row.fuelLiters || null,
+          fuelAmount: row.fuelAmount || null,
+          disabilityCount: row.disabilityCount || null,
+          disabilityDiscount: row.disabilityDiscount || null,
         });
         okCount++;
       } catch (e) {
@@ -3112,6 +3184,31 @@ import Layout from '../layouts/Layout.astro';
     position: sticky;
     left: 0.75rem;
     display: inline-block;
+  }
+  .kt-hist-row--hasdetail { cursor: pointer; }
+  .kt-hist-row--hasdetail:hover td { background: rgba(255,255,255,0.06); }
+  .kt-hist-detailrow td {
+    background: rgba(255,255,255,0.04);
+    padding: 0.5rem 0.75rem;
+  }
+  .kt-hist-detailrow__inner {
+    position: sticky;
+    left: 0.75rem;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.2rem;
+    max-width: 100%;
+  }
+  .kt-hist-detailrow__item {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.9);
+    white-space: nowrap;
+  }
+  .kt-hist-detailrow__item em {
+    font-style: normal;
+    color: var(--fuji-yellow);
+    font-weight: 700;
+    margin-right: 0.35rem;
   }
 
   .kt-empty { color: rgba(255,255,255,0.75); font-size: 1rem; padding: 0.5rem 0; }

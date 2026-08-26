@@ -82,6 +82,15 @@ export type Attendance = {
   uncollected: number | null;
   cardFee: number | null;
   payments: Payments;
+  // 元帳から取り込む運行実績（給与計算には使わず、勤務履歴の詳細表示のみに使う）
+  distanceKm: number | null;
+  actualDistanceKm: number | null;
+  transportCount: number | null;
+  transportPersons: number | null;
+  fuelLiters: number | null;
+  fuelAmount: number | null;
+  disabilityCount: number | null;
+  disabilityDiscount: number | null;
 };
 
 export type Settings = {
@@ -392,6 +401,14 @@ function rowToAttendance(row: any): Attendance {
     uncollected: row.uncollected,
     cardFee: row.card_fee,
     payments: row.payments || {},
+    distanceKm: row.distance_km,
+    actualDistanceKm: row.actual_distance_km,
+    transportCount: row.transport_count,
+    transportPersons: row.transport_persons,
+    fuelLiters: row.fuel_liters,
+    fuelAmount: row.fuel_amount,
+    disabilityCount: row.disability_count,
+    disabilityDiscount: row.disability_discount,
   };
 }
 
@@ -484,6 +501,14 @@ export async function upsertAttendance(rec: Partial<Attendance> & { staffId: str
   if (rec.uncollected !== undefined) dbRow.uncollected = rec.uncollected;
   if (rec.cardFee !== undefined) dbRow.card_fee = rec.cardFee;
   if (rec.payments !== undefined) dbRow.payments = rec.payments;
+  if (rec.distanceKm !== undefined) dbRow.distance_km = rec.distanceKm;
+  if (rec.actualDistanceKm !== undefined) dbRow.actual_distance_km = rec.actualDistanceKm;
+  if (rec.transportCount !== undefined) dbRow.transport_count = rec.transportCount;
+  if (rec.transportPersons !== undefined) dbRow.transport_persons = rec.transportPersons;
+  if (rec.fuelLiters !== undefined) dbRow.fuel_liters = rec.fuelLiters;
+  if (rec.fuelAmount !== undefined) dbRow.fuel_amount = rec.fuelAmount;
+  if (rec.disabilityCount !== undefined) dbRow.disability_count = rec.disabilityCount;
+  if (rec.disabilityDiscount !== undefined) dbRow.disability_discount = rec.disabilityDiscount;
 
   const { data, error } = await supabase
     .from('attendance')

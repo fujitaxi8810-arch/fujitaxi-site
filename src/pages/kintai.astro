@@ -450,10 +450,25 @@ import Layout from '../layouts/Layout.astro';
   }
 
   // ── Excel自動保存（ファイルシステムアクセスAPI） ──
+  // 旧構成（全期間を1タブにまとめていた頃）のタブ名。初回書き込み時に月ごとのタブへ移行する
   const EXCEL_SHEET_NAME = 'CSV貼り付け';
   const EXCEL_OPS_SHEET_NAME = '運行実績';
   const OPS_HEADERS = ['日付', '名前', '走行距離(km)', '実車距離(km)', '実車率(%)', '輸送回数', '輸送人数', '給油量(L)', '給油金額(円)', '障がい回数', '身障者割引(円)'];
   const OPS_WIDTHS = [10, 12, 12, 12, 10, 10, 10, 10, 12, 11, 13];
+  const PAYROLL_FIXED_HEADERS = ['日付', '名前', '区分', '電話番', '出勤', '退勤', '休憩(分)', '時間内外出(分)', '実働(分)', '実働(時:分)', '売上税込(円)', '売上税抜(円)', '未収(円)', 'カード手数料等(円)', '基本給(円)', '歩合・手当(円)', '合計支給額(円)', '時給換算(円)', '最低賃金判定'];
+  const PAYROLL_FIXED_WIDTHS = [10, 12, 16, 8, 8, 8, 9, 13, 9, 11, 12, 12, 10, 16, 10, 12, 13, 11, 14];
+  const PAYROLL_MONEY_HEADERS = new Set(['売上税込(円)', '売上税抜(円)', '未収(円)', 'カード手数料等(円)', '基本給(円)', '歩合・手当(円)', '合計支給額(円)', '時給換算(円)']);
+  function payrollHeaders() {
+    return [...PAYROLL_FIXED_HEADERS, ...PAY_METHODS.map(m => `${m.label}(円)`)];
+  }
+  // 月ごとのタブ名。給与は「2026-08」、運行実績は「2026-08 運行」
+  const OPS_SHEET_SUFFIX = ' 運行';
+  const SUMMARY_STAFF_SHEET = '集計_スタッフ別';
+  const SUMMARY_TOTAL_SHEET = '集計_全体';
+  function monthOfDate(dateStr) { return String(dateStr).slice(0, 7); }
+  function opsSheetNameOf(month) { return month + OPS_SHEET_SUFFIX; }
+  function isMonthSheetName(name) { return /^\d{4}-\d{2}$/.test(name); }
+  function isOpsMonthSheetName(name) { return new RegExp('^\\d{4}-\\d{2}' + OPS_SHEET_SUFFIX + '$').test(name); }
   // 運行実績タブ用の1行分。運行実績が1つも無いレコードはnullを返す（書き出さない）
   function opsRowFromRec(rec) {
     if (!hasOperationDetail(rec)) return null;
@@ -588,8 +603,161 @@ import Layout from '../layouts/Layout.astro';
   // 自動保存の書き込みはExcelJS（読み込み時の書式を保持できる）で行う
   // recs＝給与関連タブに書き出す打刻（未反映のみ）、opsRecs＝運行実績タブに書き出す対象
   // （給与タブは反映済みでも、後から元帳取り込みで運行実績だけ追加された打刻も含む）
+  // 月ごとのタブへ行を振り分けて追記する。タブが無ければ見出し付きで作る
+  function appendRowsByMonth(wb, rows, buildHeader, sheetNameOf) {
+    const byMonth = {};
+    for (const row of rows) {
+      const m = monthOfDate(row[0]);
+      if (!/^\d{4}-\d{2}$/.test(m)) continue;
+      (byMonth[m] = byMonth[m] || []).push(row);
+    }
+    let written = 0;
+    for (const m of Object.keys(byMonth).sort()) {
+      const name = sheetNameOf(m);
+      let ws = wb.getWorksheet(name);
+      if (!ws) { ws = wb.addWorksheet(name); buildHeader(ws); }
+      const start = nextEmptyRowIndex(ws);
+      byMonth[m].forEach((vals, i) => {
+        vals.forEach((v, ci) => { ws.getCell(start + i, ci + 1).value = v; });
+      });
+      written += byMonth[m].length;
+    }
+    return written;
+  }
+
+  // 旧構成（全期間を1タブにまとめていた頃）のデータを月ごとのタブへ移す。
+  // 元のタブは消さずに「_移行前」を付けて残し、取り違えや消失を防ぐ
+  function migrateLegacySheet(wb, legacyName, colCount, buildHeader, sheetNameOf) {
+    const ws = wb.getWorksheet(legacyName);
+    if (!ws) return 0;
+    const rows = [];
+    for (let r = 2; r <= ws.rowCount; r++) {
+      const d = ws.getCell(r, 1).value;
+      if (d === null || d === undefined || d === '') continue;
+      const vals = [];
+      for (let c = 1; c <= colCount; c++) {
+        const v = ws.getCell(r, c).value;
+        vals.push(v === null || v === undefined ? '' : v);
+      }
+      rows.push(vals);
+    }
+    const moved = appendRowsByMonth(wb, rows, buildHeader, sheetNameOf);
+    const backupName = legacyName + '_移行前';
+    if (!wb.getWorksheet(backupName)) ws.name = backupName;
+    return moved;
+  }
+
+  function cellNum(ws, r, c) {
+    const v = ws.getCell(r, c).value;
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string' && v.trim() !== '') {
+      const n = parseFloat(v.replace(/,/g, ''));
+      return isNaN(n) ? 0 : n;
+    }
+    if (v && typeof v === 'object' && typeof v.result === 'number') return v.result;
+    return 0;
+  }
+  function cellText(ws, r, c) {
+    const v = ws.getCell(r, c).value;
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'object' && v.result !== undefined) return String(v.result);
+    return String(v);
+  }
+
+  // 集計タブ（スタッフ別・全体）を、ファイル内の月ごとタブの中身から作り直す
+  const SUMMARY_STAFF_HEADERS = ['月', '名前', '出勤日数', '実働合計(時間)', '売上合計(円)', '基本給合計(円)', '歩合・手当合計(円)', '総支給額(円)', '走行距離(km)', '実車距離(km)', '実車率(%)', '輸送回数', '輸送人数', '給油量(L)', '給油金額(円)'];
+  const SUMMARY_TOTAL_HEADERS = ['月', '延べ出勤日数', '実働合計(時間)', '売上合計(円)', '人件費合計(円)', '走行距離(km)', '実車距離(km)', '実車率(%)', '輸送回数', '輸送人数', '給油量(L)', '給油金額(円)'];
+  function rebuildSummarySheets(wb) {
+    // key: '月|名前'
+    const byStaff = {};
+    const pick = (m, name) => {
+      const k = m + '|' + name;
+      if (!byStaff[k]) {
+        byStaff[k] = { month: m, name, days: 0, workMin: 0, sales: 0, base: 0, extra: 0, total: 0,
+          dist: 0, actualDist: 0, tCount: 0, tPersons: 0, fuelL: 0, fuelYen: 0 };
+      }
+      return byStaff[k];
+    };
+    for (const ws of wb.worksheets) {
+      if (isMonthSheetName(ws.name)) {
+        for (let r = 2; r <= ws.rowCount; r++) {
+          const d = cellText(ws, r, 1);
+          if (!d) continue;
+          const t = pick(ws.name, cellText(ws, r, 2));
+          t.days += 1;
+          t.workMin += cellNum(ws, r, 9);   // 実働(分)
+          t.sales += cellNum(ws, r, 11);    // 売上税込
+          t.base += cellNum(ws, r, 15);     // 基本給
+          t.extra += cellNum(ws, r, 16);    // 歩合・手当
+          t.total += cellNum(ws, r, 17);    // 合計支給額
+        }
+      } else if (isOpsMonthSheetName(ws.name)) {
+        const m = ws.name.slice(0, 7);
+        for (let r = 2; r <= ws.rowCount; r++) {
+          const d = cellText(ws, r, 1);
+          if (!d) continue;
+          const t = pick(m, cellText(ws, r, 2));
+          t.dist += cellNum(ws, r, 3);
+          t.actualDist += cellNum(ws, r, 4);
+          t.tCount += cellNum(ws, r, 6);
+          t.tPersons += cellNum(ws, r, 7);
+          t.fuelL += cellNum(ws, r, 8);
+          t.fuelYen += cellNum(ws, r, 9);
+        }
+      }
+    }
+
+    const rate = (actual, dist) => (dist > 0 ? Math.round(actual / dist * 100) : '');
+    const hours = (min) => (min > 0 ? Math.round(min / 60 * 100) / 100 : 0);
+    const entries = Object.values(byStaff).sort((a, b) => b.month.localeCompare(a.month) || a.name.localeCompare(b.name));
+
+    const wsStaff = resetSummarySheet(wb, SUMMARY_STAFF_SHEET, SUMMARY_STAFF_HEADERS, 'FFFFF2CC');
+    entries.forEach((t, i) => {
+      const row = [t.month, t.name, t.days, hours(t.workMin), t.sales, t.base, t.extra, t.total,
+        t.dist, t.actualDist, rate(t.actualDist, t.dist), t.tCount, t.tPersons,
+        Math.round(t.fuelL * 100) / 100, t.fuelYen];
+      row.forEach((v, ci) => { wsStaff.getCell(i + 2, ci + 1).value = v; });
+    });
+
+    // 会社全体（月ごとにスタッフ分を合算）
+    const byMonth = {};
+    for (const t of entries) {
+      const m = byMonth[t.month] = byMonth[t.month] || { days: 0, workMin: 0, sales: 0, total: 0,
+        dist: 0, actualDist: 0, tCount: 0, tPersons: 0, fuelL: 0, fuelYen: 0 };
+      m.days += t.days; m.workMin += t.workMin; m.sales += t.sales; m.total += t.total;
+      m.dist += t.dist; m.actualDist += t.actualDist; m.tCount += t.tCount;
+      m.tPersons += t.tPersons; m.fuelL += t.fuelL; m.fuelYen += t.fuelYen;
+    }
+    const wsTotal = resetSummarySheet(wb, SUMMARY_TOTAL_SHEET, SUMMARY_TOTAL_HEADERS, 'FFE2EFDA');
+    Object.keys(byMonth).sort((a, b) => b.localeCompare(a)).forEach((m, i) => {
+      const t = byMonth[m];
+      const row = [m, t.days, hours(t.workMin), t.sales, t.total, t.dist, t.actualDist,
+        rate(t.actualDist, t.dist), t.tCount, t.tPersons, Math.round(t.fuelL * 100) / 100, t.fuelYen];
+      row.forEach((v, ci) => { wsTotal.getCell(i + 2, ci + 1).value = v; });
+    });
+  }
+  // 集計タブは毎回作り直す（消してから作ることで、前回より件数が減った場合の残骸を防ぐ）
+  function resetSummarySheet(wb, name, headers, headerColor) {
+    const existing = wb.getWorksheet(name);
+    if (existing) wb.removeWorksheet(existing.id);
+    const ws = wb.addWorksheet(name);
+    headers.forEach((h, i) => {
+      const col = i + 1;
+      const cell = ws.getCell(1, col);
+      cell.value = h;
+      cell.font = { name: '游ゴシック', size: 10, bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColor } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FFB7B7B7' } } };
+      ws.getColumn(col).width = Math.min(18, Math.max(10, Math.ceil(h.length * 1.5) + 2));
+      if (h.includes('(円)')) ws.getColumn(col).numFmt = '#,##0';
+    });
+    ws.getRow(1).height = 22;
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    return ws;
+  }
+
   async function appendRecordsToExcel(recs, opsRecs) {
-    if (!recs.length && !opsRecs.length) return { ok: true, count: 0, opsCount: 0 };
     const handle = await getExcelHandle();
     if (!handle) return { ok: false, reason: 'no-handle' };
     if (!(await ensureExcelPermission(handle))) return { ok: false, reason: 'no-permission' };
@@ -598,35 +766,50 @@ import Layout from '../layouts/Layout.astro';
     const buf = await file.arrayBuffer();
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buf);
-    const ws = wb.getWorksheet(EXCEL_SHEET_NAME);
-    if (!ws) return { ok: false, reason: 'no-sheet' };
+    // 勤怠用のファイルかどうかの確認（旧タブ・月タブ・使い方タブのいずれかがあればOK）
+    const looksValid = wb.worksheets.some(w =>
+      w.name === EXCEL_SHEET_NAME || w.name === EXCEL_OPS_SHEET_NAME
+      || isMonthSheetName(w.name) || isOpsMonthSheetName(w.name) || w.name === '使い方');
+    if (!looksValid) return { ok: false, reason: 'no-sheet' };
 
-    const startRow = nextEmptyRowIndex(ws);
-    recs.map(excelRowFromRec).forEach((rowValues, i) => {
-      const rowNum = startRow + i;
-      rowValues.forEach((v, ci) => { ws.getCell(rowNum, ci + 1).value = v; });
-    });
+    // 旧構成のファイルは、はじめに月ごとのタブへ移行する
+    migrateLegacySheet(wb, EXCEL_SHEET_NAME, payrollHeaders().length, buildPayrollSheetHeader, (m) => m);
+    migrateLegacySheet(wb, EXCEL_OPS_SHEET_NAME, OPS_HEADERS.length, buildOpsSheetHeader, opsSheetNameOf);
 
-    // 運行実績は別タブに書き出す。古いテンプレートで作られたファイルにはタブが無いので、その場合は作る
+    const count = appendRowsByMonth(wb, recs.map(excelRowFromRec), buildPayrollSheetHeader, (m) => m);
     const opsRows = opsRecs.map(opsRowFromRec).filter(Boolean);
-    if (opsRows.length) {
-      let wsOps = wb.getWorksheet(EXCEL_OPS_SHEET_NAME);
-      if (!wsOps) {
-        wsOps = wb.addWorksheet(EXCEL_OPS_SHEET_NAME);
-        buildOpsSheetHeader(wsOps);
-      }
-      const opsStart = nextEmptyRowIndex(wsOps);
-      opsRows.forEach((rowValues, i) => {
-        const rowNum = opsStart + i;
-        rowValues.forEach((v, ci) => { wsOps.getCell(rowNum, ci + 1).value = v; });
-      });
-    }
+    const opsCount = appendRowsByMonth(wb, opsRows, buildOpsSheetHeader, opsSheetNameOf);
+
+    rebuildSummarySheets(wb);
+    // タブの並びを整える（集計→月の新しい順→使い方・移行前バックアップ）
+    sortWorkbookSheets(wb);
 
     const outBuf = await wb.xlsx.writeBuffer();
     const writable = await handle.createWritable();
     await writable.write(outBuf);
     await writable.close();
-    return { ok: true, count: recs.length, opsCount: opsRows.length };
+    return { ok: true, count, opsCount };
+  }
+
+  function sortWorkbookSheets(wb) {
+    const rank = (name) => {
+      if (name === SUMMARY_TOTAL_SHEET) return 0;
+      if (name === SUMMARY_STAFF_SHEET) return 1;
+      if (isMonthSheetName(name) || isOpsMonthSheetName(name)) return 2;
+      return 3;
+    };
+    const sorted = [...wb.worksheets].sort((a, b) => {
+      const d = rank(a.name) - rank(b.name);
+      if (d !== 0) return d;
+      if (rank(a.name) === 2) {
+        // 月は新しい順。同じ月なら給与→運行の順
+        const ma = a.name.slice(0, 7), mb = b.name.slice(0, 7);
+        if (ma !== mb) return mb.localeCompare(ma);
+        return a.name.length - b.name.length;
+      }
+      return 0;
+    });
+    sorted.forEach((ws, i) => { ws.orderNo = i + 1; });
   }
 
   // Excel自動保存の「送信済み」フラグはこの端末だけのローカルな状態（データ本体はSupabase共有のため、
@@ -775,13 +958,9 @@ import Layout from '../layouts/Layout.astro';
     ws.views = [{ state: 'frozen', ySplit: 1 }];
   }
 
-  $('excelTemplateBtn').onclick = async () => {
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet(EXCEL_SHEET_NAME);
-    const FIXED_HEADERS = ['日付', '名前', '区分', '電話番', '出勤', '退勤', '休憩(分)', '時間内外出(分)', '実働(分)', '実働(時:分)', '売上税込(円)', '売上税抜(円)', '未収(円)', 'カード手数料等(円)', '基本給(円)', '歩合・手当(円)', '合計支給額(円)', '時給換算(円)', '最低賃金判定'];
-    const FIXED_WIDTHS = [10, 12, 16, 8, 8, 8, 9, 13, 9, 11, 12, 12, 10, 16, 10, 12, 13, 11, 14];
-    const MONEY_HEADERS = new Set(['売上税込(円)', '売上税抜(円)', '未収(円)', 'カード手数料等(円)', '基本給(円)', '歩合・手当(円)', '合計支給額(円)', '時給換算(円)']);
-    const headers = [...FIXED_HEADERS, ...PAY_METHODS.map(m => `${m.label}(円)`)];
+  // 給与タブ（月ごと）の見出し行を作る
+  function buildPayrollSheetHeader(ws) {
+    const headers = payrollHeaders();
     headers.forEach((h, i) => {
       const col = i + 1;
       const cell = ws.getCell(1, col);
@@ -790,25 +969,32 @@ import Layout from '../layouts/Layout.astro';
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       cell.border = { bottom: { style: 'thin', color: { argb: 'FF9DB4D0' } } };
-      const width = FIXED_WIDTHS[i] != null ? FIXED_WIDTHS[i] : Math.min(30, Math.max(12, Math.ceil(h.length * 1.6) + 2));
+      const width = PAYROLL_FIXED_WIDTHS[i] != null ? PAYROLL_FIXED_WIDTHS[i] : Math.min(30, Math.max(12, Math.ceil(h.length * 1.6) + 2));
       ws.getColumn(col).width = width;
       // 決済方法ごとの列（PAY_METHODS由来）もすべて金額列
-      if (MONEY_HEADERS.has(h) || i >= FIXED_HEADERS.length) {
+      if (PAYROLL_MONEY_HEADERS.has(h) || i >= PAYROLL_FIXED_HEADERS.length) {
         ws.getColumn(col).numFmt = '#,##0';
       }
     });
     ws.getRow(1).height = 22;
     // 見出し行を画面に固定し、データが増えても常に見出しが見えるようにする
     ws.views = [{ state: 'frozen', ySplit: 1 }];
+  }
 
-    buildOpsSheetHeader(wb.addWorksheet(EXCEL_OPS_SHEET_NAME));
+  $('excelTemplateBtn').onclick = async () => {
+    const wb = new ExcelJS.Workbook();
+    // 月ごとのタブは書き込み時に自動で作られるので、テンプレートには今月分だけ用意しておく
+    const thisMonth = dateKey().slice(0, 7);
+    buildPayrollSheetHeader(wb.addWorksheet(thisMonth));
+    buildOpsSheetHeader(wb.addWorksheet(opsSheetNameOf(thisMonth)));
 
     const wsUsage = wb.addWorksheet('使い方');
     const usage = [
       '【このファイルについて】',
       'このファイルは、勤怠アプリ（/kintai）の「Excel自動保存」機能専用のテンプレートです。',
-      `「${EXCEL_SHEET_NAME}」という名前のシートに、退勤のたびに1行ずつ自動で追記されます（1行目は見出しのため変更・削除しないでください）。`,
-      `また、元帳から運行実績（走行距離・輸送回数など）を取り込んだ分は「${EXCEL_OPS_SHEET_NAME}」シートに書き出されます。`,
+      '打刻データは月ごとのタブ（例：2026-08）に、元帳から取り込んだ運行実績は「2026-08 運行」のようなタブに自動で追記されます。',
+      '月が変わると新しいタブが自動で作られます（1行目は見出しのため変更・削除しないでください）。',
+      `また、書き込みのたびに「${SUMMARY_STAFF_SHEET}」「${SUMMARY_TOTAL_SHEET}」タブの集計が自動で作り直されます（このタブは手で編集しないでください）。`,
       '',
       '【使い方】',
       '1. このファイルをわかりやすい場所（デスクトップや共有フォルダなど）に保存してください。',

@@ -135,12 +135,12 @@ import Layout from '../layouts/Layout.astro';
 
           <p class="kt-shift-select__label">シフト区分</p>
           <div class="kt-settings-grid">
-            <label class="kt-field"><input type="radio" name="manualEntryShift" value="normal" checked /> 普通番</label>
-            <label class="kt-field"><input type="radio" name="manualEntryShift" value="late" /> 遅番</label>
-            <label class="kt-field"><input type="radio" name="manualEntryShift" value="part" /> パート</label>
+            <label class="kt-inline-check"><input type="radio" name="manualEntryShift" value="normal" checked /><span>普通番</span></label>
+            <label class="kt-inline-check"><input type="radio" name="manualEntryShift" value="late" /><span>遅番</span></label>
+            <label class="kt-inline-check"><input type="radio" name="manualEntryShift" value="part" /><span>パート</span></label>
           </div>
-          <label class="kt-field">
-            <input type="checkbox" id="manualEntryPhoneDuty" /> 電話番を担当
+          <label class="kt-inline-check">
+            <input type="checkbox" id="manualEntryPhoneDuty" /><span>電話番を担当</span>
           </label>
 
           <div class="kt-settings-grid">
@@ -2834,6 +2834,16 @@ import Layout from '../layouts/Layout.astro';
     gap: 1rem;
     margin-bottom: 1.25rem;
   }
+  .kt-inline-check {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.85);
+    font-weight: 700;
+  }
+  .kt-inline-check input { flex-shrink: 0; }
 
   .kt-staff-list { display: flex; flex-direction: column; gap: 0.6rem; }
   .kt-staff-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; }

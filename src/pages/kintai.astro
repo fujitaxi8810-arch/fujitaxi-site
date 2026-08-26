@@ -451,6 +451,29 @@ import Layout from '../layouts/Layout.astro';
 
   // ── Excel自動保存（ファイルシステムアクセスAPI） ──
   const EXCEL_SHEET_NAME = 'CSV貼り付け';
+  const EXCEL_OPS_SHEET_NAME = '運行実績';
+  const OPS_HEADERS = ['日付', '名前', '走行距離(km)', '実車距離(km)', '実車率(%)', '輸送回数', '輸送人数', '給油量(L)', '給油金額(円)', '障がい回数', '身障者割引(円)'];
+  const OPS_WIDTHS = [10, 12, 12, 12, 10, 10, 10, 10, 12, 11, 13];
+  // 運行実績タブ用の1行分。運行実績が1つも無いレコードはnullを返す（書き出さない）
+  function opsRowFromRec(rec) {
+    if (!hasOperationDetail(rec)) return null;
+    const s = staff.find(x => x.id === rec.staffId);
+    const rate = (rec.distanceKm && rec.actualDistanceKm)
+      ? Math.round(rec.actualDistanceKm / rec.distanceKm * 100) : '';
+    return [
+      rec.date,
+      s ? s.name : '削除済み',
+      rec.distanceKm != null ? rec.distanceKm : '',
+      rec.actualDistanceKm != null ? rec.actualDistanceKm : '',
+      rate,
+      rec.transportCount != null ? rec.transportCount : '',
+      rec.transportPersons != null ? rec.transportPersons : '',
+      rec.fuelLiters != null ? rec.fuelLiters : '',
+      rec.fuelAmount != null ? rec.fuelAmount : '',
+      rec.disabilityCount != null ? rec.disabilityCount : '',
+      rec.disabilityDiscount != null ? rec.disabilityDiscount : '',
+    ];
+  }
   const EXCEL_SUPPORTED = typeof window.showOpenFilePicker === 'function';
   const IDB_NAME = 'fuji-kintai-db';
   const IDB_STORE = 'handles';
@@ -582,6 +605,21 @@ import Layout from '../layouts/Layout.astro';
       rowValues.forEach((v, ci) => { ws.getCell(rowNum, ci + 1).value = v; });
     });
 
+    // 運行実績は別タブに書き出す。古いテンプレートで作られたファイルにはタブが無いので、その場合は作る
+    const opsRows = recs.map(opsRowFromRec).filter(Boolean);
+    if (opsRows.length) {
+      let wsOps = wb.getWorksheet(EXCEL_OPS_SHEET_NAME);
+      if (!wsOps) {
+        wsOps = wb.addWorksheet(EXCEL_OPS_SHEET_NAME);
+        buildOpsSheetHeader(wsOps);
+      }
+      const opsStart = nextEmptyRowIndex(wsOps);
+      opsRows.forEach((rowValues, i) => {
+        const rowNum = opsStart + i;
+        rowValues.forEach((v, ci) => { wsOps.getCell(rowNum, ci + 1).value = v; });
+      });
+    }
+
     const outBuf = await wb.xlsx.writeBuffer();
     const writable = await handle.createWritable();
     await writable.write(outBuf);
@@ -696,6 +734,23 @@ import Layout from '../layouts/Layout.astro';
     await refreshOpenWarnings();
     renderOpenWarnings();
   }
+  // 運行実績タブの見出し行を作る（テンプレート作成時と、タブが無いファイルへの初回書き込み時に使う）
+  function buildOpsSheetHeader(ws) {
+    OPS_HEADERS.forEach((h, i) => {
+      const col = i + 1;
+      const cell = ws.getCell(1, col);
+      cell.value = h;
+      cell.font = { name: '游ゴシック', size: 10, bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2EFDA' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF9DC3A0' } } };
+      ws.getColumn(col).width = OPS_WIDTHS[i];
+      if (h === '給油金額(円)' || h === '身障者割引(円)') ws.getColumn(col).numFmt = '#,##0';
+    });
+    ws.getRow(1).height = 22;
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+  }
+
   $('excelTemplateBtn').onclick = async () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet(EXCEL_SHEET_NAME);
@@ -722,11 +777,14 @@ import Layout from '../layouts/Layout.astro';
     // 見出し行を画面に固定し、データが増えても常に見出しが見えるようにする
     ws.views = [{ state: 'frozen', ySplit: 1 }];
 
+    buildOpsSheetHeader(wb.addWorksheet(EXCEL_OPS_SHEET_NAME));
+
     const wsUsage = wb.addWorksheet('使い方');
     const usage = [
       '【このファイルについて】',
       'このファイルは、勤怠アプリ（/kintai）の「Excel自動保存」機能専用のテンプレートです。',
       `「${EXCEL_SHEET_NAME}」という名前のシートに、退勤のたびに1行ずつ自動で追記されます（1行目は見出しのため変更・削除しないでください）。`,
+      `また、元帳から運行実績（走行距離・輸送回数など）を取り込んだ分は「${EXCEL_OPS_SHEET_NAME}」シートに書き出されます。`,
       '',
       '【使い方】',
       '1. このファイルをわかりやすい場所（デスクトップや共有フォルダなど）に保存してください。',

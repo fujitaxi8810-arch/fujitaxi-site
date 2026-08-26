@@ -603,7 +603,15 @@ import Layout from '../layouts/Layout.astro';
 
   async function syncUnsyncedToExcel(showAlert) {
     const syncedIds = getSyncedIds();
-    const unsynced = log.filter(r => r.out && !syncedIds.has(r.id));
+    // 表示中の月（log）だけでなく、過去分も含めた全期間のデータを対象にする
+    let allRecs;
+    try {
+      allRecs = await fetchAllAttendance();
+    } catch (e) {
+      if (showAlert) alert(SAVE_FAIL_MSG);
+      return { ok: false, reason: 'fetch-failed' };
+    }
+    const unsynced = allRecs.filter(r => r.out && !syncedIds.has(r.id));
     const result = await appendRecordsToExcel(unsynced);
     if (result.ok) {
       if (result.count) markSynced(unsynced.map(r => r.id));

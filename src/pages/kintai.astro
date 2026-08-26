@@ -121,7 +121,7 @@ import Layout from '../layouts/Layout.astro';
       <div class="kt-modal-overlay" id="manualEntryModal" hidden>
         <div class="kt-modal" role="dialog" aria-modal="true" aria-labelledby="manualEntryModalTitle">
           <h2 class="kt-title" id="manualEntryModalTitle">打刻の手入力（管理者）</h2>
-          <p class="kt-note">※ 電波障害などで打刻できなかった場合に、あとから出勤・退勤・休憩の時刻を入力できます。既に記録がある日を選ぶと、その内容を修正できます。</p>
+          <p class="kt-note">※ 電波障害などで打刻できなかった場合に、あとから出勤・退勤・休憩・時間内退勤の時刻を入力できます。既に記録がある日を選ぶと、その内容を修正できます。</p>
 
           <label class="kt-field">
             <span>スタッフ</span>
@@ -159,6 +159,14 @@ import Layout from '../layouts/Layout.astro';
             <label class="kt-field">
               <span>休憩終了（任意）</span>
               <input type="time" id="manualEntryBreakEnd" class="kt-input" />
+            </label>
+            <label class="kt-field">
+              <span>時間内退勤時刻（任意）</span>
+              <input type="time" id="manualEntryAwayStart" class="kt-input" />
+            </label>
+            <label class="kt-field">
+              <span>時間内出勤時刻（任意）</span>
+              <input type="time" id="manualEntryAwayEnd" class="kt-input" />
             </label>
           </div>
 
@@ -1454,6 +1462,9 @@ import Layout from '../layouts/Layout.astro';
       const firstBreak = (rec.breaks || [])[0];
       $('manualEntryBreakStart').value = firstBreak ? isoToTimeInput(firstBreak.start) : '';
       $('manualEntryBreakEnd').value = firstBreak ? isoToTimeInput(firstBreak.end) : '';
+      const firstLeave = (rec.leaves || [])[0];
+      $('manualEntryAwayStart').value = firstLeave ? isoToTimeInput(firstLeave.start) : '';
+      $('manualEntryAwayEnd').value = firstLeave ? isoToTimeInput(firstLeave.end) : '';
     } else {
       $('manualEntryExisting').textContent = 'この日はまだ記録がありません（新規に追加します）。';
       document.querySelector('input[name="manualEntryShift"][value="normal"]').checked = true;
@@ -1462,6 +1473,8 @@ import Layout from '../layouts/Layout.astro';
       $('manualEntryOut').value = '';
       $('manualEntryBreakStart').value = '';
       $('manualEntryBreakEnd').value = '';
+      $('manualEntryAwayStart').value = '';
+      $('manualEntryAwayEnd').value = '';
     }
   }
   function openManualEntryModal() {
@@ -1490,6 +1503,9 @@ import Layout from '../layouts/Layout.astro';
     const breakStartIso = timeInputToIso(date, $('manualEntryBreakStart').value);
     const breakEndIso = timeInputToIso(date, $('manualEntryBreakEnd').value);
     const breaks = breakStartIso ? [{ start: breakStartIso, end: breakEndIso || null }] : [];
+    const awayStartIso = timeInputToIso(date, $('manualEntryAwayStart').value);
+    const awayEndIso = timeInputToIso(date, $('manualEntryAwayEnd').value);
+    const leaves = awayStartIso ? [{ start: awayStartIso, end: awayEndIso || null }] : [];
 
     let existing = null;
     try {
@@ -1506,6 +1522,7 @@ import Layout from '../layouts/Layout.astro';
       shiftType,
       phoneDuty: $('manualEntryPhoneDuty').checked,
       breaks,
+      leaves,
     };
     // 既存記録が無い場合のみ、現在のスタッフ設定を給与計算条件としてスナップショットする
     // （既存記録がある場合は、出勤当時のスナップショットを上書きしないよう触らない）

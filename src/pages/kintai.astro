@@ -1809,7 +1809,7 @@ import Layout from '../layouts/Layout.astro';
         const d = new Date(rec.date);
         const headerTr = document.createElement('tr');
         headerTr.className = 'kt-hist-daterow';
-        headerTr.innerHTML = `<td colspan="${HIST_COLSPAN}"><span class="kt-hist-daterow__toggle">${isOpen ? '▼' : '▶'}</span> ${rec.date.slice(5).replace('-', '/')}（${WEEKDAYS[d.getDay()]}）</td>`;
+        headerTr.innerHTML = `<td colspan="${HIST_COLSPAN}"><span class="kt-hist-daterow__label"><span class="kt-hist-daterow__toggle">${isOpen ? '▼' : '▶'}</span> ${rec.date.slice(5).replace('-', '/')}（${WEEKDAYS[d.getDay()]}）</span></td>`;
         headerTr.onclick = () => toggleHistDate(rec.date);
         body.appendChild(headerTr);
       }
@@ -3080,6 +3080,11 @@ import Layout from '../layouts/Layout.astro';
     white-space: nowrap;
   }
   .kt-hist-daterow__toggle { display: inline-block; width: 1em; }
+  .kt-hist-daterow__label {
+    position: sticky;
+    left: 0.75rem;
+    display: inline-block;
+  }
 
   .kt-empty { color: rgba(255,255,255,0.75); font-size: 1rem; padding: 0.5rem 0; }
   .kt-note {

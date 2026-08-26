@@ -603,7 +603,10 @@ import Layout from '../layouts/Layout.astro';
   // 自動保存の書き込みはExcelJS（読み込み時の書式を保持できる）で行う
   // recs＝給与関連タブに書き出す打刻（未反映のみ）、opsRecs＝運行実績タブに書き出す対象
   // （給与タブは反映済みでも、後から元帳取り込みで運行実績だけ追加された打刻も含む）
-  // 月ごとのタブへ行を振り分けて追記する。タブが無ければ見出し付きで作る
+  // 月ごとのタブへ行を振り分けて書き込む。タブが無ければ見出し付きで作る。
+  // 打刻は「日付＋名前」で一意なので、既に同じ行があれば上書きし、無ければ追記する。
+  // これにより、別端末から同じファイルに書いた場合などでも行が二重にならず、
+  // あとから売上を入力した場合もExcel側が最新の内容に更新される
   function appendRowsByMonth(wb, rows, buildHeader, sheetNameOf) {
     const byMonth = {};
     for (const row of rows) {
@@ -616,11 +619,21 @@ import Layout from '../layouts/Layout.astro';
       const name = sheetNameOf(m);
       let ws = wb.getWorksheet(name);
       if (!ws) { ws = wb.addWorksheet(name); buildHeader(ws); }
-      const start = nextEmptyRowIndex(ws);
-      byMonth[m].forEach((vals, i) => {
-        vals.forEach((v, ci) => { ws.getCell(start + i, ci + 1).value = v; });
-      });
-      written += byMonth[m].length;
+      // 既存行の「日付|名前」→行番号
+      const rowOf = new Map();
+      for (let r = 2; r <= ws.rowCount; r++) {
+        const d = cellText(ws, r, 1);
+        if (!d) continue;
+        rowOf.set(d + '|' + cellText(ws, r, 2), r);
+      }
+      let next = nextEmptyRowIndex(ws);
+      for (const vals of byMonth[m]) {
+        const key = String(vals[0]) + '|' + String(vals[1]);
+        let target = rowOf.get(key);
+        if (target === undefined) { target = next++; rowOf.set(key, target); }
+        vals.forEach((v, ci) => { ws.getCell(target, ci + 1).value = v; });
+        written += 1;
+      }
     }
     return written;
   }

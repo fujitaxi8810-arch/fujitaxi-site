@@ -316,7 +316,6 @@ import Layout from '../layouts/Layout.astro';
 
 </Layout>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 
 <script>
@@ -552,17 +551,18 @@ import Layout from '../layouts/Layout.astro';
     ];
   }
 
-  function nextEmptyRowIndex(worksheet) {
-    const ref = worksheet['!ref'] || 'A1:A1';
-    const range = XLSX.utils.decode_range(ref);
-    let lastFilled = 1; // 見出し行（0始まりで0）
-    for (let r = range.s.r; r <= range.e.r; r++) {
-      const cell = worksheet[XLSX.utils.encode_cell({ r, c: 0 })];
-      if (cell && cell.v !== undefined && cell.v !== '') lastFilled = r;
+  // 見出し行（1行目）を除いた、A列に値が入っている最後の行の次（1始まりの行番号）を返す
+  function nextEmptyRowIndex(ws) {
+    let lastFilled = 1;
+    for (let r = 2; r <= ws.rowCount; r++) {
+      const v = ws.getCell(r, 1).value;
+      if (v !== null && v !== undefined && v !== '') lastFilled = r;
     }
-    return lastFilled + 1; // 次の空行（0始まり）
+    return lastFilled + 1;
   }
 
+  // 列幅・見出しの書式・ウィンドウ枠の固定などを壊さずに読み書きするため、
+  // 自動保存の書き込みはExcelJS（読み込み時の書式を保持できる）で行う
   async function appendRecordsToExcel(recs) {
     if (!recs.length) return { ok: true, count: 0 };
     const handle = await getExcelHandle();
@@ -571,17 +571,20 @@ import Layout from '../layouts/Layout.astro';
 
     const file = await handle.getFile();
     const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, { type: 'array', cellFormula: true });
-    if (!wb.SheetNames.includes(EXCEL_SHEET_NAME)) return { ok: false, reason: 'no-sheet' };
-    const ws = wb.Sheets[EXCEL_SHEET_NAME];
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    const ws = wb.getWorksheet(EXCEL_SHEET_NAME);
+    if (!ws) return { ok: false, reason: 'no-sheet' };
 
     const startRow = nextEmptyRowIndex(ws);
-    const rows = recs.map(excelRowFromRec);
-    XLSX.utils.sheet_add_aoa(ws, rows, { origin: { r: startRow, c: 0 } });
+    recs.map(excelRowFromRec).forEach((rowValues, i) => {
+      const rowNum = startRow + i;
+      rowValues.forEach((v, ci) => { ws.getCell(rowNum, ci + 1).value = v; });
+    });
 
-    const wbout = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    const outBuf = await wb.xlsx.writeBuffer();
     const writable = await handle.createWritable();
-    await writable.write(wbout);
+    await writable.write(outBuf);
     await writable.close();
     return { ok: true, count: recs.length };
   }
@@ -688,14 +691,28 @@ import Layout from '../layouts/Layout.astro';
   $('excelTemplateBtn').onclick = async () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet(EXCEL_SHEET_NAME);
-    const headers = ['日付', '名前', '区分', '電話番', '出勤', '退勤', '休憩(分)', '時間内外出(分)', '実働(分)', '実働(時:分)', '売上税込(円)', '売上税抜(円)', '未収(円)', 'カード手数料等(円)', '基本給(円)', '歩合・手当(円)', '合計支給額(円)', '時給換算(円)', '最低賃金判定', ...PAY_METHODS.map(m => `${m.label}(円)`)];
+    const FIXED_HEADERS = ['日付', '名前', '区分', '電話番', '出勤', '退勤', '休憩(分)', '時間内外出(分)', '実働(分)', '実働(時:分)', '売上税込(円)', '売上税抜(円)', '未収(円)', 'カード手数料等(円)', '基本給(円)', '歩合・手当(円)', '合計支給額(円)', '時給換算(円)', '最低賃金判定'];
+    const FIXED_WIDTHS = [10, 12, 16, 8, 8, 8, 9, 13, 9, 11, 12, 12, 10, 16, 10, 12, 13, 11, 14];
+    const MONEY_HEADERS = new Set(['売上税込(円)', '売上税抜(円)', '未収(円)', 'カード手数料等(円)', '基本給(円)', '歩合・手当(円)', '合計支給額(円)', '時給換算(円)']);
+    const headers = [...FIXED_HEADERS, ...PAY_METHODS.map(m => `${m.label}(円)`)];
     headers.forEach((h, i) => {
-      const cell = ws.getCell(1, i + 1);
+      const col = i + 1;
+      const cell = ws.getCell(1, col);
       cell.value = h;
       cell.font = { name: '游ゴシック', size: 10, bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF9DB4D0' } } };
+      const width = FIXED_WIDTHS[i] != null ? FIXED_WIDTHS[i] : Math.min(30, Math.max(12, Math.ceil(h.length * 1.6) + 2));
+      ws.getColumn(col).width = width;
+      // 決済方法ごとの列（PAY_METHODS由来）もすべて金額列
+      if (MONEY_HEADERS.has(h) || i >= FIXED_HEADERS.length) {
+        ws.getColumn(col).numFmt = '#,##0';
+      }
     });
-    headers.forEach((_, i) => { ws.getColumn(i + 1).width = 12; });
+    ws.getRow(1).height = 22;
+    // 見出し行を画面に固定し、データが増えても常に見出しが見えるようにする
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
 
     const wsUsage = wb.addWorksheet('使い方');
     const usage = [

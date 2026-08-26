@@ -723,11 +723,14 @@ import Layout from '../layouts/Layout.astro';
     for (const r of openWarnRecs) {
       const s = staff.find(x => x.id === r.staffId);
       const elapsedHours = Math.floor((Date.now() - new Date(r.in).getTime()) / 3600000);
-      const span = document.createElement('span');
-      span.className = 'kt-openwarn__item';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'kt-openwarn__item';
       const inDate = new Date(r.in);
-      span.textContent = `${s ? s.name : '（不明）'}：${inDate.getMonth() + 1}/${inDate.getDate()} ${timeStr(r.in)}出勤・経過${elapsedHours}時間`;
-      list.appendChild(span);
+      btn.textContent = `${s ? s.name : '（不明）'}：${inDate.getMonth() + 1}/${inDate.getDate()} ${timeStr(r.in)}出勤・経過${elapsedHours}時間`;
+      btn.title = 'クリックして退勤時刻を修正';
+      btn.onclick = () => openManualEntryModal({ staffId: r.staffId, date: r.date });
+      list.appendChild(btn);
     }
   }
   async function refreshAndRenderOpenWarnings() {
@@ -1562,9 +1565,10 @@ import Layout from '../layouts/Layout.astro';
       $('manualEntryAwayEnd').value = '';
     }
   }
-  function openManualEntryModal() {
+  function openManualEntryModal(prefill) {
     fillManualEntryStaffOptions();
-    $('manualEntryDate').value = dateKey();
+    $('manualEntryDate').value = (prefill && prefill.date) || dateKey();
+    if (prefill && prefill.staffId) $('manualEntryStaff').value = prefill.staffId;
     $('manualEntryModal').hidden = false;
     loadManualEntryForDate();
   }
@@ -2921,7 +2925,11 @@ import Layout from '../layouts/Layout.astro';
     border-radius: var(--radius-full);
     background: rgba(230,90,90,0.18);
     color: #e66a6a;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
   }
+  .kt-openwarn__item:hover { background: rgba(230,90,90,0.32); }
   .kt-title {
     font-size: 1.25rem;
     font-weight: 900;

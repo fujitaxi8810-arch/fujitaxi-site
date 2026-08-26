@@ -1663,8 +1663,11 @@ import Layout from '../layouts/Layout.astro';
     const s = staff.find(x => x.id === rec.staffId);
     return (s && s.dailyWage != null) ? s.dailyWage : null;
   }
+  // シフト日給。shiftWage()は時給制・月給制のスタッフでは使われない（payParts側で分岐済み）ため、
+  // ここでのshiftType==='part'は「正社員・正社員(基本給のみ)がパート枠のシフトに入った」ケースを指し、
+  // 日給0円ではなく通常通りの日給（個人設定の日給優先）を支給する
   function shiftWage(rec) {
-    if (!rec.shiftType || rec.shiftType === 'part') return 0;
+    if (!rec.shiftType) return 0;
     const override = recDailyWage(rec);
     let w = override != null ? override : (rec.shiftType === 'late' ? (settings.lateWage + settings.lateBonus) : settings.normalWage);
     if (rec.phoneDuty) w += settings.phoneAllowance;

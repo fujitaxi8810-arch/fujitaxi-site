@@ -242,6 +242,7 @@ import Layout from '../layouts/Layout.astro';
           <button type="button" class="kt-btn" id="importApplyBtn" hidden>選択した内容を反映</button>
         </div>
 
+        <p class="kt-note kt-note--scrollhint">← 表を横にスクロールすると他の項目も見られます →</p>
         <div class="kt-table-wrap">
           <table class="kt-table" id="histTable">
             <thead>
@@ -256,6 +257,7 @@ import Layout from '../layouts/Layout.astro';
       <!-- 月次給与サマリー（管理者のみ） -->
       <div class="kt-panel" id="wagePanel" hidden>
         <h2 class="kt-title">月次給与サマリー（管理者）</h2>
+        <p class="kt-note kt-note--scrollhint">← 表を横にスクロールすると他の項目も見られます →</p>
         <div class="kt-table-wrap">
           <table class="kt-table" id="wageTable">
             <thead>
@@ -1777,6 +1779,14 @@ import Layout from '../layouts/Layout.astro';
       alert(SAVE_FAIL_MSG);
     }
   }
+  const HIST_COLSPAN = 16;
+  const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+  let histOpenDates = null; // 開いている日付のSet。月を切り替えたら最新の日付だけ開いた状態にリセットする
+  function toggleHistDate(date) {
+    if (histOpenDates.has(date)) histOpenDates.delete(date);
+    else histOpenDates.add(date);
+    renderHist();
+  }
   function renderHist() {
     const month = currentMonth();
     const body = $('histBody');
@@ -1784,7 +1794,26 @@ import Layout from '../layouts/Layout.astro';
     const recs = log.filter(r => r.date.startsWith(month)).sort((a, b) => b.date.localeCompare(a.date));
     $('histEmpty').hidden = recs.length > 0;
     $('histTable').style.display = recs.length ? '' : 'none';
+
+    const datesInView = [...new Set(recs.map(r => r.date))];
+    if (!histOpenDates || !datesInView.some(d => histOpenDates.has(d))) {
+      // 初回描画・月の切り替え時は、一番新しい日付だけ開いた状態にする
+      histOpenDates = new Set(datesInView.length ? [datesInView[0]] : []);
+    }
+
+    let prevDate = null;
     for (const rec of recs) {
+      if (rec.date !== prevDate) {
+        prevDate = rec.date;
+        const isOpen = histOpenDates.has(rec.date);
+        const d = new Date(rec.date);
+        const headerTr = document.createElement('tr');
+        headerTr.className = 'kt-hist-daterow';
+        headerTr.innerHTML = `<td colspan="${HIST_COLSPAN}"><span class="kt-hist-daterow__toggle">${isOpen ? '▼' : '▶'}</span> ${rec.date.slice(5).replace('-', '/')}（${WEEKDAYS[d.getDay()]}）</td>`;
+        headerTr.onclick = () => toggleHistDate(rec.date);
+        body.appendChild(headerTr);
+      }
+      if (!histOpenDates.has(rec.date)) continue;
       const s = staff.find(x => x.id === rec.staffId);
       const w = rec.out ? workMinutes(rec) : null;
       const belowMin = isAdmin() && isBelowMinWage(rec);
@@ -2996,7 +3025,13 @@ import Layout from '../layouts/Layout.astro';
   .kt-today-card--done .kt-today-card__status { color: #6fd8a0; }
   .kt-today-card__times { font-size: 0.9rem; color: rgba(255,255,255,0.85); }
 
-  .kt-table-wrap { overflow-x: auto; }
+  .kt-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .kt-note--scrollhint {
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--fuji-yellow);
+    margin: 0 0 0.4rem;
+  }
   .kt-table {
     width: 100%;
     border-collapse: collapse;
@@ -3018,8 +3053,33 @@ import Layout from '../layouts/Layout.astro';
   }
   .kt-table__work { font-weight: 700; color: var(--fuji-yellow); }
   .kt-table__total { font-weight: 900; color: var(--fuji-yellow); }
+
+  /* 横スクロール時、日付・名前列（勤務履歴）／名前列（月次サマリー）を画面に固定する。
+     日付グループの見出し行（colspanで1セルのみ）は対象から除外する */
+  #histTable th:nth-child(1), #histTable tbody tr:not(.kt-hist-daterow) td:nth-child(1),
+  #histTable th:nth-child(2), #histTable tbody tr:not(.kt-hist-daterow) td:nth-child(2),
+  #wageTable th:nth-child(1), #wageTable td:nth-child(1) {
+    position: sticky;
+    z-index: 2;
+    background: var(--fuji-black-card, #1a1a1a);
+  }
+  #histTable th:nth-child(1), #histTable tbody tr:not(.kt-hist-daterow) td:nth-child(1) { left: 0; min-width: 68px; }
+  #histTable th:nth-child(2), #histTable tbody tr:not(.kt-hist-daterow) td:nth-child(2) { left: 68px; min-width: 96px; }
+  #wageTable th:nth-child(1), #wageTable td:nth-child(1) { left: 0; min-width: 96px; }
   .kt-table__row--warn td { background: rgba(224,85,85,0.18); }
   .kt-table__row--warn td:last-child { color: #ff8a8a; font-weight: 900; }
+  .kt-hist-daterow {
+    cursor: pointer;
+    background: rgba(245,200,0,0.1);
+    border-top: 2px solid var(--fuji-yellow);
+  }
+  .kt-hist-daterow td {
+    font-weight: 900;
+    color: var(--fuji-yellow);
+    padding: 0.6rem 0.75rem;
+    white-space: nowrap;
+  }
+  .kt-hist-daterow__toggle { display: inline-block; width: 1em; }
 
   .kt-empty { color: rgba(255,255,255,0.75); font-size: 1rem; padding: 0.5rem 0; }
   .kt-note {

@@ -201,6 +201,7 @@ import Layout from '../layouts/Layout.astro';
             <input type="month" id="monthPick" class="kt-input" />
             <button type="button" class="kt-btn" id="csvBtn">CSV出力</button>
             <button type="button" class="kt-btn" id="timecardBtn">給与計算Excel出力</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="timeOnlyBtn">打刻のみ出力（Excel）</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="manualEntryOpenBtn">📝 打刻を手入力で追加・修正</button>
           </div>
         </div>
@@ -2535,6 +2536,64 @@ import Layout from '../layouts/Layout.astro';
     URL.revokeObjectURL(a.href);
 
     try { await recordExport(month, 'csv'); await refreshAndRenderExportStatus(); } catch { /* 出力自体は完了しているので記録失敗は無視 */ }
+  };
+
+  // ── 打刻のみ出力（Excel）──
+  // 給与計算（歩合給・支給額など）は含めず、出退勤の時刻・実働時間だけを出力する。
+  // 給与計算まわりの検証が追いつかない間も、打刻の記録だけは確実に確認・保管できるようにするための安全弁
+  const TIME_ONLY_HEADERS = ['日付', '名前', '区分', '電話番', '出勤', '退勤', '休憩(分)', '時間内外出(分)', '実働(分)', '実働(時:分)'];
+  const TIME_ONLY_WIDTHS = [10, 12, 16, 8, 8, 8, 9, 13, 9, 11];
+  function timeOnlyRowFromRec(rec) {
+    const s = staff.find(x => x.id === rec.staffId);
+    const isSimple = usesSimplePunch(recEmpType(rec));
+    const w = rec.out ? workMinutes(rec) : '';
+    return [
+      rec.date,
+      s ? s.name : '削除済み',
+      isSimple ? EMP_LABEL[recEmpType(rec)] : (rec.shiftType ? SHIFT_LABEL[rec.shiftType] : ''),
+      rec.phoneDuty ? '有' : '',
+      rec.in ? timeStr(rec.in) : '',
+      rec.out ? timeStr(rec.out) : '',
+      breakMinutes(rec),
+      awayMinutes(rec),
+      w,
+      rec.out ? hm(w) : '',
+    ];
+  }
+  $('timeOnlyBtn').onclick = async () => {
+    if (!(await requireAdmin())) return;
+    renderAdminBar();
+    const month = currentMonth();
+    const recs = log.filter(r => r.date.startsWith(month))
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date) || (staff.find(s => s.id === a.staffId)?.name || '').localeCompare(staff.find(s => s.id === b.staffId)?.name || ''));
+    if (!recs.length) { alert('この月の記録がありません'); return; }
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(month);
+    TIME_ONLY_HEADERS.forEach((h, i) => {
+      const col = i + 1;
+      const cell = ws.getCell(1, col);
+      cell.value = h;
+      cell.font = { name: '游ゴシック', size: 10, bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF9DB4D0' } } };
+      ws.getColumn(col).width = TIME_ONLY_WIDTHS[i];
+    });
+    ws.getRow(1).height = 22;
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    recs.forEach((rec, i) => {
+      timeOnlyRowFromRec(rec).forEach((v, ci) => { ws.getCell(i + 2, ci + 1).value = v; });
+    });
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `打刻のみ_${month}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   };
 
   // ── 給与計算Excel出力（タイムカード形式：スタッフ別シート＋数式で自動計算） ──

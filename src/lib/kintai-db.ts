@@ -31,6 +31,11 @@ export type Staff = {
   managerAllowance: number;
   housingAllowance: number;
   phoneDutyDisabled: boolean;
+  /**
+   * パート・時給制・月給制（シンプル打刻）は電話番チェック欄を通常出さないが、
+   * 個別にオンにしたい人だけ表示できるようにするフラグ（列が無い環境では false 扱い）
+   */
+  phoneDutyEnabled: boolean;
   lateShiftDisabled: boolean;
   shiftShuttle: boolean;
   shiftSpecial: boolean;
@@ -240,6 +245,7 @@ function rowToStaff(row: any): Staff {
     managerAllowance: row.manager_allowance ?? 0,
     housingAllowance: row.housing_allowance ?? 0,
     phoneDutyDisabled: row.phone_duty_disabled,
+    phoneDutyEnabled: row.phone_duty_enabled ?? false,
     lateShiftDisabled: row.late_shift_disabled,
     shiftShuttle: row.shift_shuttle,
     shiftSpecial: row.shift_special,

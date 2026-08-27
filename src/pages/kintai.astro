@@ -1486,6 +1486,12 @@ import Layout from '../layouts/Layout.astro';
     const t = s && s.type;
     return (t === 'part' || t === 'fulltime-hourly' || t === 'monthly' || t === 'fulltime-base') ? t : 'fulltime';
   }
+  // 電話番チェック欄を出すかどうか。正社員（シフト制）は既定で表示（phoneDutyDisabledで個別に非表示）、
+  // パート・時給制・月給制（シンプル打刻）は既定で非表示（phoneDutyEnabledで個別に表示）
+  function staffPhoneDutyAvailable(s) {
+    if (!s) return false;
+    return usesSimplePunch(staffType(s)) ? !!s.phoneDutyEnabled : !s.phoneDutyDisabled;
+  }
   function recEmpType(rec) {
     if (rec.empType) return rec.empType;
     return staffType(staff.find(x => x.id === rec.staffId));
@@ -1549,7 +1555,7 @@ import Layout from '../layouts/Layout.astro';
     $('statusLabel').textContent = `現在：${STATUS_LABEL[st]}${shiftNote}`;
 
     const isSimple = usesSimplePunch(staffType(s));
-    $('phoneDutyBlock').hidden = isSimple || !!s.phoneDutyDisabled;
+    $('phoneDutyBlock').hidden = !staffPhoneDutyAvailable(s);
     $('fulltimeShiftGrid').hidden = isSimple;
     $('fulltimeShiftGrid').classList.toggle('kt-shift-grid--single', !!s.lateShiftDisabled);
     $('punchInLate').hidden = !!s.lateShiftDisabled;
@@ -1599,7 +1605,7 @@ import Layout from '../layouts/Layout.astro';
       date: dateKey(),
       in: now,
       shiftType,
-      phoneDuty: (shiftType === 'part' || s.phoneDutyDisabled) ? false : $('phoneDutyCheck').checked,
+      phoneDuty: staffPhoneDutyAvailable(s) ? $('phoneDutyCheck').checked : false,
       ...buildEmploymentSnapshot(s),
     };
     if (!existing) { patch.breaks = []; patch.leaves = []; }
@@ -1959,7 +1965,7 @@ import Layout from '../layouts/Layout.astro';
     if (rec.sales == null) return 0;
     return Math.max(0, rec.sales) * (settings.commissionRate / 100);
   }
-  // 区分ごとの内訳。base＝基本給（正社員：シフト日給＋電話番手当／パート：時給×実働）
+  // 区分ごとの内訳。base＝基本給（正社員：シフト日給＋電話番手当／パート：時給×実働＋電話番手当）
   // extra＝歩合・手当（正社員：歩合給／パート：残業・深夜割増）＋日額交通費（daily指定のスタッフのみ）。
   // 月額交通費（既定）は日々の内訳には含めない（monthlyCommuteで月に一度だけ加算）
   function payParts(rec) {
@@ -1967,7 +1973,9 @@ import Layout from '../layouts/Layout.astro';
     if (isHourlyType(recEmpType(rec))) {
       const min = workMinutes(rec) || 0;
       const hw = recHourlyWage(rec);
-      const base = Math.round(hw * min / 60);
+      // パート・時給制でも電話番チェック欄が有効な人（phoneDutyEnabled）は、担当した日に手当を加算する
+      const phoneAllowance = rec.phoneDuty ? settings.phoneAllowance : 0;
+      const base = Math.round(hw * min / 60) + phoneAllowance;
       const ot = Math.round(Math.max(0, min / 60 - 8) * hw * OT_RATE);
       const night = Math.round(nightMinutes(rec) / 60 * hw * NIGHT_RATE);
       return { base, extra: ot + night + dailyCommute, ot, night };
@@ -2747,27 +2755,28 @@ import Layout from '../layouts/Layout.astro';
   }
 
   // パート（時給制）用シート。サマリーは正社員シートと同じ番地（B3〜B8）に置き、全体集計から共通参照する
+  // 電話番チェックが有効な人（phoneDutyEnabled）は「有」の日に電話番手当を加算する（基本賃金合計に含めて集計）
   function buildPartSheet(wb, sheetName, name, recsByDay, year, monthNum, daysInMonth, hourlyWage, commute, commuteType, managerAllowance, housingAllowance) {
     const ws = wb.addWorksheet(sheetName);
     const endRow = TC_TABLE_START + daysInMonth - 1;
-    const headers = ['日', '曜日', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時:分)', '基本賃金(円)', '残業割増(円)', '深夜割増(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
+    const headers = ['日', '曜日', '電話番', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時:分)', '基本賃金(円)', '残業割増(円)', '深夜割増(円)', '電話番手当(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
     const isDailyCommute = commuteType === 'daily';
 
     tcTitle(ws, 'A1:D1', `${year}年${monthNum}月 勤務表（時給制）`);
     tcVal(ws, 'F1', '氏名');
     tcTitle(ws, 'G1:J1', name, 12);
     tcVal(ws, 'A3', '勤務日数');
-    tcFormula(ws, 'B3', `COUNT(K${TC_TABLE_START}:K${endRow})`);
+    tcFormula(ws, 'B3', `COUNT(M${TC_TABLE_START}:M${endRow})`);
     tcVal(ws, 'A4', '実働合計（時間）');
-    tcFormula(ws, 'B4', `SUM(G${TC_TABLE_START}:G${endRow})*24`, '0.00');
-    tcVal(ws, 'A5', '基本賃金合計（円）');
-    tcFormula(ws, 'B5', `SUM(H${TC_TABLE_START}:H${endRow})`, '#,##0');
+    tcFormula(ws, 'B4', `SUM(H${TC_TABLE_START}:H${endRow})*24`, '0.00');
+    tcVal(ws, 'A5', '基本賃金合計（電話番手当込・円）');
+    tcFormula(ws, 'B5', `SUM(I${TC_TABLE_START}:I${endRow})+SUM(L${TC_TABLE_START}:L${endRow})`, '#,##0');
     tcVal(ws, 'A6', '残業・深夜割増合計（円）');
-    tcFormula(ws, 'B6', `SUM(I${TC_TABLE_START}:I${endRow})+SUM(J${TC_TABLE_START}:J${endRow})`, '#,##0');
+    tcFormula(ws, 'B6', `SUM(J${TC_TABLE_START}:J${endRow})+SUM(K${TC_TABLE_START}:K${endRow})`, '#,##0');
     tcVal(ws, 'A7', '売上合計（時給制は対象外）');
     tcVal(ws, 'B7', 0);
     tcVal(ws, 'A8', '総支給額（円）');
-    tcFormula(ws, 'B8', (isDailyCommute ? `SUM(K${TC_TABLE_START}:K${endRow})+$D$4*$B$3` : `SUM(K${TC_TABLE_START}:K${endRow})+$D$4`) + '+$B$9+$D$8', '#,##0');
+    tcFormula(ws, 'B8', (isDailyCommute ? `SUM(M${TC_TABLE_START}:M${endRow})+$D$4*$B$3` : `SUM(M${TC_TABLE_START}:M${endRow})+$D$4`) + '+$B$9+$D$8', '#,##0');
     tcVal(ws, 'A9', '管理者手当（月額・円）');
     tcVal(ws, 'B9', managerAllowance || 0, '#,##0');
     tcVal(ws, 'C8', '住宅手当（月額・円）');
@@ -2777,11 +2786,11 @@ import Layout from '../layouts/Layout.astro';
     tcVal(ws, 'C4', isDailyCommute ? '交通費（日額・円）' : '交通費（月額・円）');
     tcVal(ws, 'D4', commute, '#,##0');
     tcVal(ws, 'C5', '残業割増合計（円）');
-    tcFormula(ws, 'D5', `SUM(I${TC_TABLE_START}:I${endRow})`, '#,##0');
+    tcFormula(ws, 'D5', `SUM(J${TC_TABLE_START}:J${endRow})`, '#,##0');
     tcVal(ws, 'C6', '深夜割増合計（円）');
-    tcFormula(ws, 'D6', `SUM(J${TC_TABLE_START}:J${endRow})`, '#,##0');
+    tcFormula(ws, 'D6', `SUM(K${TC_TABLE_START}:K${endRow})`, '#,##0');
     tcVal(ws, 'C7', '実働合計（時:分）');
-    tcFormula(ws, 'D7', `SUM(G${TC_TABLE_START}:G${endRow})`, '[h]:mm');
+    tcFormula(ws, 'D7', `SUM(H${TC_TABLE_START}:H${endRow})`, '[h]:mm');
 
     tcHeaderRow(ws, TC_TABLE_START - 1, headers, 1);
 
@@ -2793,23 +2802,25 @@ import Layout from '../layouts/Layout.astro';
       tcVal(ws, `B${row}`, WEEKDAYS[date.getDay()]);
       const rec = recsByDay[day];
       if (rec) {
-        if (rec.in) tcVal(ws, `C${row}`, tcTimeSerial(rec.in), 'h:mm');
-        if (rec.out) tcVal(ws, `D${row}`, tcTimeSerial(rec.out), 'h:mm');
-        tcVal(ws, `E${row}`, breakMinutes(rec));
-        tcVal(ws, `F${row}`, awayMinutes(rec));
+        tcVal(ws, `C${row}`, rec.phoneDuty ? '有' : '');
+        if (rec.in) tcVal(ws, `D${row}`, tcTimeSerial(rec.in), 'h:mm');
+        if (rec.out) tcVal(ws, `E${row}`, tcTimeSerial(rec.out), 'h:mm');
+        tcVal(ws, `F${row}`, breakMinutes(rec));
+        tcVal(ws, `G${row}`, awayMinutes(rec));
       }
-      // G＝実働時間（日の割合、[h]:mm表示で分単位まで表示。H/I/Mでは*24して時間換算する）
-      tcFormula(ws, `G${row}`, `IF(OR($C${row}="",$D${row}=""),"",($D${row}-$C${row}+IF($D${row}<$C${row},1,0))-IF($E${row}="",0,$E${row})/1440-IF($F${row}="",0,$F${row})/1440)`, '[h]:mm');
-      tcFormula(ws, `H${row}`, `IF($G${row}="","",ROUND($G${row}*24*$D$3,0))`, '#,##0');
-      tcFormula(ws, `I${row}`, `IF($G${row}="","",ROUND(MAX(0,$G${row}*24-8)*$D$3*設定!$B$8/100,0))`, '#,##0');
-      tcFormula(ws, `J${row}`, `IF($D${row}="","",ROUND(MAX(0,($D${row}-${NIGHT_START_HOUR}/24))*24*$D$3*設定!$B$8/100,0))`, '#,##0');
-      tcFormula(ws, `K${row}`, `IF($H${row}="","",$H${row}+$I${row}+$J${row})`, '#,##0');
-      tcFormula(ws, `L${row}`, `IF(OR($G${row}="",$G${row}=0,$K${row}=""),"",ROUND($K${row}/($G${row}*24),0))`, '#,##0');
-      tcFormula(ws, `M${row}`, `IF($L${row}="","",IF($L${row}<設定!$B$7,"最低賃金未満","OK"))`);
-      tcRowStyle(ws, row, headers.length, 7);
+      // H＝実働時間（日の割合、[h]:mm表示で分単位まで表示。I/J/Nでは*24して時間換算する）
+      tcFormula(ws, `H${row}`, `IF(OR($D${row}="",$E${row}=""),"",($E${row}-$D${row}+IF($E${row}<$D${row},1,0))-IF($F${row}="",0,$F${row})/1440-IF($G${row}="",0,$G${row})/1440)`, '[h]:mm');
+      tcFormula(ws, `I${row}`, `IF($H${row}="","",ROUND($H${row}*24*$D$3,0))`, '#,##0');
+      tcFormula(ws, `J${row}`, `IF($H${row}="","",ROUND(MAX(0,$H${row}*24-8)*$D$3*設定!$B$8/100,0))`, '#,##0');
+      tcFormula(ws, `K${row}`, `IF($E${row}="","",ROUND(MAX(0,($E${row}-${NIGHT_START_HOUR}/24))*24*$D$3*設定!$B$8/100,0))`, '#,##0');
+      tcFormula(ws, `L${row}`, `IF($C${row}="有",設定!$B$5,0)`, '#,##0');
+      tcFormula(ws, `M${row}`, `IF($H${row}="","",$I${row}+$J${row}+$K${row}+$L${row})`, '#,##0');
+      tcFormula(ws, `N${row}`, `IF(OR($H${row}="",$H${row}=0,$M${row}=""),"",ROUND($M${row}/($H${row}*24),0))`, '#,##0');
+      tcFormula(ws, `O${row}`, `IF($N${row}="","",IF($N${row}<設定!$B$7,"最低賃金未満","OK"))`);
+      tcRowStyle(ws, row, headers.length, 8);
     }
 
-    tcCols(ws, [4, 5, 7, 7, 8, 8, 10, 12, 11, 11, 11, 12, 14]);
+    tcCols(ws, [4, 5, 7, 7, 7, 8, 8, 10, 12, 11, 11, 11, 11, 12, 14]);
     return ws;
   }
 

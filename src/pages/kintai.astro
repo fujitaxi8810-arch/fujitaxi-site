@@ -238,6 +238,7 @@ import Layout from '../layouts/Layout.astro';
             </table>
           </div>
           <button type="button" class="kt-btn" id="importApplyBtn" hidden>選択した内容を反映</button>
+          <button type="button" class="kt-btn kt-btn--ghost" id="importApplyAllBtn" hidden>チェックに関わらず全て反映</button>
         </div>
 
         <p class="kt-note kt-note--scrollhint">← 表を横にスクロールすると他の項目も見られます →</p>
@@ -2400,24 +2401,21 @@ import Layout from '../layouts/Layout.astro';
       body.appendChild(tr);
     }
     $('importPreviewWrap').hidden = importRows.length === 0;
-    $('importApplyBtn').hidden = !importRows.some(r => r.status === 'new' || r.status === 'diff');
+    const hasApplyable = importRows.some(r => r.status === 'new' || r.status === 'diff');
+    $('importApplyBtn').hidden = !hasApplyable;
+    $('importApplyAllBtn').hidden = !hasApplyable;
   }
   $('importFetchBtn').onclick = () => fetchImportPreview();
-  $('importApplyBtn').onclick = async () => {
-    const checks = document.querySelectorAll('.importRowCheck:checked');
-    if (!checks.length) { alert('反映する行を選択してください。'); return; }
+  async function applyImportRows(rowsToApply) {
+    if (!rowsToApply.length) { alert('反映する行がありません。'); return; }
     $('importApplyBtn').disabled = true;
+    $('importApplyAllBtn').disabled = true;
     let okCount = 0, ngCount = 0;
-    for (const cb of checks) {
-      const idx = cb.dataset.key.indexOf('|');
-      const date = cb.dataset.key.slice(0, idx);
-      const staffId = cb.dataset.key.slice(idx + 1);
-      const row = importRows.find(r => r.date === date && r.staffId === staffId);
-      if (!row) continue;
+    for (const row of rowsToApply) {
       try {
         await upsertAttendance({
-          staffId,
-          date,
+          staffId: row.staffId,
+          date: row.date,
           salesGross: row.sales,
           sales: taxExcluded(row.sales),
           uncollected: row.uncollected,
@@ -2442,7 +2440,25 @@ import Layout from '../layouts/Layout.astro';
     importRows = [];
     $('importPreviewWrap').hidden = true;
     $('importApplyBtn').hidden = true;
+    $('importApplyAllBtn').hidden = true;
     $('importApplyBtn').disabled = false;
+    $('importApplyAllBtn').disabled = false;
+  }
+  $('importApplyBtn').onclick = () => {
+    const checks = document.querySelectorAll('.importRowCheck:checked');
+    if (!checks.length) { alert('反映する行を選択してください。'); return; }
+    const rows = [...checks].map(cb => {
+      const idx = cb.dataset.key.indexOf('|');
+      const date = cb.dataset.key.slice(0, idx);
+      const staffId = cb.dataset.key.slice(idx + 1);
+      return importRows.find(r => r.date === date && r.staffId === staffId);
+    }).filter(Boolean);
+    return applyImportRows(rows);
+  };
+  $('importApplyAllBtn').onclick = () => {
+    const rows = importRows.filter(r => r.status === 'new' || r.status === 'diff');
+    if (!confirm(`チェックの有無に関わらず、対象の${rows.length}件をすべて反映します。よろしいですか？`)) return;
+    return applyImportRows(rows);
   };
 
   // ── CSV出力 ──

@@ -604,23 +604,53 @@ import Layout from '../layouts/Layout.astro';
     return written;
   }
 
-  // 旧構成（全期間を1タブにまとめていた頃）のデータを月ごとのタブへ移す。
-  // 元のタブは消さずに「_移行前」を付けて残し、取り違えや消失を防ぐ
-  function migrateLegacySheet(wb, legacyName, colCount, buildHeader, sheetNameOf) {
-    const ws = wb.getWorksheet(legacyName);
-    if (!ws) return 0;
+  // シートの1行目を見出しとして読み、データ行を「見出し名 → 値」の形で取り出す。
+  // 見出し名で対応づけるので、列の増減があった古いファイルでもずれない
+  const SHEET_SCAN_COLS = 60;
+  function readSheetRows(ws) {
+    const head = [];
+    for (let c = 1; c <= SHEET_SCAN_COLS; c++) head.push(cellText(ws, 1, c));
+    while (head.length && head[head.length - 1] === '') head.pop();
     const rows = [];
     for (let r = 2; r <= ws.rowCount; r++) {
-      const d = ws.getCell(r, 1).value;
-      if (d === null || d === undefined || d === '') continue;
-      const vals = [];
-      for (let c = 1; c <= colCount; c++) {
-        const v = ws.getCell(r, c).value;
-        vals.push(v === null || v === undefined ? '' : v);
-      }
-      rows.push(vals);
+      if (!cellText(ws, r, 1)) continue;
+      const obj = {};
+      head.forEach((h, i) => { if (h) obj[h] = ws.getCell(r, i + 1).value; });
+      rows.push(obj);
     }
-    const moved = appendRowsByMonth(wb, rows, buildHeader, sheetNameOf);
+    return { head, rows };
+  }
+  function rowsToArrays(rows, headers) {
+    return rows.map(obj => headers.map(h => {
+      const v = obj[h];
+      return (v === undefined || v === null) ? '' : v;
+    }));
+  }
+
+  // 月ごとのタブの見出しが今の構成と違う場合（手数料の列があった頃のファイルなど）、
+  // 見出し名で対応づけてタブを作り直す。列がずれたまま追記されるのを防ぐ
+  function ensureSheetSchema(wb, name, headers, buildHeader) {
+    const ws = wb.getWorksheet(name);
+    if (!ws) return false;
+    const { head, rows } = readSheetRows(ws);
+    if (head.length === headers.length && head.every((h, i) => h === headers[i])) return false;
+    const arrays = rowsToArrays(rows, headers);
+    wb.removeWorksheet(ws.id);
+    const fresh = wb.addWorksheet(name);
+    buildHeader(fresh);
+    arrays.forEach((vals, i) => {
+      vals.forEach((v, ci) => { fresh.getCell(i + 2, ci + 1).value = v; });
+    });
+    return true;
+  }
+
+  // 旧構成（全期間を1タブにまとめていた頃）のデータを月ごとのタブへ移す。
+  // 元のタブは消さずに「_移行前」を付けて残し、取り違えや消失を防ぐ
+  function migrateLegacySheet(wb, legacyName, headers, buildHeader, sheetNameOf) {
+    const ws = wb.getWorksheet(legacyName);
+    if (!ws) return 0;
+    const { rows } = readSheetRows(ws);
+    const moved = appendRowsByMonth(wb, rowsToArrays(rows, headers), buildHeader, sheetNameOf);
     const backupName = legacyName + '_移行前';
     if (!wb.getWorksheet(backupName)) ws.name = backupName;
     return moved;
@@ -752,8 +782,14 @@ import Layout from '../layouts/Layout.astro';
     if (!looksValid) return { ok: false, reason: 'no-sheet' };
 
     // 旧構成のファイルは、はじめに月ごとのタブへ移行する
-    migrateLegacySheet(wb, EXCEL_SHEET_NAME, payrollHeaders().length, buildPayrollSheetHeader, (m) => m);
-    migrateLegacySheet(wb, EXCEL_OPS_SHEET_NAME, OPS_HEADERS.length, buildOpsSheetHeader, opsSheetNameOf);
+    // 既存の月タブが古い列構成（手数料の列があった頃など）なら、見出し名で対応づけて作り直す
+    for (const name of wb.worksheets.map(w => w.name)) {
+      if (isMonthSheetName(name)) ensureSheetSchema(wb, name, payrollHeaders(), buildPayrollSheetHeader);
+      else if (isOpsMonthSheetName(name)) ensureSheetSchema(wb, name, OPS_HEADERS, buildOpsSheetHeader);
+    }
+
+    migrateLegacySheet(wb, EXCEL_SHEET_NAME, payrollHeaders(), buildPayrollSheetHeader, (m) => m);
+    migrateLegacySheet(wb, EXCEL_OPS_SHEET_NAME, OPS_HEADERS, buildOpsSheetHeader, opsSheetNameOf);
 
     const count = appendRowsByMonth(wb, recs.map(excelRowFromRec), buildPayrollSheetHeader, (m) => m);
     const opsRows = opsRecs.map(opsRowFromRec).filter(Boolean);

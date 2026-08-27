@@ -204,9 +204,10 @@ import Layout from '../layouts/Layout.astro';
             <button type="button" class="kt-btn kt-btn--ghost" id="excelTemplateBtn">テンプレートをダウンロード</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="excelPickBtn">Excelファイルを選択</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="excelSyncNowBtn">未反映分を書き込む</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="excelRewriteAllBtn">全期間を書き直す</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="excelDisconnectBtn">接続を解除</button>
           </div>
-          <p class="kt-note">※ 初めて自動保存を設定する場合は、まず「テンプレートをダウンロード」→ 保存した場所を「Excelファイルを選択」で選んでください。この接続はこの端末・このブラウザだけの設定です（他のパソコンや管理者には表示されません）。別の端末で自動保存を使う場合は、その端末でも同じ手順をやり直してください。</p>
+          <p class="kt-note">※ 初めて自動保存を設定する場合は、まず「テンプレートをダウンロード」→ 保存した場所を「Excelファイルを選択」で選んでください。この接続はこの端末・このブラウザだけの設定です（他のパソコンや管理者には表示されません）。別の端末で自動保存を使う場合は、その端末でも同じ手順をやり直してください。<br />※ 給与の計算方法を変えたあとなど、すでに書き込み済みの行も今の金額に揃えたい場合は「全期間を書き直す」を押してください（同じ日・同じ人の行は上書きされるので、二重にはなりません）。</p>
         </div>
 
         <div class="kt-importsales">
@@ -1033,6 +1034,21 @@ import Layout from '../layouts/Layout.astro';
   };
   $('excelPickBtn').onclick = () => pickExcelFile();
   $('excelSyncNowBtn').onclick = () => syncUnsyncedToExcel(true);
+  // 給与の計算方法を変えたあとなど、書き込み済みの行も今の金額に揃えたいとき用。
+  // 送信済みの記録を消してから全件書き込む（同じ日・同じ人の行は上書きされるので二重にならない）
+  $('excelRewriteAllBtn').onclick = async () => {
+    const handle = await getExcelHandle();
+    if (!handle) { alert('Excelファイルが選択されていません。「Excelファイルを選択」から設定してください。'); return; }
+    if (!confirm(`「${handle.name}」の内容を、今の計算結果ですべて書き直します。\n（同じ日・同じ人の行は上書きされるので、行が二重になることはありません）\n\n続けますか？`)) return;
+    localStorage.removeItem(EXCEL_SYNCED_KEY);
+    localStorage.removeItem(EXCEL_OPS_SYNCED_KEY);
+    $('excelRewriteAllBtn').disabled = true;
+    try {
+      await syncUnsyncedToExcel(true);
+    } finally {
+      $('excelRewriteAllBtn').disabled = false;
+    }
+  };
   $('excelDisconnectBtn').onclick = async () => {
     const handle = await getExcelHandle();
     if (!handle) return;

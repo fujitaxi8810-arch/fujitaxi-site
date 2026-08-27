@@ -710,9 +710,9 @@ import Layout from '../layouts/Layout.astro';
           t.days += 1;
           t.workMin += cellNum(ws, r, 9);   // 実働(分)
           t.sales += cellNum(ws, r, 11);    // 売上税込
-          t.base += cellNum(ws, r, 15);     // 基本給
-          t.extra += cellNum(ws, r, 16);    // 歩合・手当
-          t.total += cellNum(ws, r, 17);    // 合計支給額
+          t.base += cellNum(ws, r, 14);     // 基本給
+          t.extra += cellNum(ws, r, 15);    // 歩合・手当
+          t.total += cellNum(ws, r, 16);    // 合計支給額
         }
       } else if (isOpsMonthSheetName(ws.name)) {
         const m = ws.name.slice(0, 7);

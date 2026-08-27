@@ -96,6 +96,17 @@ import Layout from '../layouts/Layout.astro';
             <input type="number" id="salesUncollectedInput" class="kt-input" min="0" inputmode="numeric" placeholder="例: 0" />
           </label>
 
+          <div class="kt-modal__summary">
+            <div class="kt-modal__summary-row">
+              <span>歩合給（自動計算）</span>
+              <strong id="salesCommissionAuto">0円</strong>
+            </div>
+            <label class="kt-field">
+              <span>歩合給を手修正する場合（円）</span>
+              <input type="number" id="salesCommissionOverride" class="kt-input" min="0" inputmode="numeric" placeholder="空欄なら自動計算を使用" />
+            </label>
+          </div>
+
           <div class="kt-modal__actions">
             <button type="button" class="kt-punch kt-punch--out" id="salesModalSubmit">保存する</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="salesModalCancel">キャンセル</button>
@@ -359,6 +370,7 @@ import Layout from '../layouts/Layout.astro';
           hourlyWage: before.hourlyWage, monthlyWage: before.monthlyWage, dailyWage: before.dailyWage,
           commute: before.commute, commuteType: before.commuteType,
           salesGross: before.salesGross, sales: before.sales, uncollected: before.uncollected,
+          commissionOverride: before.commissionOverride,
         });
       }
       clearUndo(staffId);
@@ -1613,6 +1625,7 @@ import Layout from '../layouts/Layout.astro';
     const gross = parseFloat($('salesTotalInput').value);
     const net = (!isNaN(gross) && gross >= 0) ? taxExcluded(gross) : 0;
     $('salesNetPreview').textContent = `税抜：${yen(net)}円（歩合給の計算に使用）`;
+    $('salesCommissionAuto').textContent = `${yen(Math.round(net * (settings.commissionRate / 100)))}円`;
   }
   let salesModalTargetKey = null; // "staffId|date" 形式で編集対象を保持
 
@@ -1624,6 +1637,7 @@ import Layout from '../layouts/Layout.astro';
     $('salesModalStaff').textContent = `${s ? s.name : '（削除済み）'} さん・${date.slice(5).replace('-', '/')}`;
     $('salesTotalInput').value = rec.salesGross != null ? rec.salesGross : (rec.sales != null ? rec.sales : '');
     $('salesUncollectedInput').value = rec.uncollected != null ? rec.uncollected : '';
+    $('salesCommissionOverride').value = rec.commissionOverride != null ? rec.commissionOverride : '';
     updateSalesNetPreview();
     $('salesModal').hidden = false;
     $('salesTotalInput').focus();
@@ -1650,11 +1664,14 @@ import Layout from '../layouts/Layout.astro';
       return;
     }
     const uncollectedRaw = parseFloat($('salesUncollectedInput').value);
+    const overrideRaw = parseFloat($('salesCommissionOverride').value);
     const patch = {
       staffId, date,
       salesGross: gross,
       sales: taxExcluded(gross),
       uncollected: (!isNaN(uncollectedRaw) && uncollectedRaw >= 0) ? uncollectedRaw : 0,
+      // 空欄なら自動計算に戻す（nullを保存）
+      commissionOverride: (!isNaN(overrideRaw) && overrideRaw >= 0) ? overrideRaw : null,
     };
     $('salesModalSubmit').disabled = true;
     try {
@@ -1923,8 +1940,9 @@ import Layout from '../layouts/Layout.astro';
     if (rec.phoneDuty) w += settings.phoneAllowance;
     return w;
   }
-  // 歩合給＝売上税抜 × 歩合率（決済手数料は差し引かない）
+  // 歩合給＝売上税抜 × 歩合率。手修正額が入っている日はその金額を優先する
   function commissionPay(rec) {
+    if (rec.commissionOverride != null) return rec.commissionOverride;
     if (rec.sales == null) return 0;
     return Math.max(0, rec.sales) * (settings.commissionRate / 100);
   }
@@ -2626,7 +2644,12 @@ import Layout from '../layouts/Layout.astro';
         ? `IF($C${row}="","",$D$3+IF($D${row}="有",設定!$B$5,0))`
         : `IF($C${row}="","",IF($C${row}="遅番",設定!$B$3+設定!$B$4,設定!$B$2)+IF($D${row}="有",設定!$B$5,0))`;
       tcFormula(ws, `K${row}`, dayWageFormula, '#,##0');
-      tcFormula(ws, `L${row}`, `IF($J${row}="","",ROUND(MAX(0,$J${row})*設定!$B$6/100,0))`, '#,##0');
+      // 歩合給を手修正した日は、数式ではなくその金額をそのまま書く
+      if (rec && rec.commissionOverride != null) {
+        tcVal(ws, `L${row}`, rec.commissionOverride, '#,##0');
+      } else {
+        tcFormula(ws, `L${row}`, `IF($J${row}="","",ROUND(MAX(0,$J${row})*設定!$B$6/100,0))`, '#,##0');
+      }
       tcFormula(ws, `M${row}`, `IF($K${row}="","",$K${row}+IF($L${row}="",0,$L${row}))`, '#,##0');
       tcFormula(ws, `N${row}`, `IF(OR($I${row}="",$I${row}=0,$M${row}=""),"",ROUND($M${row}/$I${row},0))`, '#,##0');
       tcFormula(ws, `O${row}`, `IF($N${row}="","",IF($N${row}<設定!$B$7,"最低賃金未満","OK"))`);

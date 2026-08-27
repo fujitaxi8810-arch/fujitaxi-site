@@ -78,6 +78,8 @@ export type Attendance = {
   salesGross: number | null;
   sales: number | null;
   uncollected: number | null;
+  /** 歩合給の手修正額。nullなら「売上税抜×歩合率」で自動計算する */
+  commissionOverride: number | null;
   // 元帳から取り込む運行実績（給与計算には使わず、勤務履歴の詳細表示のみに使う）
   distanceKm: number | null;
   actualDistanceKm: number | null;
@@ -392,6 +394,7 @@ function rowToAttendance(row: any): Attendance {
     salesGross: row.sales_gross,
     sales: row.sales,
     uncollected: row.uncollected,
+    commissionOverride: row.commission_override,
     distanceKm: row.distance_km,
     actualDistanceKm: row.actual_distance_km,
     transportCount: row.transport_count,
@@ -490,6 +493,7 @@ export async function upsertAttendance(rec: Partial<Attendance> & { staffId: str
   if (rec.salesGross !== undefined) dbRow.sales_gross = rec.salesGross;
   if (rec.sales !== undefined) dbRow.sales = rec.sales;
   if (rec.uncollected !== undefined) dbRow.uncollected = rec.uncollected;
+  if (rec.commissionOverride !== undefined) dbRow.commission_override = rec.commissionOverride;
   if (rec.distanceKm !== undefined) dbRow.distance_km = rec.distanceKm;
   if (rec.actualDistanceKm !== undefined) dbRow.actual_distance_km = rec.actualDistanceKm;
   if (rec.transportCount !== undefined) dbRow.transport_count = rec.transportCount;

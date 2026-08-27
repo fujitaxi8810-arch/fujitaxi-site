@@ -1730,12 +1730,17 @@ import '../styles/kt-components.css';
 
       // 電話番号はこの一覧には出さない（編集を開けば見える）。指で操作する
       // タッチ画面で番号がそのまま並んでいると誤って見えてしまうため
-      table.appendChild(headerRow(['時刻', '状態', '担当者', 'お客様名', '迎車場所', '行き先・メモ', '済', '']));
+      // ユーザー要望：「上から順番をふってほしい」。件数の目安・電話での
+      // やり取り時の指し示しに使えるよう、通し番号の列を先頭に足す
+      table.appendChild(headerRow(['№', '時刻', '状態', '担当者', 'お客様名', '迎車場所', '行き先・メモ', '済', '']));
 
       const tbody = document.createElement('tbody');
+      let rowNo = 0;
       for (const r of rows) {
+        rowNo++;
         const tr = document.createElement('tr');
         applyRowStatus(tr, r);
+        tr.appendChild(td(String(rowNo), 'ha-rownum', '№'));
 
         // 新着は状態欄にまとめて表示する（時刻の隣のバッジは廃止）。
         // 行左端の縦線だけは、状態を変えても残るように別途付けておく
@@ -2193,17 +2198,22 @@ import '../styles/kt-components.css';
        */
       const table = document.createElement('table');
       table.className = 'ha-all-table';
-      table.appendChild(headerRow(['時刻', '状態', '担当者', 'お客様名', '迎車場所', '行き先・メモ', '済', '']));
+      // ユーザー要望：「上から順番をふってほしい」。件数の目安・電話での
+      // やり取り時の指し示しに使えるよう、通し番号の列を先頭に足す
+      table.appendChild(headerRow(['№', '時刻', '状態', '担当者', 'お客様名', '迎車場所', '行き先・メモ', '済', '']));
       const tbody = document.createElement('tbody');
       table.appendChild(tbody);
       grid.appendChild(table);
 
+      let rowNo = 0;
       for (const r of rows) {
+        rowNo++;
         const tr = document.createElement('tr');
         applyAllCardStatus(tr, r);
         const isNew = isNewSinceHandover(r);
         if (isNew) tr.classList.add('ha-all-card--new');
 
+        tr.appendChild(td(String(rowNo), 'ha-all-rownum'));
         tr.appendChild(td(jstTimeLabel(r.reservedAt), 'ha-all-time'));
 
         const statusCell = document.createElement('td');
@@ -2312,16 +2322,19 @@ import '../styles/kt-components.css';
       }
 
       /*
-       * 横スクロールしても「時刻・状態・担当者」が見えなくなる、というユーザー指摘への対応。
-       * この3列だけ画面左に固定する。列幅は内容（担当者名の長さ・変更ありのメモ等）で
-       * 変わるため、固定値では合わない。実際に描画された幅を測ってCSS変数に入れる
-       * （縦方向のヘッダー固定 `--ha-sticky-top` と同じ手法）。
+       * 横スクロールしても「№・時刻・状態・担当者」が見えなくなる、というユーザー指摘への
+       * 対応（№列の追加により、固定する列が3列から4列になった）。列幅は内容
+       * （担当者名の長さ・変更ありのメモ等）で変わるため、固定値では合わない。
+       * 実際に描画された幅を測ってCSS変数に入れる（縦方向のヘッダー固定
+       * `--ha-sticky-top` と同じ手法）。
        */
       const headCells = table.querySelectorAll('thead th');
       const stickyW1 = headCells[0].getBoundingClientRect().width;
       const stickyW2 = headCells[1].getBoundingClientRect().width;
+      const stickyW3 = headCells[2].getBoundingClientRect().width;
       grid.style.setProperty('--ha-all-sticky2', `${stickyW1}px`);
       grid.style.setProperty('--ha-all-sticky3', `${stickyW1 + stickyW2}px`);
+      grid.style.setProperty('--ha-all-sticky4', `${stickyW1 + stickyW2 + stickyW3}px`);
     }
 
     $('allDatePick').onchange = loadAllView;
@@ -3253,6 +3266,7 @@ import '../styles/kt-components.css';
     }
     .ha-grid thead th.ha-sticky { z-index: 2; }
     .ha-time { font-weight: 900; font-size: 1.1rem; }
+    .ha-rownum { color: #999; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 
     /*
      * 迎車場所・行き先メモは折り返し表示にしていたが、長い住所・メモだと
@@ -3447,25 +3461,29 @@ import '../styles/kt-components.css';
     .ha-all-table td { padding: 0.05rem 0.6rem; border-bottom: 1px solid #eee; color: #111; background: #fff; }
     .ha-all-table tr:last-child td { border-bottom: none; }
     /*
-     * 時刻・状態・担当者の3列を左に固定（ユーザー指摘：右にスクロールすると
-     * 見えなくなり、どの予約・誰の担当か分からなくなる）。列幅は内容次第で
-     * 変わるため、JS側（renderAllView）が実測して --ha-all-sticky2/3 に入れる。
-     * 固定した列がスクロールで流れてくる他の列の上に重ならないよう、
-     * 各tdはすでに不透明な背景を持っている（未割当等の色分けを含む）ので、
-     * 追加の背景指定は不要
+     * №・時刻・状態・担当者の4列を左に固定（ユーザー指摘：右にスクロールすると
+     * 見えなくなり、どの予約・誰の担当か分からなくなる。№列は後から追加）。
+     * 列幅は内容次第で変わるため、JS側（renderAllView）が実測して
+     * --ha-all-sticky2/3/4 に入れる。固定した列がスクロールで流れてくる
+     * 他の列の上に重ならないよう、各tdはすでに不透明な背景を持っている
+     * （未割当等の色分けを含む）ので、追加の背景指定は不要
      */
     .ha-all-table th:nth-child(1), .ha-all-table td:nth-child(1) {
       position: sticky; left: 0; z-index: 1;
     }
     .ha-all-table th:nth-child(2), .ha-all-table td:nth-child(2) {
-      position: sticky; left: var(--ha-all-sticky2, 3.5rem); z-index: 1;
+      position: sticky; left: var(--ha-all-sticky2, 2rem); z-index: 1;
     }
     .ha-all-table th:nth-child(3), .ha-all-table td:nth-child(3) {
-      position: sticky; left: var(--ha-all-sticky3, 11rem); z-index: 1;
+      position: sticky; left: var(--ha-all-sticky3, 5.5rem); z-index: 1;
+    }
+    .ha-all-table th:nth-child(4), .ha-all-table td:nth-child(4) {
+      position: sticky; left: var(--ha-all-sticky4, 13rem); z-index: 1;
     }
     .ha-all-table thead th:nth-child(1),
     .ha-all-table thead th:nth-child(2),
-    .ha-all-table thead th:nth-child(3) {
+    .ha-all-table thead th:nth-child(3),
+    .ha-all-table thead th:nth-child(4) {
       z-index: 2;
       /* .ha-all-grid が白背景の角丸カードになったため、他の見出しセルと同じ白に揃える */
       background: #fff;
@@ -3475,6 +3493,7 @@ import '../styles/kt-components.css';
     .ha-all-card--cancelled td { background: #f4f4f5; color: #9ca3af; text-decoration: line-through; }
     .ha-all-card--cancelled .ha-select, .ha-all-card--cancelled .ha-check { text-decoration: none; }
     .ha-all-card--new td:first-child { box-shadow: inset 4px 0 0 #0e7490; }
+    .ha-all-rownum { color: #999; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
     .ha-all-time { font-weight: 700; white-space: nowrap; }
     .ha-all-name { font-weight: 700; white-space: nowrap; }
     /*
@@ -3605,14 +3624,15 @@ import '../styles/kt-components.css';
       /*
        * ユーザー指摘：「全体配車ボードをモバイルを縦で確認すると迎車場所と
        * 行き先メモが見えなくなる」「文字が重なって表示されている」。
-       * 時刻・状態・担当者の3列を固定する仕様（横に広い画面向け）が、
-       * 375px前後の縦持ちスマホでは3列だけで画面幅のほとんどを占めてしまい、
+       * №・時刻・状態・担当者の4列を固定する仕様（横に広い画面向け）が、
+       * 375px前後の縦持ちスマホでは4列だけで画面幅のほとんどを占めてしまい、
        * その右にあるはずのお客様名・迎車場所・行き先メモがほぼ隠れていた。
        * この幅では横固定をやめ、普通に横スクロールする表に戻す
        */
       .ha-all-table th:nth-child(1), .ha-all-table td:nth-child(1),
       .ha-all-table th:nth-child(2), .ha-all-table td:nth-child(2),
-      .ha-all-table th:nth-child(3), .ha-all-table td:nth-child(3) {
+      .ha-all-table th:nth-child(3), .ha-all-table td:nth-child(3),
+      .ha-all-table th:nth-child(4), .ha-all-table td:nth-child(4) {
         position: static;
         left: auto;
       }

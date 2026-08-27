@@ -844,29 +844,32 @@ import Layout from '../layouts/Layout.astro';
   // Excel自動保存の「送信済み」フラグはこの端末だけのローカルな状態（データ本体はSupabase共有のため、
   // 打刻レコードにフラグを持たせると他端末にも波及してしまう）。
   // 給与関連タブと運行実績タブは別々に追跡する（給与タブに反映済みでも、後から元帳取り込みで
-  // 運行実績だけ追加された打刻は、運行実績タブにはまだ書き込まれていないことがあるため）
+  // 運行実績だけ追加された打刻は、運行実績タブにはまだ書き込まれていないことがあるため）。
+  // IDだけでなく「実際に書き込んだ内容のハッシュ」も一緒に覚えておく。退勤直後は売上・歩合給が
+  // 未入力のまま一度Excelに自動で書き込まれるため、IDだけで「送信済み」を判定すると、あとから
+  // 管理者が売上を入力・修正してもExcel側がずっと更新されないままになってしまう
+  // （歩合給がエクセルに反映されない不具合の原因）。内容が変わったら再び「未反映」として扱う
   const EXCEL_SYNCED_KEY = 'fuji-kintai-excel-synced-ids';
   const EXCEL_OPS_SYNCED_KEY = 'fuji-kintai-excel-ops-synced-ids';
-  function getSyncedIds() {
-    try { return new Set(JSON.parse(localStorage.getItem(EXCEL_SYNCED_KEY) || '[]')); } catch { return new Set(); }
+  function rowHash(vals) {
+    return JSON.stringify(vals);
   }
-  function markSynced(ids) {
-    const cur = getSyncedIds();
-    for (const id of ids) cur.add(id);
-    localStorage.setItem(EXCEL_SYNCED_KEY, JSON.stringify([...cur]));
+  function getSyncedMap(key) {
+    try {
+      const raw = JSON.parse(localStorage.getItem(key) || '{}');
+      // 旧形式（IDのみの配列）は内容の変更を検知できないため、次回すべて書き直す
+      return (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+    } catch { return {}; }
   }
-  function getSyncedOpsIds() {
-    try { return new Set(JSON.parse(localStorage.getItem(EXCEL_OPS_SYNCED_KEY) || '[]')); } catch { return new Set(); }
-  }
-  function markOpsSynced(ids) {
-    const cur = getSyncedOpsIds();
-    for (const id of ids) cur.add(id);
-    localStorage.setItem(EXCEL_OPS_SYNCED_KEY, JSON.stringify([...cur]));
+  function markSyncedMap(key, entries) {
+    const cur = getSyncedMap(key);
+    for (const [id, hash] of entries) cur[id] = hash;
+    localStorage.setItem(key, JSON.stringify(cur));
   }
 
   async function syncUnsyncedToExcel(showAlert) {
-    const syncedIds = getSyncedIds();
-    const syncedOpsIds = getSyncedOpsIds();
+    const syncedMap = getSyncedMap(EXCEL_SYNCED_KEY);
+    const syncedOpsMap = getSyncedMap(EXCEL_OPS_SYNCED_KEY);
     // 表示中の月（log）だけでなく、過去分も含めた全期間のデータを対象にする
     let allRecs;
     try {
@@ -875,12 +878,20 @@ import Layout from '../layouts/Layout.astro';
       if (showAlert) alert(SAVE_FAIL_MSG);
       return { ok: false, reason: 'fetch-failed' };
     }
-    const unsynced = allRecs.filter(r => r.out && !syncedIds.has(r.id));
-    const unsyncedOps = allRecs.filter(r => hasOperationDetail(r) && !syncedOpsIds.has(r.id));
+    // 前回書き込んだ内容（ハッシュ）と今書き込むはずの内容が同じ記録は除外し、
+    // 新規・内容が変わった記録だけを対象にする
+    const unsyncedPairs = allRecs.filter(r => r.out)
+      .map(r => [r, rowHash(excelRowFromRec(r))])
+      .filter(([r, h]) => syncedMap[r.id] !== h);
+    const unsyncedOpsPairs = allRecs.filter(hasOperationDetail)
+      .map(r => [r, rowHash(opsRowFromRec(r))])
+      .filter(([r, h]) => syncedOpsMap[r.id] !== h);
+    const unsynced = unsyncedPairs.map(([r]) => r);
+    const unsyncedOps = unsyncedOpsPairs.map(([r]) => r);
     const result = await appendRecordsToExcel(unsynced, unsyncedOps);
     if (result.ok) {
-      if (result.count) markSynced(unsynced.map(r => r.id));
-      if (result.opsCount) markOpsSynced(unsyncedOps.map(r => r.id));
+      if (result.count) markSyncedMap(EXCEL_SYNCED_KEY, unsyncedPairs.map(([r, h]) => [r.id, h]));
+      if (result.opsCount) markSyncedMap(EXCEL_OPS_SYNCED_KEY, unsyncedOpsPairs.map(([r, h]) => [r.id, h]));
       if (showAlert) {
         const parts = [];
         if (result.count) parts.push(`打刻${result.count}件`);

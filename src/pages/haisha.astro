@@ -3601,6 +3601,21 @@ import '../styles/kt-components.css';
          （tr要素セレクタが1つ多い分）ため、同じ形で.ha-gridを付けて上書きする */
       .ha-row--datestart td { border-top: none; }
       .ha-grid .ha-row--datestart { margin-top: 1.1rem; border-top: 2px solid #ccc; }
+
+      /*
+       * ユーザー指摘：「全体配車ボードをモバイルを縦で確認すると迎車場所と
+       * 行き先メモが見えなくなる」「文字が重なって表示されている」。
+       * 時刻・状態・担当者の3列を固定する仕様（横に広い画面向け）が、
+       * 375px前後の縦持ちスマホでは3列だけで画面幅のほとんどを占めてしまい、
+       * その右にあるはずのお客様名・迎車場所・行き先メモがほぼ隠れていた。
+       * この幅では横固定をやめ、普通に横スクロールする表に戻す
+       */
+      .ha-all-table th:nth-child(1), .ha-all-table td:nth-child(1),
+      .ha-all-table th:nth-child(2), .ha-all-table td:nth-child(2),
+      .ha-all-table th:nth-child(3), .ha-all-table td:nth-child(3) {
+        position: static;
+        left: auto;
+      }
     }
 
     /* ── 印刷 ── */

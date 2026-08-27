@@ -3371,7 +3371,8 @@ import Layout from '../layouts/Layout.astro';
   .kt-today-card--done .kt-today-card__status { color: #6fd8a0; }
   .kt-today-card__times { font-size: 0.9rem; color: rgba(255,255,255,0.85); }
 
-  .kt-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* 見出し行を固定するため、表の中だけで縦にもスクロールさせる */
+  .kt-table-wrap { overflow: auto; max-height: 70vh; -webkit-overflow-scrolling: touch; }
   .kt-note--scrollhint {
     text-align: center;
     font-size: 0.8rem;
@@ -3391,6 +3392,13 @@ import Layout from '../layouts/Layout.astro';
     padding: 0.7rem 0.75rem;
     border-bottom: 2px solid var(--fuji-yellow);
     white-space: nowrap;
+  }
+  /* 下までスクロールしても列見出しが見えるように、見出し行を上端に固定する */
+  .kt-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--fuji-black-card, #1a1a1a);
   }
   .kt-table td {
     padding: 0.7rem 0.75rem;
@@ -3412,6 +3420,10 @@ import Layout from '../layouts/Layout.astro';
   #histTable th:nth-child(1), #histTable tbody tr:not(.kt-hist-daterow) td:nth-child(1) { left: 0; min-width: 68px; }
   #histTable th:nth-child(2), #histTable tbody tr:not(.kt-hist-daterow) td:nth-child(2) { left: 68px; min-width: 96px; }
   #wageTable th:nth-child(1), #wageTable td:nth-child(1) { left: 0; min-width: 96px; }
+  /* 縦横どちらにも固定される角のセルは、他のセルより前面に置く */
+  #histTable thead th:nth-child(1),
+  #histTable thead th:nth-child(2),
+  #wageTable thead th:nth-child(1) { z-index: 4; }
   .kt-table__row--warn td { background: rgba(224,85,85,0.18); }
   .kt-table__row--warn td:last-child { color: #ff8a8a; font-weight: 900; }
   .kt-hist-daterow {

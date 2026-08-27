@@ -36,6 +36,11 @@ export type Staff = {
    * 個別にオンにしたい人だけ表示できるようにするフラグ（列が無い環境では false 扱い）
    */
   phoneDutyEnabled: boolean;
+  /**
+   * trueの人は、乗合分の売上（sharedRideSalesGross）を歩合給の計算基礎から除外する
+   * （売上合計自体には引き続き含める）。列が無い環境では false 扱い
+   */
+  commissionExcludesSharedRide: boolean;
   lateShiftDisabled: boolean;
   shiftShuttle: boolean;
   shiftSpecial: boolean;
@@ -85,6 +90,12 @@ export type Attendance = {
   uncollected: number | null;
   /** 歩合給の手修正額。nullなら「売上税抜×歩合率」で自動計算する */
   commissionOverride: number | null;
+  /**
+   * その日の売上のうち「乗合」分（税込・円）。売上合計（sales/salesGross）自体には含めたまま、
+   * スタッフ設定で歩合から乗合分を除外している人（commissionExcludesSharedRide）だけ、
+   * 歩合給の計算基礎からこの分を差し引くために使う
+   */
+  sharedRideSalesGross: number | null;
   // 元帳から取り込む運行実績（給与計算には使わず、勤務履歴の詳細表示のみに使う）
   distanceKm: number | null;
   actualDistanceKm: number | null;
@@ -246,6 +257,7 @@ function rowToStaff(row: any): Staff {
     housingAllowance: row.housing_allowance ?? 0,
     phoneDutyDisabled: row.phone_duty_disabled,
     phoneDutyEnabled: row.phone_duty_enabled ?? false,
+    commissionExcludesSharedRide: row.commission_excludes_shared_ride ?? false,
     lateShiftDisabled: row.late_shift_disabled,
     shiftShuttle: row.shift_shuttle,
     shiftSpecial: row.shift_special,
@@ -401,6 +413,7 @@ function rowToAttendance(row: any): Attendance {
     sales: row.sales,
     uncollected: row.uncollected,
     commissionOverride: row.commission_override,
+    sharedRideSalesGross: row.shared_ride_sales_gross,
     distanceKm: row.distance_km,
     actualDistanceKm: row.actual_distance_km,
     transportCount: row.transport_count,
@@ -500,6 +513,7 @@ export async function upsertAttendance(rec: Partial<Attendance> & { staffId: str
   if (rec.sales !== undefined) dbRow.sales = rec.sales;
   if (rec.uncollected !== undefined) dbRow.uncollected = rec.uncollected;
   if (rec.commissionOverride !== undefined) dbRow.commission_override = rec.commissionOverride;
+  if (rec.sharedRideSalesGross !== undefined) dbRow.shared_ride_sales_gross = rec.sharedRideSalesGross;
   if (rec.distanceKm !== undefined) dbRow.distance_km = rec.distanceKm;
   if (rec.actualDistanceKm !== undefined) dbRow.actual_distance_km = rec.actualDistanceKm;
   if (rec.transportCount !== undefined) dbRow.transport_count = rec.transportCount;

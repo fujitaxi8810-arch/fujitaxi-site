@@ -96,6 +96,11 @@ import Layout from '../layouts/Layout.astro';
             <input type="number" id="salesUncollectedInput" class="kt-input" min="0" inputmode="numeric" placeholder="例: 0" />
           </label>
 
+          <label class="kt-field" id="salesSharedRideBlock" hidden>
+            <span>うち乗合分の売上（税込・円）※歩合給の計算から除外されます</span>
+            <input type="number" id="salesSharedRideInput" class="kt-input" min="0" inputmode="numeric" placeholder="例: 5000" />
+          </label>
+
           <div class="kt-modal__summary">
             <div class="kt-modal__summary-row">
               <span>歩合給（自動計算）</span>
@@ -372,7 +377,7 @@ import Layout from '../layouts/Layout.astro';
           hourlyWage: before.hourlyWage, monthlyWage: before.monthlyWage, dailyWage: before.dailyWage,
           commute: before.commute, commuteType: before.commuteType,
           salesGross: before.salesGross, sales: before.sales, uncollected: before.uncollected,
-          commissionOverride: before.commissionOverride,
+          commissionOverride: before.commissionOverride, sharedRideSalesGross: before.sharedRideSalesGross,
         });
       }
       clearUndo(staffId);
@@ -1640,11 +1645,18 @@ import Layout from '../layouts/Layout.astro';
   function taxExcluded(gross) {
     return Math.round(gross / (1 + CONSUMPTION_TAX_RATE));
   }
+  let salesModalExcludesSharedRide = false; // 開いている対象が乗合分を歩合から除外する設定かどうか
   function updateSalesNetPreview() {
     const gross = parseFloat($('salesTotalInput').value);
     const net = (!isNaN(gross) && gross >= 0) ? taxExcluded(gross) : 0;
     $('salesNetPreview').textContent = `税抜：${yen(net)}円（歩合給の計算に使用）`;
-    $('salesCommissionAuto').textContent = `${yen(Math.round(net * (settings.commissionRate / 100)))}円`;
+    let commissionBaseNet = net;
+    if (salesModalExcludesSharedRide) {
+      const sharedRaw = parseFloat($('salesSharedRideInput').value);
+      const sharedNet = (!isNaN(sharedRaw) && sharedRaw >= 0) ? taxExcluded(sharedRaw) : 0;
+      commissionBaseNet = Math.max(0, net - sharedNet);
+    }
+    $('salesCommissionAuto').textContent = `${yen(Math.round(commissionBaseNet * (settings.commissionRate / 100)))}円`;
   }
   let salesModalTargetKey = null; // "staffId|date" 形式で編集対象を保持
 
@@ -1657,6 +1669,9 @@ import Layout from '../layouts/Layout.astro';
     $('salesTotalInput').value = rec.salesGross != null ? rec.salesGross : (rec.sales != null ? rec.sales : '');
     $('salesUncollectedInput').value = rec.uncollected != null ? rec.uncollected : '';
     $('salesCommissionOverride').value = rec.commissionOverride != null ? rec.commissionOverride : '';
+    salesModalExcludesSharedRide = !!(s && s.commissionExcludesSharedRide);
+    $('salesSharedRideBlock').hidden = !salesModalExcludesSharedRide;
+    $('salesSharedRideInput').value = rec.sharedRideSalesGross != null ? rec.sharedRideSalesGross : '';
     updateSalesNetPreview();
     $('salesModal').hidden = false;
     $('salesTotalInput').focus();
@@ -1684,6 +1699,7 @@ import Layout from '../layouts/Layout.astro';
     }
     const uncollectedRaw = parseFloat($('salesUncollectedInput').value);
     const overrideRaw = parseFloat($('salesCommissionOverride').value);
+    const sharedRideRaw = parseFloat($('salesSharedRideInput').value);
     const patch = {
       staffId, date,
       salesGross: gross,
@@ -1691,6 +1707,7 @@ import Layout from '../layouts/Layout.astro';
       uncollected: (!isNaN(uncollectedRaw) && uncollectedRaw >= 0) ? uncollectedRaw : 0,
       // 空欄なら自動計算に戻す（nullを保存）
       commissionOverride: (!isNaN(overrideRaw) && overrideRaw >= 0) ? overrideRaw : null,
+      sharedRideSalesGross: (!isNaN(sharedRideRaw) && sharedRideRaw >= 0) ? sharedRideRaw : null,
     };
     $('salesModalSubmit').disabled = true;
     try {
@@ -1707,6 +1724,7 @@ import Layout from '../layouts/Layout.astro';
   $('salesModalSubmit').onclick = () => saveSalesModal();
   $('salesModalCancel').onclick = () => closeSalesModal();
   $('salesTotalInput').addEventListener('input', updateSalesNetPreview);
+  $('salesSharedRideInput').addEventListener('input', updateSalesNetPreview);
 
   // ── 打刻の手入力モーダル（電波障害等で打刻できなかった分をあとから入力） ──
   function timeInputToIso(dateStr, timeStr) {
@@ -1959,11 +1977,21 @@ import Layout from '../layouts/Layout.astro';
     if (rec.phoneDuty) w += settings.phoneAllowance;
     return w;
   }
-  // 歩合給＝売上税抜 × 歩合率。手修正額が入っている日はその金額を優先する
+  // 歩合給＝売上税抜 × 歩合率。手修正額が入っている日はその金額を優先する。
+  // 乗合分を歩合から除外する設定のスタッフ（commissionExcludesSharedRide）は、
+  // その日の乗合分の売上（税込→税抜換算）を計算基礎から差し引く（売上合計自体は変えない）
+  function commissionBase(rec) {
+    let base = Math.max(0, rec.sales);
+    const s = staff.find(x => x.id === rec.staffId);
+    if (s && s.commissionExcludesSharedRide && rec.sharedRideSalesGross) {
+      base = Math.max(0, base - taxExcluded(rec.sharedRideSalesGross));
+    }
+    return base;
+  }
   function commissionPay(rec) {
     if (rec.commissionOverride != null) return rec.commissionOverride;
     if (rec.sales == null) return 0;
-    return Math.max(0, rec.sales) * (settings.commissionRate / 100);
+    return commissionBase(rec) * (settings.commissionRate / 100);
   }
   // 区分ごとの内訳。base＝基本給（正社員：シフト日給＋電話番手当／パート：時給×実働＋電話番手当）
   // extra＝歩合・手当（正社員：歩合給／パート：残業・深夜割増）＋日額交通費（daily指定のスタッフのみ）。
@@ -2182,7 +2210,8 @@ import Layout from '../layouts/Layout.astro';
     return rec.distanceKm != null || rec.actualDistanceKm != null
       || rec.transportCount != null || rec.transportPersons != null
       || rec.fuelLiters != null || rec.fuelAmount != null
-      || rec.disabilityCount != null || rec.disabilityDiscount != null;
+      || rec.disabilityCount != null || rec.disabilityDiscount != null
+      || !!rec.sharedRideSalesGross;
   }
   function operationDetailHtml(rec) {
     const items = [
@@ -2195,6 +2224,7 @@ import Layout from '../layouts/Layout.astro';
       ['給油金額', rec.fuelAmount != null ? `${yen(rec.fuelAmount)}円` : null],
       ['障がい回数', rec.disabilityCount != null ? `${yen(rec.disabilityCount)}回` : null],
       ['身障者割引', rec.disabilityDiscount != null ? `${yen(rec.disabilityDiscount)}円` : null],
+      ['乗合分の売上（税込）', rec.sharedRideSalesGross ? `${yen(rec.sharedRideSalesGross)}円` : null],
     ].filter(([, v]) => v !== null);
     return items.map(([k, v]) => `<span class="kt-hist-detailrow__item"><em>${k}</em>${v}</span>`).join('');
   }
@@ -2339,13 +2369,16 @@ import Layout from '../layouts/Layout.astro';
         const key = day + '|' + name;
         if (!agg[key]) {
           agg[key] = {
-            day, name, rawName, sales: 0, uncollected: 0,
+            day, name, rawName, sales: 0, uncollected: 0, sharedRideSalesGross: 0,
             disabilityCount: 0, disabilityDiscount: 0, transportCount: 0, transportPersons: 0,
             distanceKm: 0, actualDistanceKm: 0, fuelLiters: 0, fuelAmount: 0,
           };
         }
         agg[key].sales += sales;
         agg[key].uncollected += uncollected;
+        // 乗合（[2]列「乗用/乗合」が「乗合」の行）の売上だけを別集計しておく。
+        // 歩合から乗合分を除外する設定のスタッフだけ、この金額を計算基礎から差し引く
+        if ((r[2] || '').trim() === '乗合') agg[key].sharedRideSalesGross += sales;
         // 運行実績（同じ日に複数車両分あれば合算）
         agg[key].disabilityCount += parseYen(r[14]);
         agg[key].disabilityDiscount += parseYen(r[15]);
@@ -2384,6 +2417,7 @@ import Layout from '../layouts/Layout.astro';
         results.push({
           date, staffId, staffName: matchedStaff ? matchedStaff.name : null, sheetName: item.rawName,
           sales: item.sales, uncollected: item.uncollected, status, applyDefault, existingSales,
+          sharedRideSalesGross: item.sharedRideSalesGross,
           disabilityCount: item.disabilityCount, disabilityDiscount: item.disabilityDiscount,
           transportCount: item.transportCount, transportPersons: item.transportPersons,
           distanceKm: item.distanceKm, actualDistanceKm: item.actualDistanceKm,
@@ -2406,9 +2440,10 @@ import Layout from '../layouts/Layout.astro';
       const checkboxHtml = canCheck
         ? `<input type="checkbox" class="importRowCheck" data-key="${row.date}|${row.staffId}" ${row.applyDefault ? 'checked' : ''} />`
         : '—';
-      const salesText = row.status === 'diff'
+      const sharedNote = row.sharedRideSalesGross ? `（うち乗合：${yen(row.sharedRideSalesGross)}円）` : '';
+      const salesText = (row.status === 'diff'
         ? `${yen(row.sales)}円（既存：${yen(row.existingSales)}円）`
-        : `${yen(row.sales)}円`;
+        : `${yen(row.sales)}円`) + sharedNote;
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${checkboxHtml}</td>
@@ -2439,6 +2474,8 @@ import Layout from '../layouts/Layout.astro';
           salesGross: row.sales,
           sales: taxExcluded(row.sales),
           uncollected: row.uncollected,
+          // 乗合分の売上（歩合から除外する設定のスタッフのみ計算で使う。0はデータ無しとみなしてnull）
+          sharedRideSalesGross: row.sharedRideSalesGross || null,
           // 運行実績（0はデータ無しとみなしてnullで保存する）
           distanceKm: row.distanceKm || null,
           actualDistanceKm: row.actualDistanceKm || null,
@@ -2683,7 +2720,7 @@ import Layout from '../layouts/Layout.astro';
     return (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400;
   }
 
-  function buildStaffSheet(wb, sheetName, name, recsByDay, year, monthNum, daysInMonth, dailyWageOverride, commute, commuteType, managerAllowance, housingAllowance) {
+  function buildStaffSheet(wb, sheetName, name, recsByDay, year, monthNum, daysInMonth, dailyWageOverride, commute, commuteType, managerAllowance, housingAllowance, excludeSharedRide) {
     const ws = wb.addWorksheet(sheetName);
     const endRow = TC_TABLE_START + daysInMonth - 1;
     const headers = ['日', '曜日', 'シフト', '電話番', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)', '売上税抜(円)', 'シフト日給(円)', '歩合給(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
@@ -2738,9 +2775,12 @@ import Layout from '../layouts/Layout.astro';
         ? `IF($C${row}="","",$D$3+IF($D${row}="有",設定!$B$5,0))`
         : `IF($C${row}="","",IF($C${row}="遅番",設定!$B$3+設定!$B$4,設定!$B$2)+IF($D${row}="有",設定!$B$5,0))`;
       tcFormula(ws, `K${row}`, dayWageFormula, '#,##0');
-      // 歩合給を手修正した日は、数式ではなくその金額をそのまま書く
+      // 歩合給を手修正した日、または乗合分を歩合から除外する設定で実際に乗合分がある日は、
+      // 数式ではなくアプリと同じ計算結果（commissionPay）をそのまま書く
       if (rec && rec.commissionOverride != null) {
         tcVal(ws, `L${row}`, rec.commissionOverride, '#,##0');
+      } else if (rec && excludeSharedRide && rec.sharedRideSalesGross) {
+        tcVal(ws, `L${row}`, Math.round(commissionPay(rec)), '#,##0');
       } else {
         tcFormula(ws, `L${row}`, `IF($J${row}="","",ROUND(MAX(0,$J${row})*設定!$B$6/100,0))`, '#,##0');
       }
@@ -2940,6 +2980,7 @@ import Layout from '../layouts/Layout.astro';
         commuteType: commuteSrc.commuteType ?? (staffObj && staffObj.commuteType) ?? 'monthly',
         managerAllowance: managerAllowanceSrc.managerAllowance ?? (staffObj && staffObj.managerAllowance) ?? 0,
         housingAllowance: housingAllowanceSrc.housingAllowance ?? (staffObj && staffObj.housingAllowance) ?? 0,
+        excludeSharedRide: !!(staffObj && staffObj.commissionExcludesSharedRide),
       };
     }
     const targets = staff.filter(s => byStaff[s.id]).map(s => targetOf(s.name, byStaff[s.id], s));
@@ -2979,7 +3020,7 @@ import Layout from '../layouts/Layout.astro';
       const t = s.target;
       if (t.isMonthly) buildMonthlySheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.monthlyWage, t.commute, t.commuteType, t.managerAllowance, t.housingAllowance);
       else if (t.isPart) buildPartSheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.hourlyWage, t.commute, t.commuteType, t.managerAllowance, t.housingAllowance);
-      else buildStaffSheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.dailyWage, t.commute, t.commuteType, t.managerAllowance, t.housingAllowance);
+      else buildStaffSheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.dailyWage, t.commute, t.commuteType, t.managerAllowance, t.housingAllowance, t.excludeSharedRide);
     }
 
     // 使い方シート

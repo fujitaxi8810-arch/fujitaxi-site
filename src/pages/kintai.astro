@@ -96,20 +96,6 @@ import Layout from '../layouts/Layout.astro';
             <input type="number" id="salesUncollectedInput" class="kt-input" min="0" inputmode="numeric" placeholder="例: 0" />
           </label>
 
-          <p class="kt-shift-select__label">決済方法ごとの内訳（該当分のみ入力・現金は不要）</p>
-          <div class="kt-modal__methods" id="salesMethodFields"></div>
-
-          <div class="kt-modal__summary">
-            <div class="kt-modal__summary-row">
-              <span>手数料合計（自動計算）</span>
-              <strong id="salesFeeAuto">0円</strong>
-            </div>
-            <label class="kt-field">
-              <span>手数料合計を手修正する場合（円）</span>
-              <input type="number" id="salesFeeOverride" class="kt-input" min="0" inputmode="numeric" placeholder="空欄なら自動計算を使用" />
-            </label>
-          </div>
-
           <div class="kt-modal__actions">
             <button type="button" class="kt-punch kt-punch--out" id="salesModalSubmit">保存する</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="salesModalCancel">キャンセル</button>
@@ -246,7 +232,7 @@ import Layout from '../layouts/Layout.astro';
         <div class="kt-table-wrap">
           <table class="kt-table" id="histTable">
             <thead>
-              <tr><th>日付</th><th>名前</th><th>区分</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th><th>売上(税込)</th><th>未収</th><th>カード手数料</th><th>基本給</th><th>歩合・手当</th><th>合計</th><th>時給換算</th><th>操作</th></tr>
+              <tr><th>日付</th><th>名前</th><th>区分</th><th>出勤</th><th>退勤</th><th>休憩</th><th>時間内外出</th><th>実働</th><th>売上(税込)</th><th>未収</th><th>基本給</th><th>歩合・手当</th><th>合計</th><th>時給換算</th><th>操作</th></tr>
             </thead>
             <tbody id="histBody"></tbody>
           </table>
@@ -267,7 +253,7 @@ import Layout from '../layouts/Layout.astro';
           </table>
         </div>
         <p class="kt-empty" id="wageEmpty">この月の記録はありません。</p>
-        <p class="kt-note" id="wageFormula">※ 正社員：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給｛（売上税抜 − カード手数料等）× 歩合率｝＋ 交通費（月額・設定した場合）<br />※ 正社員（基本給のみ）：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 交通費（月額・設定した場合）｛歩合給なし｝<br />※ 時給制（パート・正社員(時給)）：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費（月額）<br />※ 月給制（正社員(月給)）：総支給額 ＝ 月給（固定）＋ 交通費（月額）<br />※ 交通費は出勤日数に関わらず、その月に打刻があれば月額を1回だけ加算します。<br />※ 勤務履歴の「時給換算」は 日ごとの基本給＋歩合・割増（交通費を含まない）÷ 実働時間 で算出し、最低賃金（設定値）を下回った日は赤色で警告表示します（月給制は対象外）。<br />※ 売上は税込で入力すると税抜が自動計算されます（歩合給の計算には税抜額を使用）。未収（掛け・請求書払いなど当日未回収分）は売上合計に含めて入力するため、歩合給の計算にも通常どおり反映されます（内訳を記録するための項目です）。</p>
+        <p class="kt-note" id="wageFormula">※ 正社員：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 歩合給（売上税抜 × 歩合率）＋ 交通費（月額・設定した場合）<br />※ 正社員（基本給のみ）：総支給額 ＝ シフト日給 ＋ 電話番手当 ＋ 交通費（月額・設定した場合）｛歩合給なし｝<br />※ 時給制（パート・正社員(時給)）：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費（月額）<br />※ 月給制（正社員(月給)）：総支給額 ＝ 月給（固定）＋ 交通費（月額）<br />※ 交通費は出勤日数に関わらず、その月に打刻があれば月額を1回だけ加算します。<br />※ 勤務履歴の「時給換算」は 日ごとの基本給＋歩合・割増（交通費を含まない）÷ 実働時間 で算出し、最低賃金（設定値）を下回った日は赤色で警告表示します（月給制は対象外）。<br />※ 売上は税込で入力すると税抜が自動計算されます（歩合給の計算には税抜額を使用）。未収（掛け・請求書払いなど当日未回収分）は売上合計に含めて入力するため、歩合給の計算にも通常どおり反映されます（内訳を記録するための項目です）。</p>
       </div>
 
       <!-- 給与設定 -->
@@ -299,10 +285,8 @@ import Layout from '../layouts/Layout.astro';
             <input type="number" id="setMinWage" class="kt-input" min="0" />
           </label>
         </div>
-        <p class="kt-shift-select__label" style="margin-top:1rem;">決済方法ごとの手数料率（％）</p>
-        <div class="kt-settings-grid" id="feeRateFields"></div>
         <button type="button" class="kt-btn" id="saveSettingsBtn">設定を保存</button>
-        <p class="kt-note">※ ここで設定した金額・歩合率・手数料率が、すべてのスタッフの給与計算に使われます。手数料率はSBペイメントサービス収納明細書（2026年6月分）の実績値を初期値にしています。料率改定があった場合はここで更新してください。</p>
+        <p class="kt-note">※ ここで設定した金額・歩合率が、すべてのスタッフの給与計算に使われます。</p>
       </div>
       <button type="button" class="kt-btn kt-btn--ghost" id="settingsToggleBtn" hidden>⚙ 給与設定を開く</button>
       <button type="button" class="kt-btn kt-btn--ghost" id="backupAllBtn" hidden>💾 全データバックアップを出力</button>
@@ -328,22 +312,6 @@ import Layout from '../layouts/Layout.astro';
     fetchAllShifts, fetchAllShiftNotes,
     isBackendOutage,
   } from '../lib/kintai-db';
-
-  // 決済方法マスタ。rateはSBペイメントサービス収納明細書（2026/06/16-06/30分）の実績値。
-  // 楽天Pay・au PAYは決済手数料3.24%＋決済サービス利用料0.15%の合算。
-  const PAY_METHODS = [
-    { id: 'visa',       label: 'VISA / Mastercard',              rate: 2.8 },
-    { id: 'jcb',        label: 'JCB / AMEX / Diners',            rate: 3.24 },
-    { id: 'transit',    label: '交通系IC',                        rate: 2.0 },
-    { id: 'emoney',     label: '電子マネー（Edy・iD・WAON・nanaco）', rate: 2.9 },
-    { id: 'quicpay',    label: 'QUICPay',                        rate: 3.24 },
-    { id: 'rakuten',    label: '楽天Pay / au PAY',               rate: 3.39 },
-    { id: 'paypay',     label: 'PayPay（別端末）',                rate: 2.18 },
-    { id: 'dbarai',     label: 'd払い（別端末）',                 rate: 2.6 },
-    { id: 'merpay',     label: 'メルペイ（別端末）',               rate: 2.6 },
-    { id: 'aiticket',   label: '愛のタクシーチケット',             rate: 5 },
-    { id: 'jcbticket',  label: 'JCBタクシーチケット',             rate: 4 },
-  ];
 
   // データはSupabaseが正。起動時にboot()でまとめて読み込む
   let staff = [];
@@ -390,7 +358,6 @@ import Layout from '../layouts/Layout.astro';
           hourlyWage: before.hourlyWage, monthlyWage: before.monthlyWage, dailyWage: before.dailyWage,
           commute: before.commute, commuteType: before.commuteType,
           salesGross: before.salesGross, sales: before.sales, uncollected: before.uncollected,
-          cardFee: before.cardFee, payments: before.payments,
         });
       }
       clearUndo(staffId);
@@ -455,11 +422,11 @@ import Layout from '../layouts/Layout.astro';
   const EXCEL_OPS_SHEET_NAME = '運行実績';
   const OPS_HEADERS = ['日付', '名前', '走行距離(km)', '実車距離(km)', '実車率(%)', '輸送回数', '輸送人数', '給油量(L)', '給油金額(円)', '障がい回数', '身障者割引(円)'];
   const OPS_WIDTHS = [10, 12, 12, 12, 10, 10, 10, 10, 12, 11, 13];
-  const PAYROLL_FIXED_HEADERS = ['日付', '名前', '区分', '電話番', '出勤', '退勤', '休憩(分)', '時間内外出(分)', '実働(分)', '実働(時:分)', '売上税込(円)', '売上税抜(円)', '未収(円)', 'カード手数料等(円)', '基本給(円)', '歩合・手当(円)', '合計支給額(円)', '時給換算(円)', '最低賃金判定'];
-  const PAYROLL_FIXED_WIDTHS = [10, 12, 16, 8, 8, 8, 9, 13, 9, 11, 12, 12, 10, 16, 10, 12, 13, 11, 14];
-  const PAYROLL_MONEY_HEADERS = new Set(['売上税込(円)', '売上税抜(円)', '未収(円)', 'カード手数料等(円)', '基本給(円)', '歩合・手当(円)', '合計支給額(円)', '時給換算(円)']);
+  const PAYROLL_FIXED_HEADERS = ['日付', '名前', '区分', '電話番', '出勤', '退勤', '休憩(分)', '時間内外出(分)', '実働(分)', '実働(時:分)', '売上税込(円)', '売上税抜(円)', '未収(円)', '基本給(円)', '歩合・手当(円)', '合計支給額(円)', '時給換算(円)', '最低賃金判定'];
+  const PAYROLL_FIXED_WIDTHS = [10, 12, 16, 8, 8, 8, 9, 13, 9, 11, 12, 12, 10, 10, 12, 13, 11, 14];
+  const PAYROLL_MONEY_HEADERS = new Set(['売上税込(円)', '売上税抜(円)', '未収(円)', '基本給(円)', '歩合・手当(円)', '合計支給額(円)', '時給換算(円)']);
   function payrollHeaders() {
-    return [...PAYROLL_FIXED_HEADERS, ...PAY_METHODS.map(m => `${m.label}(円)`)];
+    return [...PAYROLL_FIXED_HEADERS];
   }
   // 月ごとのタブ名。給与は「2026-08」、運行実績は「2026-08 運行」
   const OPS_SHEET_SUFFIX = ' 運行';
@@ -580,7 +547,6 @@ import Layout from '../layouts/Layout.astro';
       showsSales && rec.salesGross != null ? rec.salesGross : '',
       showsSales && rec.sales != null ? rec.sales : '',
       showsSales && rec.uncollected ? rec.uncollected : '',
-      showsSales && rec.cardFee != null ? rec.cardFee : '',
       rec.out || rec.shiftType ? Math.round(p.base) : '',
       rec.out ? Math.round(p.extra) : '',
       rec.out ? Math.round(totalPay(rec)) : '',
@@ -984,10 +950,7 @@ import Layout from '../layouts/Layout.astro';
       cell.border = { bottom: { style: 'thin', color: { argb: 'FF9DB4D0' } } };
       const width = PAYROLL_FIXED_WIDTHS[i] != null ? PAYROLL_FIXED_WIDTHS[i] : Math.min(30, Math.max(12, Math.ceil(h.length * 1.6) + 2));
       ws.getColumn(col).width = width;
-      // 決済方法ごとの列（PAY_METHODS由来）もすべて金額列
-      if (PAYROLL_MONEY_HEADERS.has(h) || i >= PAYROLL_FIXED_HEADERS.length) {
-        ws.getColumn(col).numFmt = '#,##0';
-      }
+      if (PAYROLL_MONEY_HEADERS.has(h)) ws.getColumn(col).numFmt = '#,##0';
     });
     ws.getRow(1).height = 22;
     // 見出し行を画面に固定し、データが増えても常に見出しが見えるようにする
@@ -1089,24 +1052,6 @@ import Layout from '../layouts/Layout.astro';
     $('setPhoneAllowance').value = settings.phoneAllowance;
     $('setCommissionRate').value = settings.commissionRate;
     $('setMinWage').value = settings.minWage;
-
-    const wrap = $('feeRateFields');
-    wrap.innerHTML = '';
-    for (const m of PAY_METHODS) {
-      const label = document.createElement('label');
-      label.className = 'kt-field';
-      const span = document.createElement('span');
-      span.textContent = m.label;
-      const input = document.createElement('input');
-      input.type = 'number';
-      input.className = 'kt-input';
-      input.min = '0'; input.max = '100'; input.step = '0.01';
-      input.dataset.feeId = m.id;
-      input.value = settings.feeRates[m.id];
-      label.appendChild(span);
-      label.appendChild(input);
-      wrap.appendChild(label);
-    }
   }
   $('saveSettingsBtn').onclick = async () => {
     const newSettings = {
@@ -1116,12 +1061,7 @@ import Layout from '../layouts/Layout.astro';
       phoneAllowance: parseInt($('setPhoneAllowance').value, 10) || 0,
       commissionRate: parseFloat($('setCommissionRate').value) || 0,
       minWage: parseInt($('setMinWage').value, 10) || 0,
-      feeRates: { ...settings.feeRates },
     };
-    for (const input of $('feeRateFields').querySelectorAll('input[data-fee-id]')) {
-      const v = parseFloat(input.value);
-      newSettings.feeRates[input.dataset.feeId] = (!isNaN(v) && v >= 0) ? v : 0;
-    }
     try {
       await dbUpdateSettings(newSettings);
       settings = await fetchSettings();
@@ -1622,25 +1562,6 @@ import Layout from '../layouts/Layout.astro';
     const net = (!isNaN(gross) && gross >= 0) ? taxExcluded(gross) : 0;
     $('salesNetPreview').textContent = `税抜：${yen(net)}円（歩合給の計算に使用）`;
   }
-  function feeAmounts() {
-    const amounts = {};
-    for (const input of $('salesMethodFields').querySelectorAll('input[data-pay-id]')) {
-      const v = parseFloat(input.value);
-      amounts[input.dataset.payId] = (!isNaN(v) && v >= 0) ? v : 0;
-    }
-    return amounts;
-  }
-  function autoFee(amounts) {
-    let total = 0;
-    for (const m of PAY_METHODS) {
-      const rate = settings.feeRates?.[m.id] ?? m.rate;
-      total += (amounts[m.id] || 0) * (rate / 100);
-    }
-    return Math.round(total);
-  }
-  function updateFeePreview() {
-    $('salesFeeAuto').textContent = `${yen(autoFee(feeAmounts()))}円`;
-  }
   let salesModalTargetKey = null; // "staffId|date" 形式で編集対象を保持
 
   function openSalesModal(staffId, date) {
@@ -1651,30 +1572,7 @@ import Layout from '../layouts/Layout.astro';
     $('salesModalStaff').textContent = `${s ? s.name : '（削除済み）'} さん・${date.slice(5).replace('-', '/')}`;
     $('salesTotalInput').value = rec.salesGross != null ? rec.salesGross : (rec.sales != null ? rec.sales : '');
     $('salesUncollectedInput').value = rec.uncollected != null ? rec.uncollected : '';
-    $('salesFeeOverride').value = rec.cardFee != null ? rec.cardFee : '';
     updateSalesNetPreview();
-    const wrap = $('salesMethodFields');
-    wrap.innerHTML = '';
-    const payments = rec.payments || {};
-    for (const m of PAY_METHODS) {
-      const label = document.createElement('label');
-      label.className = 'kt-field';
-      const span = document.createElement('span');
-      span.textContent = `${m.label}（${settings.feeRates?.[m.id] ?? m.rate}%）`;
-      const input = document.createElement('input');
-      input.type = 'number';
-      input.className = 'kt-input';
-      input.min = '0';
-      input.inputMode = 'numeric';
-      input.placeholder = '0';
-      input.dataset.payId = m.id;
-      input.value = payments[m.id] || '';
-      input.addEventListener('input', updateFeePreview);
-      label.appendChild(span);
-      label.appendChild(input);
-      wrap.appendChild(label);
-    }
-    updateFeePreview();
     $('salesModal').hidden = false;
     $('salesTotalInput').focus();
   }
@@ -1699,20 +1597,12 @@ import Layout from '../layouts/Layout.astro';
       alert('売上合計（税込）を入力してください。');
       return;
     }
-    const amounts = feeAmounts();
-    const breakdownTotal = PAY_METHODS.reduce((sum, m) => sum + (amounts[m.id] || 0), 0);
-    if (breakdownTotal > gross) {
-      if (!confirm(`決済内訳の合計（${yen(breakdownTotal)}円）が売上合計（${yen(gross)}円）を超えています。このまま保存しますか？`)) return;
-    }
     const uncollectedRaw = parseFloat($('salesUncollectedInput').value);
-    const override = parseFloat($('salesFeeOverride').value);
     const patch = {
       staffId, date,
       salesGross: gross,
       sales: taxExcluded(gross),
       uncollected: (!isNaN(uncollectedRaw) && uncollectedRaw >= 0) ? uncollectedRaw : 0,
-      payments: amounts,
-      cardFee: (!isNaN(override) && override >= 0) ? override : autoFee(amounts),
     };
     $('salesModalSubmit').disabled = true;
     try {
@@ -1981,10 +1871,10 @@ import Layout from '../layouts/Layout.astro';
     if (rec.phoneDuty) w += settings.phoneAllowance;
     return w;
   }
+  // 歩合給＝売上税抜 × 歩合率（決済手数料は差し引かない）
   function commissionPay(rec) {
     if (rec.sales == null) return 0;
-    const net = Math.max(0, (rec.sales || 0) - (rec.cardFee || 0));
-    return net * (settings.commissionRate / 100);
+    return Math.max(0, rec.sales) * (settings.commissionRate / 100);
   }
   // 区分ごとの内訳。base＝基本給（正社員：シフト日給＋電話番手当／パート：時給×実働）
   // extra＝歩合・手当（正社員：歩合給／パート：残業・深夜割増）＋日額交通費（daily指定のスタッフのみ）。
@@ -2148,7 +2038,6 @@ import Layout from '../layouts/Layout.astro';
         <td class="kt-table__work">${rec.out ? hm(w) : '勤務中'}</td>
         <td>${showsSales ? mask(rec.salesGross != null ? yen(rec.salesGross) + '円' : (rec.sales != null ? yen(rec.sales) + '円' : '—')) : '—'}</td>
         <td>${showsSales ? mask(rec.uncollected ? yen(rec.uncollected) + '円' : '—') : '—'}</td>
-        <td>${showsSales ? mask(rec.cardFee != null ? yen(rec.cardFee) + '円' : '—') : '—'}</td>
         <td>${mask(rec.out || rec.shiftType ? yen(p.base) + '円' : '—')}</td>
         <td>${mask(rec.out ? yen(p.extra) + '円' : '—')}</td>
         <td class="kt-table__total">${rec.out ? mask(yen(totalPay(rec)) + '円') : '—'}</td>
@@ -2493,20 +2382,17 @@ import Layout from '../layouts/Layout.astro';
     const month = currentMonth();
     const recs = log.filter(r => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date));
     if (!recs.length) { alert('この月の記録がありません'); return; }
-    const methodHeaders = PAY_METHODS.map(m => `${m.label}(円)`).join(',');
-    let csv = `﻿日付,名前,区分,電話番,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分),売上税込(円),売上税抜(円),未収(円),カード手数料等(円),基本給(円),歩合・手当(円),合計支給額(円),時給換算(円),最低賃金判定,${methodHeaders}\n`;
+    let csv = `﻿日付,名前,区分,電話番,出勤,退勤,休憩(分),時間内外出(分),実働(分),実働(時:分),売上税込(円),売上税抜(円),未収(円),基本給(円),歩合・手当(円),合計支給額(円),時給換算(円),最低賃金判定\n`;
     for (const rec of recs) {
-      const payments = rec.payments || {};
-      csv += [...excelRowFromRec(rec), ...PAY_METHODS.map(m => payments[m.id] || '')].join(',') + '\n';
+      csv += excelRowFromRec(rec).join(',') + '\n';
     }
 
-    const rateNote = PAY_METHODS.map(m => `${m.label}${settings.feeRates[m.id]}%`).join('／');
     csv += `\n設定：普通番日給${settings.normalWage}円／遅番日給${settings.lateWage + settings.lateBonus}円／電話番手当${settings.phoneAllowance}円／歩合率${settings.commissionRate}%／最低賃金${settings.minWage}円\n`;
+    csv += `正社員：総支給額＝シフト日給＋電話番手当＋歩合給（売上税抜×歩合率）＋交通費(月額または日額・スタッフごとに設定)\n`;
     csv += `時給制（パート・正社員(時給)）：時間給×実働＋残業割増(8時間超×${OT_RATE * 100}%)＋深夜割増(${NIGHT_START_HOUR}時以降×${NIGHT_RATE * 100}%)＋交通費(月額または日額・スタッフごとに設定)\n`;
     csv += `月給制（正社員(月給)）：総支給額＝月給（固定）＋交通費(月額または日額・スタッフごとに設定)\n`;
     csv += `正社員（基本給のみ）：総支給額＝シフト日給＋電話番手当＋交通費(月額または日額・スタッフごとに設定)（歩合給なし）\n`;
     csv += `※このCSVの日ごとの基本給・歩合手当には交通費を含みません（交通費は月次サマリーでのみ加算）\n`;
-    csv += `手数料率：${rateNote}\n`;
     csv += '\n月次サマリー\n名前,区分,出勤日数,実働合計(分),実働合計(時:分),基本給合計(円),売上合計(円),歩合・手当合計(円),交通費(円),管理者手当(円),住宅手当(円),総支給額(円)\n';
     const totals = {};
     for (const rec of recs) {
@@ -2636,7 +2522,7 @@ import Layout from '../layouts/Layout.astro';
   function buildStaffSheet(wb, sheetName, name, recsByDay, year, monthNum, daysInMonth, dailyWageOverride, commute, commuteType, managerAllowance, housingAllowance) {
     const ws = wb.addWorksheet(sheetName);
     const endRow = TC_TABLE_START + daysInMonth - 1;
-    const headers = ['日', '曜日', 'シフト', '電話番', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)', '売上税抜(円)', 'カード手数料(円)', 'シフト日給(円)', '歩合給(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
+    const headers = ['日', '曜日', 'シフト', '電話番', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)', '売上税抜(円)', 'シフト日給(円)', '歩合給(円)', '日合計(円)', '時給換算(円)', '最低賃金判定'];
     const isDailyCommute = commuteType === 'daily';
 
     tcTitle(ws, 'A1:D1', `${year}年${monthNum}月 勤務表`);
@@ -2649,17 +2535,17 @@ import Layout from '../layouts/Layout.astro';
       tcVal(ws, 'D3', dailyWageOverride, '#,##0');
     }
     tcVal(ws, 'A3', '勤務日数');
-    tcFormula(ws, 'B3', `COUNT(N${TC_TABLE_START}:N${endRow})`);
+    tcFormula(ws, 'B3', `COUNT(M${TC_TABLE_START}:M${endRow})`);
     tcVal(ws, 'A4', '実働合計（時間）');
     tcFormula(ws, 'B4', `SUM(I${TC_TABLE_START}:I${endRow})`, '0.00');
     tcVal(ws, 'A5', 'シフト日給合計（電話番手当込・円）');
-    tcFormula(ws, 'B5', `SUM(L${TC_TABLE_START}:L${endRow})`, '#,##0');
+    tcFormula(ws, 'B5', `SUM(K${TC_TABLE_START}:K${endRow})`, '#,##0');
     tcVal(ws, 'A6', '歩合給合計（円）');
-    tcFormula(ws, 'B6', `SUM(M${TC_TABLE_START}:M${endRow})`, '#,##0');
+    tcFormula(ws, 'B6', `SUM(L${TC_TABLE_START}:L${endRow})`, '#,##0');
     tcVal(ws, 'A7', '売上合計（税抜・円）');
     tcFormula(ws, 'B7', `SUM(J${TC_TABLE_START}:J${endRow})`, '#,##0');
     tcVal(ws, 'A8', '総支給額（円）');
-    tcFormula(ws, 'B8', (isDailyCommute ? `SUM(N${TC_TABLE_START}:N${endRow})+$B$2*$B$3` : `SUM(N${TC_TABLE_START}:N${endRow})+$B$2`) + '+$B$9+$D$8', '#,##0');
+    tcFormula(ws, 'B8', (isDailyCommute ? `SUM(M${TC_TABLE_START}:M${endRow})+$B$2*$B$3` : `SUM(M${TC_TABLE_START}:M${endRow})+$B$2`) + '+$B$9+$D$8', '#,##0');
     tcVal(ws, 'A9', '管理者手当（月額・円）');
     tcVal(ws, 'B9', managerAllowance || 0, '#,##0');
     tcVal(ws, 'C8', '住宅手当（月額・円）');
@@ -2682,21 +2568,20 @@ import Layout from '../layouts/Layout.astro';
         tcVal(ws, `G${row}`, breakMinutes(rec));
         tcVal(ws, `H${row}`, awayMinutes(rec));
         if (rec.sales != null) tcVal(ws, `J${row}`, rec.sales, '#,##0');
-        if (rec.cardFee != null) tcVal(ws, `K${row}`, rec.cardFee, '#,##0');
       }
       tcFormula(ws, `I${row}`, `IF(OR($E${row}="",$F${row}=""),"",ROUND(($F${row}-$E${row}+IF($F${row}<$E${row},1,0))*24-IF($G${row}="",0,$G${row})/60-IF($H${row}="",0,$H${row})/60,2))`, '0.00');
       const dayWageFormula = dailyWageOverride != null
         ? `IF($C${row}="","",$D$3+IF($D${row}="有",設定!$B$5,0))`
         : `IF($C${row}="","",IF($C${row}="遅番",設定!$B$3+設定!$B$4,設定!$B$2)+IF($D${row}="有",設定!$B$5,0))`;
-      tcFormula(ws, `L${row}`, dayWageFormula, '#,##0');
-      tcFormula(ws, `M${row}`, `IF($J${row}="","",ROUND(MAX(0,$J${row}-IF($K${row}="",0,$K${row}))*設定!$B$6/100,0))`, '#,##0');
-      tcFormula(ws, `N${row}`, `IF($L${row}="","",$L${row}+IF($M${row}="",0,$M${row}))`, '#,##0');
-      tcFormula(ws, `O${row}`, `IF(OR($I${row}="",$I${row}=0,$N${row}=""),"",ROUND($N${row}/$I${row},0))`, '#,##0');
-      tcFormula(ws, `P${row}`, `IF($O${row}="","",IF($O${row}<設定!$B$7,"最低賃金未満","OK"))`);
+      tcFormula(ws, `K${row}`, dayWageFormula, '#,##0');
+      tcFormula(ws, `L${row}`, `IF($J${row}="","",ROUND(MAX(0,$J${row})*設定!$B$6/100,0))`, '#,##0');
+      tcFormula(ws, `M${row}`, `IF($K${row}="","",$K${row}+IF($L${row}="",0,$L${row}))`, '#,##0');
+      tcFormula(ws, `N${row}`, `IF(OR($I${row}="",$I${row}=0,$M${row}=""),"",ROUND($M${row}/$I${row},0))`, '#,##0');
+      tcFormula(ws, `O${row}`, `IF($N${row}="","",IF($N${row}<設定!$B$7,"最低賃金未満","OK"))`);
       tcRowStyle(ws, row, headers.length, 9);
     }
 
-    tcCols(ws, [4, 5, 8, 7, 7, 7, 8, 8, 10, 12, 14, 13, 11, 11, 12, 14]);
+    tcCols(ws, [4, 5, 8, 7, 7, 7, 8, 8, 10, 12, 13, 11, 11, 12, 14]);
     return ws;
   }
 
@@ -2841,7 +2726,7 @@ import Layout from '../layouts/Layout.astro';
       ['遅番 基本日給（円）', settings.lateWage, ''],
       ['遅番 割増賃金（円）', settings.lateBonus, ''],
       ['電話番手当（円）', settings.phoneAllowance, ''],
-      ['歩合率（％）', settings.commissionRate, '（売上税抜−カード手数料）に掛ける率'],
+      ['歩合率（％）', settings.commissionRate, '売上税抜に掛ける率'],
       ['最低賃金（円・確認用）', settings.minWage, '福島県の地域別最低賃金'],
       ['残業・深夜割増率（％）', OT_RATE * 100, `パート用：8時間超と${NIGHT_START_HOUR}時以降に時間給へ上乗せする率（法定25%）`],
     ];
@@ -2933,7 +2818,7 @@ import Layout from '../layouts/Layout.astro';
       [''],
       ['【給与の計算式】（勤怠アプリと同じ）'],
       ['◎ 正社員：総支給額 ＝ シフト日給（普通番／遅番）＋ 電話番手当 ＋ 歩合給 ＋ 交通費（設定した場合）'],
-      ['　　歩合給 ＝（売上税抜 − カード手数料等）× 歩合率'],
+      ['　　歩合給 ＝ 売上税抜 × 歩合率'],
       ['◎ 正社員（基本給のみ）：総支給額 ＝ シフト日給（普通番／遅番）＋ 電話番手当 ＋ 交通費（設定した場合）（歩合給はなし）'],
       ['◎ 時給制（パート・正社員(時給)）：総支給額 ＝ 時間給 × 実働時間 ＋ 残業割増（8時間超×25%）＋ 深夜割増（22時以降×25%）＋ 交通費'],
       ['　　時間給・交通費は各スタッフのシート右上（D3・D4）で変更できます。'],
@@ -2952,7 +2837,6 @@ import Layout from '../layouts/Layout.astro';
       [''],
       ['【注意】'],
       ['・出力時点の打刻データのスナップショットです。以後の打刻は反映されないため、月末に再出力してください。'],
-      ['・カード手数料は決済明細の実績と異なる場合があります。必要に応じてK列を手修正してください。'],
     ];
     const wsUsage = wb.addWorksheet('使い方');
     usage.forEach((cols, r) => {

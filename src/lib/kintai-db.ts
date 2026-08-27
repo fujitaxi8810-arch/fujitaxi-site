@@ -54,8 +54,6 @@ export type Staff = {
   haishaAssignable: boolean;
 };
 
-export type Payments = Record<string, number>;
-
 export type Attendance = {
   id: string;
   staffId: string;
@@ -80,8 +78,6 @@ export type Attendance = {
   salesGross: number | null;
   sales: number | null;
   uncollected: number | null;
-  cardFee: number | null;
-  payments: Payments;
   // 元帳から取り込む運行実績（給与計算には使わず、勤務履歴の詳細表示のみに使う）
   distanceKm: number | null;
   actualDistanceKm: number | null;
@@ -100,7 +96,6 @@ export type Settings = {
   phoneAllowance: number;
   commissionRate: number;
   minWage: number;
-  feeRates: Record<string, number>;
 };
 
 // ── 認証 ──
@@ -353,7 +348,6 @@ export async function fetchSettings(): Promise<Settings> {
     phoneAllowance: data.phone_allowance,
     commissionRate: Number(data.commission_rate),
     minWage: data.min_wage,
-    feeRates: data.fee_rates,
   };
 }
 
@@ -367,7 +361,6 @@ export async function updateSettings(s: Settings): Promise<void> {
       phone_allowance: s.phoneAllowance,
       commission_rate: s.commissionRate,
       min_wage: s.minWage,
-      fee_rates: s.feeRates,
     })
     .eq('id', 1);
   if (error) throw error;
@@ -399,8 +392,6 @@ function rowToAttendance(row: any): Attendance {
     salesGross: row.sales_gross,
     sales: row.sales,
     uncollected: row.uncollected,
-    cardFee: row.card_fee,
-    payments: row.payments || {},
     distanceKm: row.distance_km,
     actualDistanceKm: row.actual_distance_km,
     transportCount: row.transport_count,
@@ -499,8 +490,6 @@ export async function upsertAttendance(rec: Partial<Attendance> & { staffId: str
   if (rec.salesGross !== undefined) dbRow.sales_gross = rec.salesGross;
   if (rec.sales !== undefined) dbRow.sales = rec.sales;
   if (rec.uncollected !== undefined) dbRow.uncollected = rec.uncollected;
-  if (rec.cardFee !== undefined) dbRow.card_fee = rec.cardFee;
-  if (rec.payments !== undefined) dbRow.payments = rec.payments;
   if (rec.distanceKm !== undefined) dbRow.distance_km = rec.distanceKm;
   if (rec.actualDistanceKm !== undefined) dbRow.actual_distance_km = rec.actualDistanceKm;
   if (rec.transportCount !== undefined) dbRow.transport_count = rec.transportCount;

@@ -2363,7 +2363,12 @@ import Layout from '../layouts/Layout.astro';
         const rawName = (r[5] || '').trim();
         const name = normalizeName(rawName);
         if (!day || day < 1 || day > 31 || !name) continue;
-        const sales = parseYen(r[12]);
+        // 乗合（[2]列「乗用/乗合」が「乗合」の行）は、現金売上とチケット①（＝小計）で支払われ、
+        // 未収入金は当日の売上ではなく別精算の数字のため、売上には小計だけを使う
+        // （未収入金は引き続き「未収」として別に表示するが、売上合計には含めない）。
+        // 乗合以外は従来通り売上合計（小計＋未収入金）を使う
+        const isSharedRide = (r[2] || '').trim() === '乗合';
+        const sales = isSharedRide ? parseYen(r[9]) : parseYen(r[12]);
         const uncollected = parseYen(r[10]);
         if (!sales) continue;
         const key = day + '|' + name;
@@ -2376,9 +2381,9 @@ import Layout from '../layouts/Layout.astro';
         }
         agg[key].sales += sales;
         agg[key].uncollected += uncollected;
-        // 乗合（[2]列「乗用/乗合」が「乗合」の行）の売上だけを別集計しておく。
+        // 乗合分の売上（＝上で加算したsalesのうち乗合行の分）を別集計しておく。
         // 歩合から乗合分を除外する設定のスタッフだけ、この金額を計算基礎から差し引く
-        if ((r[2] || '').trim() === '乗合') agg[key].sharedRideSalesGross += sales;
+        if (isSharedRide) agg[key].sharedRideSalesGross += sales;
         // 運行実績（同じ日に複数車両分あれば合算）
         agg[key].disabilityCount += parseYen(r[14]);
         agg[key].disabilityDiscount += parseYen(r[15]);

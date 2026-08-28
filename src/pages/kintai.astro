@@ -2408,11 +2408,27 @@ import Layout from '../layouts/Layout.astro';
           } else if (existingRec.salesGross == null) {
             status = 'new';
             applyDefault = true;
-          } else if (existingRec.salesGross === item.sales) {
-            status = 'same';
           } else {
-            status = 'diff';
-            existingSales = existingRec.salesGross;
+            // 売上金額が同じでも、乗合分・運行実績など後から追加した項目がまだ
+            // 記録されていない（元帳側にはあるのにnullのまま）場合は「反映済み」扱いにしない。
+            // そうしないと、以前一度取り込んだだけの日は二度と再取り込みされなくなってしまう
+            const sameOr0 = (a, b) => (a || 0) === (b || 0);
+            const fieldsMatch = existingRec.salesGross === item.sales
+              && sameOr0(existingRec.sharedRideSalesGross, item.sharedRideSalesGross)
+              && sameOr0(existingRec.distanceKm, item.distanceKm)
+              && sameOr0(existingRec.actualDistanceKm, item.actualDistanceKm)
+              && sameOr0(existingRec.transportCount, item.transportCount)
+              && sameOr0(existingRec.transportPersons, item.transportPersons)
+              && sameOr0(existingRec.fuelLiters, item.fuelLiters)
+              && sameOr0(existingRec.fuelAmount, item.fuelAmount)
+              && sameOr0(existingRec.disabilityCount, item.disabilityCount)
+              && sameOr0(existingRec.disabilityDiscount, item.disabilityDiscount);
+            if (fieldsMatch) {
+              status = 'same';
+            } else {
+              status = 'diff';
+              existingSales = existingRec.salesGross;
+            }
           }
         }
         results.push({

@@ -1280,16 +1280,17 @@ import Layout from '../layouts/Layout.astro';
   // 区分・時給・月給・交通費の入力（管理者のみ）
   function promptEmpType(s) {
     const cur = staffType(s);
-    const defAnsMap = { part: '2', 'fulltime-hourly': '3', monthly: '4', 'fulltime-base': '5' };
+    const defAnsMap = { part: '2', 'fulltime-hourly': '3', monthly: '4', 'fulltime-base': '5', 'monthly-commission': '6' };
     const defAns = defAnsMap[cur] || '1';
-    const input = prompt(`${s.name} の区分を選んでください（現在：${EMP_LABEL[cur]}）\n1 = 正社員（シフト日給＋歩合）\n2 = パート（時給制）\n3 = 正社員（時給制）\n4 = 正社員（月給制）\n5 = 正社員（基本給のみ・歩合なし）`, defAns);
+    const input = prompt(`${s.name} の区分を選んでください（現在：${EMP_LABEL[cur]}）\n1 = 正社員（シフト日給＋歩合）\n2 = パート（時給制）\n3 = 正社員（時給制）\n4 = 正社員（月給制）\n5 = 正社員（基本給のみ・歩合なし）\n6 = 正社員（月給制＋歩合）`, defAns);
     if (input === null) return null;
     if (input.trim() === '1') return 'fulltime';
     if (input.trim() === '2') return 'part';
     if (input.trim() === '3') return 'fulltime-hourly';
     if (input.trim() === '4') return 'monthly';
     if (input.trim() === '5') return 'fulltime-base';
-    alert('1〜5 の番号を入力してください。');
+    if (input.trim() === '6') return 'monthly-commission';
+    alert('1〜6 の番号を入力してください。');
     return null;
   }
   function promptCommute(s) {
@@ -1475,21 +1476,21 @@ import Layout from '../layouts/Layout.astro';
   const SHIFT_LABEL = { normal: '普通番', late: '遅番', part: 'パート' };
 
   // ── 雇用区分（正社員＝日給＋歩合／パート・正社員(時給)＝時給制／正社員(月給)＝固定給／正社員(基本給のみ)＝日給のみ・歩合なし） ──
-  const EMP_LABEL = { fulltime: '正社員', part: 'パート', 'fulltime-hourly': '正社員（時給）', monthly: '正社員（月給）', 'fulltime-base': '正社員（基本給のみ）' };
+  const EMP_LABEL = { fulltime: '正社員', part: 'パート', 'fulltime-hourly': '正社員（時給）', monthly: '正社員（月給）', 'fulltime-base': '正社員（基本給のみ）', 'monthly-commission': '正社員（月給＋歩合）' };
   // 時給制（時間給×実働＋割増＋交通費）で計算する区分か。パートと「正社員だが時給制」の両方が該当
   function isHourlyType(t) { return t === 'part' || t === 'fulltime-hourly'; }
-  function isMonthlyType(t) { return t === 'monthly'; }
+  function isMonthlyType(t) { return t === 'monthly' || t === 'monthly-commission'; }
   // シフト選択なしの単一出勤ボタンを使う区分（時給制・月給制）
   function usesSimplePunch(t) { return isHourlyType(t) || isMonthlyType(t); }
-  // 歩合給（売上連動）を計算する区分か。通常の正社員のみ対象
-  function hasCommission(t) { return t === 'fulltime'; }
+  // 歩合給（売上連動）を計算する区分か。通常の正社員と「月給＋歩合」が対象
+  function hasCommission(t) { return t === 'fulltime' || t === 'monthly-commission'; }
   const OT_RATE = 0.25;    // 残業割増率（8時間超）
   const NIGHT_RATE = 0.25; // 深夜割増率（22時以降）
   const NIGHT_START_HOUR = 22;
 
   function staffType(s) {
     const t = s && s.type;
-    return (t === 'part' || t === 'fulltime-hourly' || t === 'monthly' || t === 'fulltime-base') ? t : 'fulltime';
+    return (t === 'part' || t === 'fulltime-hourly' || t === 'monthly' || t === 'fulltime-base' || t === 'monthly-commission') ? t : 'fulltime';
   }
   // 電話番チェック欄を出すかどうか。正社員（シフト制）は既定で表示（phoneDutyDisabledで個別に非表示）、
   // パート・時給制・月給制（シンプル打刻）は既定で非表示（phoneDutyEnabledで個別に表示）
@@ -2866,35 +2867,47 @@ import Layout from '../layouts/Layout.astro';
 
   // 月給制（正社員(月給)）用シート。給与は固定額のため日別には計算せず、勤怠記録＋交通費のみ日別に集計する。
   // サマリーは他シートと同じ番地（B3〜B8）に置き、全体集計から共通参照する
-  function buildMonthlySheet(wb, sheetName, name, recsByDay, year, monthNum, daysInMonth, monthlyWage, commute, commuteType, managerAllowance, housingAllowance) {
+  // hasCommissionFlag が true の人（正社員（月給＋歩合））は、月給に加えて歩合給も計算する。
+  // その場合だけ売上税抜・歩合給の列を追加し、B6=歩合給合計・B7=売上合計（他シートと同じ意味に揃える）。
+  // 交通費はB3〜B8のサマリー番地の外（A2/B2）に置く（buildStaffSheetと同じ配置）
+  function buildMonthlySheet(wb, sheetName, name, recsByDay, year, monthNum, daysInMonth, monthlyWage, commute, commuteType, managerAllowance, housingAllowance, hasCommissionFlag, excludeSharedRide) {
     const ws = wb.addWorksheet(sheetName);
     const endRow = TC_TABLE_START + daysInMonth - 1;
-    const headers = ['日', '曜日', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)'];
+    const headers = hasCommissionFlag
+      ? ['日', '曜日', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)', '売上税抜(円)', '歩合給(円)']
+      : ['日', '曜日', '出勤', '退勤', '休憩(分)', '外出(分)', '実働(時間)'];
     const isDailyCommute = commuteType === 'daily';
 
-    tcTitle(ws, 'A1:D1', `${year}年${monthNum}月 勤務表（月給制）`);
+    tcTitle(ws, 'A1:D1', `${year}年${monthNum}月 勤務表（月給制${hasCommissionFlag ? '＋歩合' : ''}）`);
     tcVal(ws, 'F1', '氏名');
     tcTitle(ws, 'G1:J1', name, 12);
+    tcVal(ws, 'A2', isDailyCommute ? '交通費（日額・円）' : '交通費（月額・円）');
+    tcVal(ws, 'B2', commute || 0, '#,##0');
     tcVal(ws, 'A3', '勤務日数');
     tcFormula(ws, 'B3', `COUNT(G${TC_TABLE_START}:G${endRow})`);
     tcVal(ws, 'A4', '実働合計（時間）');
     tcFormula(ws, 'B4', `SUM(G${TC_TABLE_START}:G${endRow})`, '0.00');
     tcVal(ws, 'A5', '月給（円）');
-    tcFormula(ws, 'B5', '$D$3', '#,##0');
-    tcVal(ws, 'A6', isDailyCommute ? '交通費（日額×勤務日数・円）' : '交通費（月額・円）');
-    tcFormula(ws, 'B6', isDailyCommute ? '$D$4*$B$3' : '$D$4', '#,##0');
-    tcVal(ws, 'A7', '売上合計（月給制は対象外）');
-    tcVal(ws, 'B7', 0);
-    tcVal(ws, 'A8', '総支給額（円）');
-    tcFormula(ws, 'B8', '$B$5+$B$6+$B$9+$D$8', '#,##0');
+    tcVal(ws, 'B5', monthlyWage, '#,##0');
+    if (hasCommissionFlag) {
+      tcVal(ws, 'A6', '歩合給合計（円）');
+      tcFormula(ws, 'B6', `SUM(I${TC_TABLE_START}:I${endRow})`, '#,##0');
+      tcVal(ws, 'A7', '売上合計（税抜・円）');
+      tcFormula(ws, 'B7', `SUM(H${TC_TABLE_START}:H${endRow})`, '#,##0');
+      tcVal(ws, 'A8', '総支給額（円）');
+      tcFormula(ws, 'B8', (isDailyCommute ? '$B$5+$B$6+$B$2*$B$3' : '$B$5+$B$6+$B$2') + '+$B$9+$D$8', '#,##0');
+    } else {
+      tcVal(ws, 'A6', '歩合・手当合計（円・月給制は対象外）');
+      tcVal(ws, 'B6', 0);
+      tcVal(ws, 'A7', '売上合計（円・月給制は対象外）');
+      tcVal(ws, 'B7', 0);
+      tcVal(ws, 'A8', '総支給額（円）');
+      tcFormula(ws, 'B8', (isDailyCommute ? '$B$5+$B$2*$B$3' : '$B$5+$B$2') + '+$B$9+$D$8', '#,##0');
+    }
     tcVal(ws, 'A9', '管理者手当（月額・円）');
     tcVal(ws, 'B9', managerAllowance || 0, '#,##0');
     tcVal(ws, 'C8', '住宅手当（月額・円）');
     tcVal(ws, 'D8', housingAllowance || 0, '#,##0');
-    tcVal(ws, 'C3', '月給（円）');
-    tcVal(ws, 'D3', monthlyWage, '#,##0');
-    tcVal(ws, 'C4', isDailyCommute ? '交通費（日額・円）' : '交通費（月額・円）');
-    tcVal(ws, 'D4', commute, '#,##0');
 
     tcHeaderRow(ws, TC_TABLE_START - 1, headers, 1);
 
@@ -2910,12 +2923,24 @@ import Layout from '../layouts/Layout.astro';
         if (rec.out) tcVal(ws, `D${row}`, tcTimeSerial(rec.out), 'h:mm');
         tcVal(ws, `E${row}`, breakMinutes(rec));
         tcVal(ws, `F${row}`, awayMinutes(rec));
+        if (hasCommissionFlag && rec.sales != null) tcVal(ws, `H${row}`, rec.sales, '#,##0');
       }
       tcFormula(ws, `G${row}`, `IF(OR($C${row}="",$D${row}=""),"",ROUND(($D${row}-$C${row}+IF($D${row}<$C${row},1,0))*24-IF($E${row}="",0,$E${row})/60-IF($F${row}="",0,$F${row})/60,2))`, '0.00');
+      if (hasCommissionFlag) {
+        // 歩合給を手修正した日、または乗合分を歩合から除外する設定で実際に乗合分がある日は、
+        // 数式ではなくアプリと同じ計算結果（commissionPay）をそのまま書く
+        if (rec && rec.commissionOverride != null) {
+          tcVal(ws, `I${row}`, rec.commissionOverride, '#,##0');
+        } else if (rec && excludeSharedRide && rec.sharedRideSalesGross) {
+          tcVal(ws, `I${row}`, Math.round(commissionPay(rec)), '#,##0');
+        } else {
+          tcFormula(ws, `I${row}`, `IF($H${row}="","",ROUND(MAX(0,$H${row})*設定!$B$6/100,0))`, '#,##0');
+        }
+      }
       tcRowStyle(ws, row, headers.length, 7);
     }
 
-    tcCols(ws, [4, 5, 7, 7, 8, 8, 10]);
+    tcCols(ws, hasCommissionFlag ? [4, 5, 7, 7, 8, 8, 10, 12, 11] : [4, 5, 7, 7, 8, 8, 10]);
     return ws;
   }
 
@@ -2964,6 +2989,7 @@ import Layout from '../layouts/Layout.astro';
       const recs = Object.values(days);
       const isPart = recs.some(r => isHourlyType(recEmpType(r)));
       const isMonthly = recs.some(r => isMonthlyType(recEmpType(r)));
+      const isMonthlyCommission = recs.some(r => recEmpType(r) === 'monthly-commission');
       const src = recs.find(r => r.hourlyWage != null) || {};
       const monthlySrc = recs.find(r => r.monthlyWage != null) || {};
       const dailyWageSrc = recs.find(r => r.dailyWage != null);
@@ -2972,7 +2998,7 @@ import Layout from '../layouts/Layout.astro';
       const housingAllowanceSrc = recs.find(r => r.housingAllowance != null) || {};
       return {
         name, days,
-        isPart, isMonthly,
+        isPart, isMonthly, isMonthlyCommission,
         hourlyWage: src.hourlyWage ?? (staffObj && staffObj.hourlyWage) ?? settings.minWage,
         monthlyWage: monthlySrc.monthlyWage ?? (staffObj && staffObj.monthlyWage) ?? 0,
         dailyWage: dailyWageSrc ? dailyWageSrc.dailyWage : ((staffObj && staffObj.dailyWage != null) ? staffObj.dailyWage : null),
@@ -3018,7 +3044,7 @@ import Layout from '../layouts/Layout.astro';
     // スタッフ別シート（設定・全体集計の後に追加）
     for (const s of staffSheets) {
       const t = s.target;
-      if (t.isMonthly) buildMonthlySheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.monthlyWage, t.commute, t.commuteType, t.managerAllowance, t.housingAllowance);
+      if (t.isMonthly) buildMonthlySheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.monthlyWage, t.commute, t.commuteType, t.managerAllowance, t.housingAllowance, t.isMonthlyCommission, t.excludeSharedRide);
       else if (t.isPart) buildPartSheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.hourlyWage, t.commute, t.commuteType, t.managerAllowance, t.housingAllowance);
       else buildStaffSheet(wb, s.sheetName, t.name, t.days, year, monthNum, daysInMonth, t.dailyWage, t.commute, t.commuteType, t.managerAllowance, t.housingAllowance, t.excludeSharedRide);
     }

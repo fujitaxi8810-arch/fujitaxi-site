@@ -1401,7 +1401,7 @@ import Layout from '../layouts/Layout.astro';
   function wageNoteFor(type, s) {
     if (isHourlyType(type)) return `（時間給 ${yen(s.hourlyWage)}円／交通費 ${yen(s.commuteAllowance)}円・${commuteTypeLabel(s)}）`;
     if (isMonthlyType(type)) return `（月給 ${yen(s.monthlyWage)}円／交通費 ${yen(s.commuteAllowance)}円・${commuteTypeLabel(s)}）`;
-    if (type === 'fulltime-base') return `（基本日給 ${yen(s.dailyWage)}円／交通費 ${yen(s.commuteAllowance)}円・${commuteTypeLabel(s)}）`;
+    if (type === 'fulltime-base' || type === 'shokutaku-base') return `（基本日給 ${yen(s.dailyWage)}円／交通費 ${yen(s.commuteAllowance)}円・${commuteTypeLabel(s)}）`;
     return `（交通費 ${yen(s.commuteAllowance)}円・${commuteTypeLabel(s)}）`;
   }
   async function editStaff(s) {
@@ -1440,7 +1440,7 @@ import Layout from '../layouts/Layout.astro';
     const s = { name: name.trim() };
     const type = promptEmpType(s);
     if (type === null) return;
-    if (isHourlyType(type) || isMonthlyType(type) || type === 'fulltime-base') {
+    if (isHourlyType(type) || isMonthlyType(type) || type === 'fulltime-base' || type === 'shokutaku-base') {
       if (!(await requireAdmin())) { alert('時給・月給・基本日給の設定には管理者パスワードが必要です。'); return; }
       renderAdminBar();
       if (!promptWagesFor(type, s)) return;

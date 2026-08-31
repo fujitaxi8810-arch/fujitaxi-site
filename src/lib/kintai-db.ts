@@ -14,6 +14,27 @@ function nextMonthStr(month: string): string {
 
 export type EmpType = 'fulltime' | 'fulltime-base' | 'fulltime-hourly' | 'part' | 'monthly' | 'monthly-commission' | 'shokutaku' | 'shokutaku-base';
 
+/** 時給制の区分 */
+export function isHourlyType(t: EmpType | null | undefined): boolean {
+  return t === 'part' || t === 'fulltime-hourly';
+}
+/** 月給制の区分 */
+export function isMonthlyType(t: EmpType | null | undefined): boolean {
+  return t === 'monthly' || t === 'monthly-commission';
+}
+/**
+ * シフト選択なしの単一出勤ボタンを使う区分（時給制・月給制）。
+ * /kintai の打刻画面と /shift の「シフトと実績の差異」チェックの両方が同じ判定を
+ * 必要とするため、ここを唯一の定義とする（EmpType のすぐ隣に置いて、区分を
+ * 増やしたときに更新を忘れないようにしている）。
+ * 以前は両ページに同じ関数を複製しており、'monthly-commission'（正社員 月給＋歩合）を
+ * 追加したとき /kintai だけ直って /shift が取り残され、差異チェックが
+ * 「普通番／遅番が予定と異なります」を誤検知していた
+ */
+export function usesSimplePunch(t: EmpType | null | undefined): boolean {
+  return isHourlyType(t) || isMonthlyType(t);
+}
+
 export type BreakMode = 'punch' | 'fixed' | 'manual';
 
 export type Staff = {

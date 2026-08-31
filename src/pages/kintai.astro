@@ -2709,56 +2709,47 @@ import Layout from '../layouts/Layout.astro';
     const THIN = { style: 'thin', color: { argb: 'FFB7B7B7' } };
 
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet(month);
-    // A4・横向き・幅を1ページに収め、見出し2行（タイトル・列名）を全ページで繰り返す
-    ws.pageSetup = {
-      paperSize: 9,
-      orientation: 'landscape',
-      fitToPage: true,
-      fitToWidth: 1,
-      fitToHeight: 0,
-      margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
-      printTitlesRow: '1:2',
-    };
-    ws.headerFooter = { oddFooter: '&Pページ / &N ページ' };
-
-    // タイトル行
-    ws.mergeCells(1, 1, 1, COL_COUNT);
-    const titleCell = ws.getCell(1, 1);
-    titleCell.value = `${month.replace('-', '年')}月　打刻のみ（勤怠記録）`;
-    titleCell.font = { name: '游ゴシック', size: 13, bold: true };
-    titleCell.alignment = { horizontal: 'left', vertical: 'middle' };
-    ws.getRow(1).height = 24;
-
-    // 列見出し行
-    TIME_ONLY_HEADERS.forEach((h, i) => {
-      const col = i + 1;
-      const cell = ws.getCell(2, col);
-      cell.value = h;
-      cell.font = { name: '游ゴシック', size: 10, bold: true };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-      cell.border = { top: THIN, left: THIN, right: THIN, bottom: { style: 'medium', color: { argb: 'FF4472C4' } } };
-      ws.getColumn(col).width = TIME_ONLY_WIDTHS[i];
-      if (h.includes('(時間)')) ws.getColumn(col).numFmt = '0.00';
-    });
-    ws.getRow(2).height = 22;
-    ws.views = [{ state: 'frozen', ySplit: 2 }];
-
-    let row = 3;
-    staffIds.forEach((id, idx) => {
+    const usedSheetNames = new Set();
+    staffIds.forEach((id) => {
       const s = staff.find(x => x.id === id);
-      // スタッフ名の見出し行（結合セル）。印刷時、ここで人ごとの区切りが一目でわかるようにする
-      ws.mergeCells(row, 1, row, COL_COUNT);
-      const nameCell = ws.getCell(row, 1);
-      nameCell.value = s ? `${s.name}（${EMP_LABEL[staffType(s)]}）` : '（削除済みスタッフ）';
-      nameCell.font = { name: '游ゴシック', size: 11, bold: true, color: { argb: 'FF1F3864' } };
-      nameCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDF1F8' } };
-      nameCell.alignment = { horizontal: 'left', vertical: 'middle' };
-      nameCell.border = { top: THIN, bottom: THIN, left: THIN, right: THIN };
-      ws.getRow(row).height = 20;
-      row++;
+      const label = s ? s.name : '（削除済み）';
+      const ws = wb.addWorksheet(tcSheetName(label, usedSheetNames));
+      // A4・横向き・幅を1ページに収め、見出し2行（タイトル・列名）を全ページで繰り返す
+      ws.pageSetup = {
+        paperSize: 9,
+        orientation: 'landscape',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
+        printTitlesRow: '1:2',
+      };
+      ws.headerFooter = { oddFooter: '&Pページ / &N ページ' };
 
+      // タイトル行
+      ws.mergeCells(1, 1, 1, COL_COUNT);
+      const titleCell = ws.getCell(1, 1);
+      titleCell.value = `${month.replace('-', '年')}月　打刻のみ（勤怠記録）　${label}${s ? `（${EMP_LABEL[staffType(s)]}）` : ''}`;
+      titleCell.font = { name: '游ゴシック', size: 13, bold: true };
+      titleCell.alignment = { horizontal: 'left', vertical: 'middle' };
+      ws.getRow(1).height = 24;
+
+      // 列見出し行
+      TIME_ONLY_HEADERS.forEach((h, i) => {
+        const col = i + 1;
+        const cell = ws.getCell(2, col);
+        cell.value = h;
+        cell.font = { name: '游ゴシック', size: 10, bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border = { top: THIN, left: THIN, right: THIN, bottom: { style: 'medium', color: { argb: 'FF4472C4' } } };
+        ws.getColumn(col).width = TIME_ONLY_WIDTHS[i];
+        if (h.includes('(時間)')) ws.getColumn(col).numFmt = '0.00';
+      });
+      ws.getRow(2).height = 22;
+      ws.views = [{ state: 'frozen', ySplit: 2 }];
+
+      let row = 3;
       for (const rec of byStaff[id]) {
         timeOnlyRowFromRec(rec).forEach((v, ci) => {
           const cell = ws.getCell(row, ci + 1);
@@ -2769,8 +2760,6 @@ import Layout from '../layouts/Layout.astro';
         });
         row++;
       }
-      // 次の人は新しいページから印刷されるようにする（最後の人の後ろには不要）
-      if (idx < staffIds.length - 1) ws.getRow(row - 1).addPageBreak();
     });
 
     const buf = await wb.xlsx.writeBuffer();

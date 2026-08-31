@@ -2603,8 +2603,12 @@ import Layout from '../layouts/Layout.astro';
   // ── 打刻のみ出力（Excel）──
   // 給与計算（歩合給・支給額など）は含めず、出退勤の時刻・実働時間だけを出力する。
   // 給与計算まわりの検証が追いつかない間も、打刻の記録だけは確実に確認・保管できるようにするための安全弁
-  const TIME_ONLY_HEADERS = ['日付', '名前', '区分', '電話番', '出勤', '退勤', '休憩(分)', '時間内外出(分)', '実働(分)', '実働(時:分)'];
-  const TIME_ONLY_WIDTHS = [10, 12, 16, 8, 8, 8, 9, 13, 9, 11];
+  const TIME_ONLY_HEADERS = ['日付', '名前', '区分', '電話番', '出勤', '退勤', '休憩(時間)', '時間内外出(時間)', '実働(時間)'];
+  const TIME_ONLY_WIDTHS = [10, 12, 16, 8, 8, 8, 10, 12, 10];
+  // 分を時間（小数・小数第2位まで）に変換する
+  function minutesToHours(min) {
+    return Math.round((min || 0) / 60 * 100) / 100;
+  }
   function timeOnlyRowFromRec(rec) {
     const s = staff.find(x => x.id === rec.staffId);
     const isSimple = usesSimplePunch(recEmpType(rec));
@@ -2616,10 +2620,9 @@ import Layout from '../layouts/Layout.astro';
       rec.phoneDuty ? '有' : '',
       rec.in ? timeStr(rec.in) : '',
       rec.out ? timeStr(rec.out) : '',
-      breakMinutes(rec),
-      awayMinutes(rec),
-      w,
-      rec.out ? hm(w) : '',
+      minutesToHours(breakMinutes(rec)),
+      minutesToHours(awayMinutes(rec)),
+      w !== '' ? minutesToHours(w) : '',
     ];
   }
   $('timeOnlyBtn').onclick = async () => {
@@ -2642,6 +2645,7 @@ import Layout from '../layouts/Layout.astro';
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       cell.border = { bottom: { style: 'thin', color: { argb: 'FF9DB4D0' } } };
       ws.getColumn(col).width = TIME_ONLY_WIDTHS[i];
+      if (h.includes('(時間)')) ws.getColumn(col).numFmt = '0.00';
     });
     ws.getRow(1).height = 22;
     ws.views = [{ state: 'frozen', ySplit: 1 }];

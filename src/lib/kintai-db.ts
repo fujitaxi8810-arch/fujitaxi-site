@@ -12,7 +12,7 @@ function nextMonthStr(month: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-export type EmpType = 'fulltime' | 'fulltime-base' | 'fulltime-hourly' | 'part' | 'monthly' | 'monthly-commission' | 'shokutaku';
+export type EmpType = 'fulltime' | 'fulltime-base' | 'fulltime-hourly' | 'part' | 'monthly' | 'monthly-commission' | 'shokutaku' | 'shokutaku-base';
 
 export type BreakMode = 'punch' | 'fixed' | 'manual';
 

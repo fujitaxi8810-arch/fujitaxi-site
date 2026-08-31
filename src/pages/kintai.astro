@@ -1292,9 +1292,9 @@ import Layout from '../layouts/Layout.astro';
   // 区分・時給・月給・交通費の入力（管理者のみ）
   function promptEmpType(s) {
     const cur = staffType(s);
-    const defAnsMap = { part: '2', 'fulltime-hourly': '3', monthly: '4', 'fulltime-base': '5', 'monthly-commission': '6', shokutaku: '7' };
+    const defAnsMap = { part: '2', 'fulltime-hourly': '3', monthly: '4', 'fulltime-base': '5', 'monthly-commission': '6', shokutaku: '7', 'shokutaku-base': '8' };
     const defAns = defAnsMap[cur] || '1';
-    const input = prompt(`${s.name} の区分を選んでください（現在：${EMP_LABEL[cur]}）\n1 = 正社員（シフト日給＋歩合）\n2 = パート（時給制）\n3 = 正社員（時給制）\n4 = 正社員（月給制）\n5 = 正社員（基本給のみ・歩合なし）\n6 = 正社員（月給制＋歩合）\n7 = 嘱託社員（シフト日給＋歩合）`, defAns);
+    const input = prompt(`${s.name} の区分を選んでください（現在：${EMP_LABEL[cur]}）\n1 = 正社員（シフト日給＋歩合）\n2 = パート（時給制）\n3 = 正社員（時給制）\n4 = 正社員（月給制）\n5 = 正社員（基本給のみ・歩合なし）\n6 = 正社員（月給制＋歩合）\n7 = 嘱託社員（シフト日給＋歩合）\n8 = 嘱託社員（基本給のみ・歩合なし）`, defAns);
     if (input === null) return null;
     if (input.trim() === '1') return 'fulltime';
     if (input.trim() === '2') return 'part';
@@ -1303,7 +1303,8 @@ import Layout from '../layouts/Layout.astro';
     if (input.trim() === '5') return 'fulltime-base';
     if (input.trim() === '6') return 'monthly-commission';
     if (input.trim() === '7') return 'shokutaku';
-    alert('1〜7 の番号を入力してください。');
+    if (input.trim() === '8') return 'shokutaku-base';
+    alert('1〜8 の番号を入力してください。');
     return null;
   }
   function promptCommute(s) {
@@ -1351,7 +1352,7 @@ import Layout from '../layouts/Layout.astro';
   function promptWagesFor(type, s) {
     if (isHourlyType(type)) return promptPartWages(s);
     if (isMonthlyType(type)) return promptMonthlyWage(s);
-    if (type === 'fulltime-base') return promptDailyWage(s);
+    if (type === 'fulltime-base' || type === 'shokutaku-base') return promptDailyWage(s);
     return promptCommute(s);
   }
   function commuteTypeLabel(s) {
@@ -1489,7 +1490,7 @@ import Layout from '../layouts/Layout.astro';
   const SHIFT_LABEL = { normal: '普通番', late: '遅番', part: 'パート' };
 
   // ── 雇用区分（正社員＝日給＋歩合／パート・正社員(時給)＝時給制／正社員(月給)＝固定給／正社員(基本給のみ)＝日給のみ・歩合なし） ──
-  const EMP_LABEL = { fulltime: '正社員', part: 'パート', 'fulltime-hourly': '正社員（時給）', monthly: '正社員（月給）', 'fulltime-base': '正社員（基本給のみ）', 'monthly-commission': '正社員（月給＋歩合）', shokutaku: '嘱託社員' };
+  const EMP_LABEL = { fulltime: '正社員', part: 'パート', 'fulltime-hourly': '正社員（時給）', monthly: '正社員（月給）', 'fulltime-base': '正社員（基本給のみ）', 'monthly-commission': '正社員（月給＋歩合）', shokutaku: '嘱託社員', 'shokutaku-base': '嘱託社員（基本給のみ）' };
   // 時給制（時間給×実働＋割増＋交通費）で計算する区分か。パートと「正社員だが時給制」の両方が該当
   function isHourlyType(t) { return t === 'part' || t === 'fulltime-hourly'; }
   function isMonthlyType(t) { return t === 'monthly' || t === 'monthly-commission'; }
@@ -1503,7 +1504,7 @@ import Layout from '../layouts/Layout.astro';
 
   function staffType(s) {
     const t = s && s.type;
-    return (t === 'part' || t === 'fulltime-hourly' || t === 'monthly' || t === 'fulltime-base' || t === 'monthly-commission' || t === 'shokutaku') ? t : 'fulltime';
+    return (t === 'part' || t === 'fulltime-hourly' || t === 'monthly' || t === 'fulltime-base' || t === 'monthly-commission' || t === 'shokutaku' || t === 'shokutaku-base') ? t : 'fulltime';
   }
   // 電話番チェック欄を出すかどうか。正社員（シフト制）は既定で表示（phoneDutyDisabledで個別に非表示）、
   // パート・時給制・月給制（シンプル打刻）は既定で非表示（phoneDutyEnabledで個別に表示）

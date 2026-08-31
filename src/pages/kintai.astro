@@ -135,42 +135,54 @@ import Layout from '../layouts/Layout.astro';
           </label>
           <p class="kt-modal__taxnote" id="manualEntryExisting"></p>
 
-          <p class="kt-shift-select__label">シフト区分</p>
-          <div class="kt-settings-grid">
-            <label class="kt-inline-check"><input type="radio" name="manualEntryShift" value="normal" checked /><span>普通番</span></label>
-            <label class="kt-inline-check"><input type="radio" name="manualEntryShift" value="late" /><span>遅番</span></label>
-            <label class="kt-inline-check"><input type="radio" name="manualEntryShift" value="part" /><span>パート</span></label>
-          </div>
           <label class="kt-inline-check">
-            <input type="checkbox" id="manualEntryPhoneDuty" /><span>電話番を担当</span>
+            <input type="checkbox" id="manualEntryCommissionOnly" /><span>歩合給のみを記録する（出勤なし・売上をそのまま入力）</span>
           </label>
+          <p class="kt-note">※ 取締役の売上を別のスタッフに付け替えた場合など、その日に本人の出勤打刻が無くても歩合だけ記録したい場合に使います。実働時間・基本給は発生しません。</p>
 
-          <div class="kt-settings-grid">
-            <label class="kt-field">
-              <span>出勤時刻</span>
-              <input type="time" id="manualEntryIn" class="kt-input" />
+          <div id="manualEntryShiftFields">
+            <p class="kt-shift-select__label">シフト区分</p>
+            <div class="kt-settings-grid">
+              <label class="kt-inline-check"><input type="radio" name="manualEntryShift" value="normal" checked /><span>普通番</span></label>
+              <label class="kt-inline-check"><input type="radio" name="manualEntryShift" value="late" /><span>遅番</span></label>
+              <label class="kt-inline-check"><input type="radio" name="manualEntryShift" value="part" /><span>パート</span></label>
+            </div>
+            <label class="kt-inline-check">
+              <input type="checkbox" id="manualEntryPhoneDuty" /><span>電話番を担当</span>
             </label>
-            <label class="kt-field">
-              <span>退勤時刻</span>
-              <input type="time" id="manualEntryOut" class="kt-input" />
-            </label>
-            <label class="kt-field">
-              <span>休憩開始（任意）</span>
-              <input type="time" id="manualEntryBreakStart" class="kt-input" />
-            </label>
-            <label class="kt-field">
-              <span>休憩終了（任意）</span>
-              <input type="time" id="manualEntryBreakEnd" class="kt-input" />
-            </label>
-            <label class="kt-field">
-              <span>時間内退勤時刻（任意）</span>
-              <input type="time" id="manualEntryAwayStart" class="kt-input" />
-            </label>
-            <label class="kt-field">
-              <span>時間内出勤時刻（任意）</span>
-              <input type="time" id="manualEntryAwayEnd" class="kt-input" />
-            </label>
+
+            <div class="kt-settings-grid">
+              <label class="kt-field">
+                <span>出勤時刻</span>
+                <input type="time" id="manualEntryIn" class="kt-input" />
+              </label>
+              <label class="kt-field">
+                <span>退勤時刻</span>
+                <input type="time" id="manualEntryOut" class="kt-input" />
+              </label>
+              <label class="kt-field">
+                <span>休憩開始（任意）</span>
+                <input type="time" id="manualEntryBreakStart" class="kt-input" />
+              </label>
+              <label class="kt-field">
+                <span>休憩終了（任意）</span>
+                <input type="time" id="manualEntryBreakEnd" class="kt-input" />
+              </label>
+              <label class="kt-field">
+                <span>時間内退勤時刻（任意）</span>
+                <input type="time" id="manualEntryAwayStart" class="kt-input" />
+              </label>
+              <label class="kt-field">
+                <span>時間内出勤時刻（任意）</span>
+                <input type="time" id="manualEntryAwayEnd" class="kt-input" />
+              </label>
+            </div>
           </div>
+
+          <label class="kt-field" id="manualEntrySalesBlock" hidden>
+            <span>その日の売上合計（税込・円）</span>
+            <input type="number" id="manualEntrySalesInput" class="kt-input" min="0" inputmode="numeric" placeholder="例: 7800" />
+          </label>
 
           <div class="kt-modal__actions">
             <button type="button" class="kt-punch kt-punch--out" id="manualEntrySubmit">保存する</button>
@@ -1747,6 +1759,15 @@ import Layout from '../layouts/Layout.astro';
       sel.appendChild(opt);
     }
   }
+  // 通常の打刻手入力は必ずシフト区分を選ぶため、shiftTypeが無い記録は「歩合給のみ」で作った記録とみなす
+  function isCommissionOnlyRec(rec) {
+    return !!rec && !rec.shiftType;
+  }
+  function updateManualEntryMode() {
+    const commissionOnly = $('manualEntryCommissionOnly').checked;
+    $('manualEntryShiftFields').hidden = commissionOnly;
+    $('manualEntrySalesBlock').hidden = !commissionOnly;
+  }
   async function loadManualEntryForDate() {
     const staffId = $('manualEntryStaff').value;
     const date = $('manualEntryDate').value;
@@ -1758,8 +1779,13 @@ import Layout from '../layouts/Layout.astro';
       alert(SAVE_FAIL_MSG);
       return;
     }
-    if (rec) {
+    if (rec && isCommissionOnlyRec(rec)) {
+      $('manualEntryExisting').textContent = '※ この日はすでに「歩合給のみ」の記録があります。内容を修正して保存できます。';
+      $('manualEntryCommissionOnly').checked = true;
+      $('manualEntrySalesInput').value = rec.salesGross != null ? rec.salesGross : '';
+    } else if (rec) {
       $('manualEntryExisting').textContent = '※ この日はすでに記録があります。内容を修正して保存できます。';
+      $('manualEntryCommissionOnly').checked = false;
       const radio = document.querySelector(`input[name="manualEntryShift"][value="${rec.shiftType || 'normal'}"]`);
       if (radio) radio.checked = true;
       $('manualEntryPhoneDuty').checked = !!rec.phoneDuty;
@@ -1771,8 +1797,10 @@ import Layout from '../layouts/Layout.astro';
       const firstLeave = (rec.leaves || [])[0];
       $('manualEntryAwayStart').value = firstLeave ? isoToTimeInput(firstLeave.start) : '';
       $('manualEntryAwayEnd').value = firstLeave ? isoToTimeInput(firstLeave.end) : '';
+      $('manualEntrySalesInput').value = '';
     } else {
       $('manualEntryExisting').textContent = 'この日はまだ記録がありません（新規に追加します）。';
+      $('manualEntryCommissionOnly').checked = false;
       document.querySelector('input[name="manualEntryShift"][value="normal"]').checked = true;
       $('manualEntryPhoneDuty').checked = false;
       $('manualEntryIn').value = '';
@@ -1781,7 +1809,9 @@ import Layout from '../layouts/Layout.astro';
       $('manualEntryBreakEnd').value = '';
       $('manualEntryAwayStart').value = '';
       $('manualEntryAwayEnd').value = '';
+      $('manualEntrySalesInput').value = '';
     }
+    updateManualEntryMode();
   }
   function openManualEntryModal(prefill) {
     fillManualEntryStaffOptions();
@@ -1799,20 +1829,6 @@ import Layout from '../layouts/Layout.astro';
     if (!staffId || !date) { alert('スタッフと日付を指定してください。'); return; }
     const s = staff.find(x => x.id === staffId);
     if (!s) return;
-    const shiftType = document.querySelector('input[name="manualEntryShift"]:checked').value;
-    const inIso = timeInputToIso(date, $('manualEntryIn').value);
-    const outIso = timeInputToIso(date, $('manualEntryOut').value);
-    if (!inIso) { alert('出勤時刻を入力してください。'); return; }
-    if (outIso && new Date(outIso) < new Date(inIso)) {
-      alert('退勤時刻が出勤時刻より前になっています。時刻を確認してください。');
-      return;
-    }
-    const breakStartIso = timeInputToIso(date, $('manualEntryBreakStart').value);
-    const breakEndIso = timeInputToIso(date, $('manualEntryBreakEnd').value);
-    const breaks = breakStartIso ? [{ start: breakStartIso, end: breakEndIso || null }] : [];
-    const awayStartIso = timeInputToIso(date, $('manualEntryAwayStart').value);
-    const awayEndIso = timeInputToIso(date, $('manualEntryAwayEnd').value);
-    const leaves = awayStartIso ? [{ start: awayStartIso, end: awayEndIso || null }] : [];
 
     let existing = null;
     try {
@@ -1821,16 +1837,49 @@ import Layout from '../layouts/Layout.astro';
       alert(SAVE_FAIL_MSG);
       return;
     }
-    const patch = {
-      staffId,
-      date,
-      in: inIso,
-      out: outIso || null,
-      shiftType,
-      phoneDuty: $('manualEntryPhoneDuty').checked,
-      breaks,
-      leaves,
-    };
+
+    let patch;
+    if ($('manualEntryCommissionOnly').checked) {
+      // 歩合給のみ：出勤の実態は無いので、集計対象になるための便宜上の時刻（正午）を出退勤両方に入れる
+      // （シフト区分をnullにすることで、基本給・実働時間は発生しない。歩合給だけが売上から自動計算される）
+      const gross = parseFloat($('manualEntrySalesInput').value);
+      if (isNaN(gross) || gross < 0) { alert('売上合計（税込）を入力してください。'); return; }
+      const noonIso = timeInputToIso(date, '12:00');
+      patch = {
+        staffId, date,
+        in: noonIso, out: noonIso,
+        shiftType: null,
+        phoneDuty: false,
+        breaks: [],
+        leaves: [],
+        salesGross: gross,
+        sales: taxExcluded(gross),
+      };
+    } else {
+      const shiftType = document.querySelector('input[name="manualEntryShift"]:checked').value;
+      const inIso = timeInputToIso(date, $('manualEntryIn').value);
+      const outIso = timeInputToIso(date, $('manualEntryOut').value);
+      if (!inIso) { alert('出勤時刻を入力してください。'); return; }
+      if (outIso && new Date(outIso) < new Date(inIso)) {
+        alert('退勤時刻が出勤時刻より前になっています。時刻を確認してください。');
+        return;
+      }
+      const breakStartIso = timeInputToIso(date, $('manualEntryBreakStart').value);
+      const breakEndIso = timeInputToIso(date, $('manualEntryBreakEnd').value);
+      const breaks = breakStartIso ? [{ start: breakStartIso, end: breakEndIso || null }] : [];
+      const awayStartIso = timeInputToIso(date, $('manualEntryAwayStart').value);
+      const awayEndIso = timeInputToIso(date, $('manualEntryAwayEnd').value);
+      const leaves = awayStartIso ? [{ start: awayStartIso, end: awayEndIso || null }] : [];
+      patch = {
+        staffId, date,
+        in: inIso,
+        out: outIso || null,
+        shiftType,
+        phoneDuty: $('manualEntryPhoneDuty').checked,
+        breaks,
+        leaves,
+      };
+    }
     // 既存記録が無い場合のみ、現在のスタッフ設定を給与計算条件としてスナップショットする
     // （既存記録がある場合は、出勤当時のスナップショットを上書きしないよう触らない）
     if (!existing) Object.assign(patch, buildEmploymentSnapshot(s));
@@ -1853,6 +1902,7 @@ import Layout from '../layouts/Layout.astro';
   $('manualEntrySubmit').onclick = () => saveManualEntry();
   $('manualEntryStaff').addEventListener('change', loadManualEntryForDate);
   $('manualEntryDate').addEventListener('change', loadManualEntryForDate);
+  $('manualEntryCommissionOnly').addEventListener('change', updateManualEntryMode);
 
   async function punch(type) {
     if (!selectedId) return;

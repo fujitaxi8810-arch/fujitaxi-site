@@ -41,6 +41,12 @@ export type Staff = {
    * （売上合計自体には引き続き含める）。列が無い環境では false 扱い
    */
   commissionExcludesSharedRide: boolean;
+  /**
+   * 設定されている場合、元帳取り込みでこの人の売上は自分の記録にはせず、
+   * ここで指定したスタッフ（id）の売上・歩合として取り込む（例：取締役の売上を別の人の歩合に付け替える）。
+   * 本人の打刻・勤務履歴には影響しない。列が無い環境では null 扱い
+   */
+  salesAttributedTo: string | null;
   lateShiftDisabled: boolean;
   shiftShuttle: boolean;
   shiftSpecial: boolean;
@@ -258,6 +264,7 @@ function rowToStaff(row: any): Staff {
     phoneDutyDisabled: row.phone_duty_disabled,
     phoneDutyEnabled: row.phone_duty_enabled ?? false,
     commissionExcludesSharedRide: row.commission_excludes_shared_ride ?? false,
+    salesAttributedTo: row.sales_attributed_to ?? null,
     lateShiftDisabled: row.late_shift_disabled,
     shiftShuttle: row.shift_shuttle,
     shiftSpecial: row.shift_special,

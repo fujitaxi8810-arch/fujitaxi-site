@@ -2357,7 +2357,9 @@ import Layout from '../layouts/Layout.astro';
       const text = await res.text();
       const rows = parseImportCsv(text);
 
-      // 日付・ドライバー名ごとに集計（同じ日に複数車両分ある場合は合算）
+      // 日付・ドライバーごとに集計（同じ日に複数車両分ある場合は合算）。
+      // 元帳の名前で見つかったスタッフに salesAttributedTo（売上の付け替え先）が設定されている場合は、
+      // 本人ではなく付け替え先のスタッフの売上として集計する（本人の打刻・勤務履歴には影響しない）
       const agg = {};
       for (const r of rows) {
         const day = parseInt(r[0], 10);
@@ -2367,14 +2369,21 @@ import Layout from '../layouts/Layout.astro';
         const sales = parseYen(r[12]);
         const uncollected = parseYen(r[10]);
         if (!sales) continue;
-        const key = day + '|' + name;
+
+        const sourceStaff = staff.find(s => normalizeName(s.name) === name);
+        const targetStaff = (sourceStaff && sourceStaff.salesAttributedTo)
+          ? (staff.find(s => s.id === sourceStaff.salesAttributedTo) || sourceStaff)
+          : sourceStaff;
+        const key = day + '|' + (targetStaff ? targetStaff.id : ('name:' + name));
         if (!agg[key]) {
           agg[key] = {
-            day, name, rawName, sales: 0, uncollected: 0, sharedRideSalesGross: 0,
+            day, targetStaffId: targetStaff ? targetStaff.id : null, targetName: targetStaff ? targetStaff.name : null,
+            rawName, sourceNames: new Set(), sales: 0, uncollected: 0, sharedRideSalesGross: 0,
             disabilityCount: 0, disabilityDiscount: 0, transportCount: 0, transportPersons: 0,
             distanceKm: 0, actualDistanceKm: 0, fuelLiters: 0, fuelAmount: 0,
           };
         }
+        agg[key].sourceNames.add(rawName);
         agg[key].sales += sales;
         agg[key].uncollected += uncollected;
         // 乗合（[2]列「乗用/乗合」が「乗合」の行）の売上だけを別集計しておく。
@@ -2396,12 +2405,10 @@ import Layout from '../layouts/Layout.astro';
       for (const key of Object.keys(agg).sort((a, b) => agg[a].day - agg[b].day)) {
         const item = agg[key];
         const date = `${month}-${String(item.day).padStart(2, '0')}`;
-        const matchedStaff = staff.find(s => normalizeName(s.name) === item.name);
-        let status, applyDefault = false, staffId = null, existingSales = null;
-        if (!matchedStaff) {
+        let status, applyDefault = false, staffId = item.targetStaffId, existingSales = null;
+        if (!staffId) {
           status = 'notfound';
         } else {
-          staffId = matchedStaff.id;
           const existingRec = monthRecs.find(r => r.staffId === staffId && r.date === date && r.out);
           if (!existingRec) {
             status = 'norecord';
@@ -2431,8 +2438,10 @@ import Layout from '../layouts/Layout.astro';
             }
           }
         }
+        // 売上の付け替えで複数の元帳名が1人にまとまった場合、プレビューで分かるようにしておく
+        const mergedNames = [...item.sourceNames].filter(n => normalizeName(n) !== normalizeName(item.targetName || ''));
         results.push({
-          date, staffId, staffName: matchedStaff ? matchedStaff.name : null, sheetName: item.rawName,
+          date, staffId, staffName: item.targetName, sheetName: item.rawName, mergedFromNames: mergedNames,
           sales: item.sales, uncollected: item.uncollected, status, applyDefault, existingSales,
           sharedRideSalesGross: item.sharedRideSalesGross,
           disabilityCount: item.disabilityCount, disabilityDiscount: item.disabilityDiscount,
@@ -2461,11 +2470,13 @@ import Layout from '../layouts/Layout.astro';
       const salesText = (row.status === 'diff'
         ? `${yen(row.sales)}円（既存：${yen(row.existingSales)}円）`
         : `${yen(row.sales)}円`) + sharedNote;
+      const mergedNote = row.mergedFromNames && row.mergedFromNames.length
+        ? `<br><small>（${row.mergedFromNames.join('・')}分の売上を含む）</small>` : '';
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${checkboxHtml}</td>
         <td>${row.date.slice(5).replace('-', '/')}</td>
-        <td>${row.staffName || row.sheetName}</td>
+        <td>${row.staffName || row.sheetName}${mergedNote}</td>
         <td><span class="${importStatusBadgeClass(row.status)}">${IMPORT_STATUS_LABEL[row.status]}</span></td>
         <td>${salesText}</td>
         <td>${yen(row.uncollected)}円</td>

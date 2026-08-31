@@ -157,10 +157,9 @@ import Layout from '../layouts/Layout.astro';
       fetchShiftNote, upsertShiftNote,
       fetchShiftHistory,
       isBackendOutage,
+      usesSimplePunch,
     } from '../lib/kintai-db';
     import { HOLIDAYS, isBeyondHolidayData, holidayDataWarning } from '../lib/holidays';
-    // シフト選択なしの単一出勤ボタンを使う区分（kintai.astroのusesSimplePunchと同じ判定）
-    function usesSimplePunch(t) { return t === 'part' || t === 'fulltime-hourly' || t === 'monthly'; }
     const WORK_CODES = ['①', '①S', '①H', '③', 'SH', 'SHS', 'S', '貸切'];
 
     const $ = (id) => document.getElementById(id);

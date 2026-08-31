@@ -342,6 +342,7 @@ import Layout from '../layouts/Layout.astro';
     fetchExportLog, recordExport,
     fetchAllShifts, fetchAllShiftNotes,
     isBackendOutage,
+    isHourlyType, isMonthlyType, usesSimplePunch,
   } from '../lib/kintai-db';
 
   // データはSupabaseが正。起動時にboot()でまとめて読み込む
@@ -1491,11 +1492,9 @@ import Layout from '../layouts/Layout.astro';
 
   // ── 雇用区分（正社員＝日給＋歩合／パート・正社員(時給)＝時給制／正社員(月給)＝固定給／正社員(基本給のみ)＝日給のみ・歩合なし） ──
   const EMP_LABEL = { fulltime: '正社員', part: 'パート', 'fulltime-hourly': '正社員（時給）', monthly: '正社員（月給）', 'fulltime-base': '正社員（基本給のみ）', 'monthly-commission': '正社員（月給＋歩合）', shokutaku: '嘱託社員', 'shokutaku-base': '嘱託社員（基本給のみ）' };
-  // 時給制（時間給×実働＋割増＋交通費）で計算する区分か。パートと「正社員だが時給制」の両方が該当
-  function isHourlyType(t) { return t === 'part' || t === 'fulltime-hourly'; }
-  function isMonthlyType(t) { return t === 'monthly' || t === 'monthly-commission'; }
-  // シフト選択なしの単一出勤ボタンを使う区分（時給制・月給制）
-  function usesSimplePunch(t) { return isHourlyType(t) || isMonthlyType(t); }
+  // isHourlyType（時給制）／isMonthlyType（月給制）／usesSimplePunch（単一出勤ボタン）は
+  // kintai-db.ts から読み込む。/shift の差異チェックも同じ判定を使うため、
+  // 各ページに複製せず EmpType の隣で一元管理している
   // 歩合給（売上連動）を計算する区分か。通常の正社員・嘱託社員（どちらもシフト日給＋歩合）と「月給＋歩合」が対象
   function hasCommission(t) { return t === 'fulltime' || t === 'shokutaku' || t === 'monthly-commission'; }
   const OT_RATE = 0.25;    // 残業割増率（8時間超）

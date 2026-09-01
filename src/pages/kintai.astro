@@ -1562,15 +1562,14 @@ import Layout from '../layouts/Layout.astro';
     const s = staff.find(x => x.id === selectedId);
     if (!s) { panel.hidden = true; return; }
     panel.hidden = false;
-    // 選択中ラベルは表示を簡略化（正社員（時給）／正社員（月給）は単に「正社員」と表示。区分自体・計算方法は変更なし）
-    // 選択中ラベルは表示を簡略化（「（時給）」「（月給）」「（基本給のみ）」などの補足は付けず、
-    // 大きな区分名だけを表示する。区分自体・計算方法は変更なし
+    // 選択中ラベル・現在の状況表示は、どちらも「（時給）」「（月給＋歩合）」などの補足は付けず、
+    // 大きな区分名だけを表示する（区分自体・計算方法は変更なし）
     const punchLabel = EMP_LABEL[staffType(s)].split('（')[0];
     $('selectedName').textContent = `${s.name}（${punchLabel}）`;
     const rec = todayRec(selectedId);
     const st = statusOf(rec);
     const shiftNote = rec && rec.shiftType
-      ? '（' + (rec.shiftType === 'part' ? EMP_LABEL[recEmpType(rec)] : SHIFT_LABEL[rec.shiftType]) + '）'
+      ? '（' + (rec.shiftType === 'part' ? EMP_LABEL[recEmpType(rec)].split('（')[0] : SHIFT_LABEL[rec.shiftType]) + '）'
       : '';
     $('statusLabel').textContent = `現在：${STATUS_LABEL[st]}${shiftNote}`;
 
@@ -2130,7 +2129,7 @@ import Layout from '../layouts/Layout.astro';
       div.className = `kt-today-card kt-today-card--${st}`;
       div.innerHTML = `
         <p class="kt-today-card__name">${s ? s.name : '（削除済み）'}</p>
-        <p class="kt-today-card__status">${STATUS_LABEL[st]}${rec.shiftType ? '・' + (rec.shiftType === 'part' ? EMP_LABEL[recEmpType(rec)] : SHIFT_LABEL[rec.shiftType]) : ''}</p>
+        <p class="kt-today-card__status">${STATUS_LABEL[st]}${rec.shiftType ? '・' + (rec.shiftType === 'part' ? EMP_LABEL[recEmpType(rec)].split('（')[0] : SHIFT_LABEL[rec.shiftType]) : ''}</p>
         <p class="kt-today-card__times">出勤 ${rec.in ? timeStr(rec.in) : '—'} ／ 退勤 ${rec.out ? timeStr(rec.out) : '—'}</p>
       `;
       board.appendChild(div);

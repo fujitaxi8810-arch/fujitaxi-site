@@ -561,6 +561,7 @@ import Layout from '../layouts/Layout.astro';
 
   function excelRowFromRec(rec) {
     const s = staff.find(x => x.id === rec.staffId);
+    const commissionOnly = isCommissionOnlyRec(rec);
     const w = rec.out ? workMinutes(rec) : '';
     const rate = hourlyRate(rec);
     const p = payParts(rec);
@@ -569,14 +570,14 @@ import Layout from '../layouts/Layout.astro';
     return [
       rec.date,
       s ? s.name : '削除済み',
-      isSimple ? EMP_LABEL[recEmpType(rec)] : (rec.shiftType ? SHIFT_LABEL[rec.shiftType] : ''),
+      commissionOnly ? '歩合のみ' : (isSimple ? EMP_LABEL[recEmpType(rec)] : (rec.shiftType ? SHIFT_LABEL[rec.shiftType] : '')),
       rec.phoneDuty ? '有' : '',
-      rec.in ? timeStr(rec.in) : '',
-      rec.out ? timeStr(rec.out) : '',
-      breakMinutes(rec),
-      awayMinutes(rec),
-      w,
-      rec.out ? hm(w) : '',
+      commissionOnly ? '' : (rec.in ? timeStr(rec.in) : ''),
+      commissionOnly ? '' : (rec.out ? timeStr(rec.out) : ''),
+      commissionOnly ? '' : breakMinutes(rec),
+      commissionOnly ? '' : awayMinutes(rec),
+      commissionOnly ? '' : w,
+      commissionOnly ? '' : (rec.out ? hm(w) : ''),
       showsSales && rec.salesGross != null ? rec.salesGross : '',
       showsSales && rec.sales != null ? rec.sales : '',
       showsSales && rec.uncollected ? rec.uncollected : '',
@@ -726,7 +727,8 @@ import Layout from '../layouts/Layout.astro';
           const d = cellText(ws, r, 1);
           if (!d) continue;
           const t = pick(ws.name, cellText(ws, r, 2));
-          t.days += 1;
+          // 「歩合のみ」の行（区分列＝「歩合のみ」）は出勤日数にカウントしない
+          if (cellText(ws, r, 3) !== '歩合のみ') t.days += 1;
           t.workMin += cellNum(ws, r, 9);   // 実働(分)
           t.sales += cellNum(ws, r, 11);    // 売上税込
           t.base += cellNum(ws, r, 14);     // 基本給
@@ -2047,9 +2049,10 @@ import Layout from '../layouts/Layout.astro';
   }
   // 区分ごとの内訳。base＝基本給（正社員：シフト日給＋電話番手当／パート：時給×実働＋電話番手当）
   // extra＝歩合・手当（正社員：歩合給／パート：残業・深夜割増）＋日額交通費（daily指定のスタッフのみ）。
-  // 月額交通費（既定）は日々の内訳には含めない（monthlyCommuteで月に一度だけ加算）
+  // 月額交通費（既定）は日々の内訳には含めない（monthlyCommuteで月に一度だけ加算）。
+  // 「歩合給のみ」の記録（出勤の実態が無い）は、出勤日数にも日額交通費にもカウントしない
   function payParts(rec) {
-    const dailyCommute = (rec.in && recCommuteType(rec) === 'daily') ? recCommute(rec) : 0;
+    const dailyCommute = (rec.in && !isCommissionOnlyRec(rec) && recCommuteType(rec) === 'daily') ? recCommute(rec) : 0;
     if (isHourlyType(recEmpType(rec))) {
       const min = workMinutes(rec) || 0;
       const hw = recHourlyWage(rec);
@@ -2292,7 +2295,7 @@ import Layout from '../layouts/Layout.astro';
       if (!totals[rec.staffId]) totals[rec.staffId] = { days: 0, minutes: 0, wage: 0, sales: 0, commission: 0, empType: recEmpType(rec), monthlyWage: 0 };
       const t = totals[rec.staffId];
       const p = payParts(rec);
-      t.days += 1;
+      if (!isCommissionOnlyRec(rec)) t.days += 1;
       t.minutes += workMinutes(rec);
       t.wage += p.base;
       t.sales += (rec.sales || 0);
@@ -2622,7 +2625,7 @@ import Layout from '../layouts/Layout.astro';
       if (!totals[rec.staffId]) totals[rec.staffId] = { days: 0, minutes: 0, wage: 0, sales: 0, commission: 0, empType: recEmpType(rec), monthlyWage: 0 };
       const t = totals[rec.staffId];
       const p = payParts(rec);
-      t.days += 1;
+      if (!isCommissionOnlyRec(rec)) t.days += 1;
       t.minutes += workMinutes(rec);
       t.wage += p.base;
       t.sales += (rec.sales || 0);
@@ -2867,7 +2870,8 @@ import Layout from '../layouts/Layout.astro';
       tcVal(ws, 'D3', dailyWageOverride, '#,##0');
     }
     tcVal(ws, 'A3', '勤務日数');
-    tcFormula(ws, 'B3', `COUNT(M${TC_TABLE_START}:M${endRow})`);
+    // 「歩合給のみ」の記録（シフト区分が空欄）は出勤日数に数えない。C列（シフト）の非空欄数で数える
+    tcFormula(ws, 'B3', `COUNTA(C${TC_TABLE_START}:C${endRow})`);
     tcVal(ws, 'A4', '実働合計（時間）');
     tcFormula(ws, 'B4', `SUM(I${TC_TABLE_START}:I${endRow})`, '0.00');
     tcVal(ws, 'A5', 'シフト日給合計（電話番手当込・円）');
@@ -2893,12 +2897,16 @@ import Layout from '../layouts/Layout.astro';
       tcVal(ws, `B${row}`, WEEKDAYS[date.getDay()]);
       const rec = recsByDay[day];
       if (rec) {
-        tcVal(ws, `C${row}`, rec.shiftType ? SHIFT_LABEL[rec.shiftType] : '');
-        tcVal(ws, `D${row}`, rec.phoneDuty ? '有' : '');
-        if (rec.in) tcVal(ws, `E${row}`, tcTimeSerial(rec.in), 'h:mm');
-        if (rec.out) tcVal(ws, `F${row}`, tcTimeSerial(rec.out), 'h:mm');
-        tcVal(ws, `G${row}`, breakMinutes(rec));
-        tcVal(ws, `H${row}`, awayMinutes(rec));
+        // 「歩合給のみ」の記録（出勤の実態が無い）は、シフト・出退勤・休憩を空欄のままにする
+        // （出勤日数・実働時間・日額交通費のいずれにもカウントされないようにするため）
+        if (!isCommissionOnlyRec(rec)) {
+          tcVal(ws, `C${row}`, rec.shiftType ? SHIFT_LABEL[rec.shiftType] : '');
+          tcVal(ws, `D${row}`, rec.phoneDuty ? '有' : '');
+          if (rec.in) tcVal(ws, `E${row}`, tcTimeSerial(rec.in), 'h:mm');
+          if (rec.out) tcVal(ws, `F${row}`, tcTimeSerial(rec.out), 'h:mm');
+          tcVal(ws, `G${row}`, breakMinutes(rec));
+          tcVal(ws, `H${row}`, awayMinutes(rec));
+        }
         if (rec.sales != null) tcVal(ws, `J${row}`, rec.sales, '#,##0');
       }
       tcFormula(ws, `I${row}`, `IF(OR($E${row}="",$F${row}=""),"",ROUND(($F${row}-$E${row}+IF($F${row}<$E${row},1,0))*24-IF($G${row}="",0,$G${row})/60-IF($H${row}="",0,$H${row})/60,2))`, '0.00');
@@ -2915,7 +2923,8 @@ import Layout from '../layouts/Layout.astro';
       } else {
         tcFormula(ws, `L${row}`, `IF($J${row}="","",ROUND(MAX(0,$J${row})*設定!$B$6/100,0))`, '#,##0');
       }
-      tcFormula(ws, `M${row}`, `IF($K${row}="","",$K${row}+IF($L${row}="",0,$L${row}))`, '#,##0');
+      // シフト日給が空欄（歩合給のみの記録など）でも、歩合給があれば日合計に含める
+      tcFormula(ws, `M${row}`, `IF(AND($K${row}="",$L${row}=""),"",IF($K${row}="",0,$K${row})+IF($L${row}="",0,$L${row}))`, '#,##0');
       tcFormula(ws, `N${row}`, `IF(OR($I${row}="",$I${row}=0,$M${row}=""),"",ROUND($M${row}/$I${row},0))`, '#,##0');
       tcFormula(ws, `O${row}`, `IF($N${row}="","",IF($N${row}<設定!$B$7,"最低賃金未満","OK"))`);
       tcRowStyle(ws, row, headers.length, 9);
@@ -3049,10 +3058,14 @@ import Layout from '../layouts/Layout.astro';
       tcVal(ws, `B${row}`, WEEKDAYS[date.getDay()]);
       const rec = recsByDay[day];
       if (rec) {
-        if (rec.in) tcVal(ws, `C${row}`, tcTimeSerial(rec.in), 'h:mm');
-        if (rec.out) tcVal(ws, `D${row}`, tcTimeSerial(rec.out), 'h:mm');
-        tcVal(ws, `E${row}`, breakMinutes(rec));
-        tcVal(ws, `F${row}`, awayMinutes(rec));
+        // 「歩合給のみ」の記録（出勤の実態が無い）は、出勤・退勤を空欄のままにする。
+        // これにより勤務日数（G列を数式で判定・COUNT）・実働時間・日額交通費のいずれにもカウントされない
+        if (!isCommissionOnlyRec(rec)) {
+          if (rec.in) tcVal(ws, `C${row}`, tcTimeSerial(rec.in), 'h:mm');
+          if (rec.out) tcVal(ws, `D${row}`, tcTimeSerial(rec.out), 'h:mm');
+          tcVal(ws, `E${row}`, breakMinutes(rec));
+          tcVal(ws, `F${row}`, awayMinutes(rec));
+        }
         if (hasCommissionFlag && rec.sales != null) tcVal(ws, `H${row}`, rec.sales, '#,##0');
       }
       tcFormula(ws, `G${row}`, `IF(OR($C${row}="",$D${row}=""),"",ROUND(($D${row}-$C${row}+IF($D${row}<$C${row},1,0))*24-IF($E${row}="",0,$E${row})/60-IF($F${row}="",0,$F${row})/60,2))`, '0.00');

@@ -753,55 +753,63 @@ import '../styles/kt-components.css';
     }
 
     // 引き継ぎボタンの押し忘れに備えた自動判定。
-    // 朝10時・夜19時の交代タイミングで、それぞれ自動的に基準が切り替わる
-    // （ユーザー要望：「夜19時と朝6時に自動判定にしてください」→
-    // 「朝6時ではなく朝10時に設定しなおしてください」）。
-    const AUTO_HANDOVER_HOURS = [10, 19];
+    // 事務所は19時で終了し、以降は担当者が交代する。
     //
-    // 以前は夜19時だけを見ており、「直近に過ぎた19時」を無条件に基準にすると
-    // 昼14時に画面を見たとき基準が前日19時のままになり、その日の朝に入った
-    // 予約まで新着扱いになってしまう問題があったため、19時から翌9時までだけ
-    // 有効という「窓」を設けていた。今回、朝10時の境界を追加したことで、
-    // 直近の境界が常に15時間以内（10時→19時／19時→翌10時）に収まるようになり、
-    // 昼間に古い境界が居座ることが無くなったため、「窓」の概念は不要になった。
+    // 「夜19時と朝6時（→朝10時に変更）に自動判定にしてください」という要望を受けて、
+    // 一度「6時/10時にも新しく基準が立ち上がる（＝10時から19時までの日中もずっと
+    // 新着表示が続く）」という作りを試したが、これは意図と違っていた
+    // （ユーザー指摘：「今現在の予約を出力したものは、新着ではありません。
+    // 19時以降の予約から新着になるはず」）。正しくは、19時に始まる新着判定の
+    // 「有効期間」が朝10時まで延びるだけで、日中（10時〜19時）は新着判定
+    // そのものが働かない（何も新着にならない）のが正しい挙動。元の「窓」方式に、
+    // 窓の終わりを9時→10時に変えるだけで対応する。
+    const AUTO_HANDOVER_HOUR = 19;
+    // 自動判定を効かせる時間の長さ（19時から翌10時までの15時間＝夜勤帯）。
+    // この「窓」がこの機能の肝。窓が無いと「直近に過ぎた19時」を無条件に基準に
+    // することになり、昼14時に画面を見ると基準が前日19時のままになって、
+    // その日の朝に入った予約まで新着扱いになってしまう（ユーザー指摘で発覚した経緯あり）。
+    const AUTO_HANDOVER_WINDOW_HOURS = 15;
 
     /**
-     * 直近に過ぎた境界（JST）。AUTO_HANDOVER_HOURSの中で、今も一番新しく
-     * 過ぎているものを返す（各時刻について、今日まだなら前日のその時刻を見る）。
-     * 例：11時→当日10時 ／ 20時→当日19時 ／ 深夜2時→前日19時 ／ 朝9時→前日19時
+     * 直近に過ぎた19:00（JST）。ただし夜勤帯（19時〜翌10時）を過ぎていたら null。
+     * 例：19時→当日19時 ／ 深夜2時→前日19時 ／ 朝9時→前日19時 ／ 朝11時→null
      */
-    function autoHandoverTime(now = Date.now()): number {
+    function autoHandoverTime(now = Date.now()): number | null {
       const jst = new Date(now + 9 * 3600 * 1000);
-      const y = jst.getUTCFullYear(), m = jst.getUTCMonth(), d = jst.getUTCDate();
-      const boundaries = AUTO_HANDOVER_HOURS.map((h) => {
-        const t = Date.UTC(y, m, d, h) - 9 * 3600 * 1000;
-        return t > now ? t - 24 * 3600 * 1000 : t; // まだその時刻前なら前日分
-      });
-      return Math.max(...boundaries);
+      let boundary = Date.UTC(
+        jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate(), AUTO_HANDOVER_HOUR
+      ) - 9 * 3600 * 1000;
+      if (boundary > now) boundary -= 24 * 3600 * 1000; // まだ19時前なら前日の19時
+      const ageHours = (now - boundary) / 3600000;
+      return ageHours <= AUTO_HANDOVER_WINDOW_HOURS ? boundary : null;
     }
 
     /**
-     * 「新着」の基準時刻。手動の引き継ぎ記録と、10時・19時の自動判定の
+     * 「新着」の基準時刻。手動の引き継ぎ記録と、19時の自動判定の
      * **新しい方**を使う。
      *
      * 手動を優先しないのは、押し忘れ防止のため。逆に自動を優先しないのは、
-     * 自動判定の時刻より後に手で押し直したとき（例：20時に実際に交代）に、
+     * 19時より後に手で押し直したとき（例：20時に実際に交代）に、
      * その操作が無視されてしまわないようにするため。
      */
-    function newBaselineTime(): number {
+    function newBaselineTime(): number | null {
       const manual = latestHandover?.handedOverAt ? new Date(latestHandover.handedOverAt).getTime() : null;
       const auto = autoHandoverTime();
-      // 自動判定（10時・19時）は必ずどちらかが有効なので、manualが無ければautoを使えばよい
-      return manual !== null ? Math.max(manual, auto) : auto;
+      if (manual === null) return auto;
+      if (auto === null) return manual;
+      return Math.max(manual, auto);
     }
 
     /** 今の基準が自動判定によるものか（画面の説明文の出し分けに使う） */
     function baselineIsAuto(): boolean {
-      return newBaselineTime() === autoHandoverTime();
+      const base = newBaselineTime();
+      const auto = autoHandoverTime();
+      return base !== null && auto !== null && base === auto;
     }
 
     function isNewSinceHandover(r: any) {
       const base = newBaselineTime();
+      if (base === null) return false;
       const t = addedAt(r);
       return t ? new Date(t).getTime() >= base : false;
     }
@@ -816,11 +824,13 @@ import '../styles/kt-components.css';
       const panel = $('handoverBar');
 
       const auto = autoHandoverTime();
-      const autoTimeLabel = jstTimeLabel(new Date(auto).toISOString());
+      const autoTimeLabel = auto !== null ? jstTimeLabel(new Date(auto).toISOString()) : null;
 
       if (!latestHandover) {
-        // 押し忘れていても、朝10時・夜19時のどちらかの自動判定が必ず効いている
-        when.textContent = `${autoTimeLabel}（自動）以降が新着　※記録を押すとその時刻が基準になります`;
+        when.textContent = autoTimeLabel !== null
+          // 押し忘れていても19時の自動判定が効いている状態（翌10時まで）
+          ? `${autoTimeLabel}（自動）以降が新着　※記録を押すとその時刻が基準になります`
+          : 'まだありません（記録すると、それ以降の予約に「新着」が付きます）';
         // 申し送りの置き場所が分かるよう、まだ無くても枠は出しておく
         noteEl.hidden = false;
         noteEl.className = 'ha-handover__note ha-handover__note--empty';
@@ -835,7 +845,7 @@ import '../styles/kt-components.css';
       const t = latestHandover.handedOverAt;
       const who = latestHandover.handedOverBy ? `（${latestHandover.handedOverBy}）` : '';
       when.textContent = baselineIsAuto()
-        // 記録はあるが、それより後に10時・19時のどちらかを過ぎている（前回の記録が残っている等）
+        // 記録はあるが、それより後に19時を過ぎている（前日の記録が残っている等）
         ? `${autoTimeLabel}（自動）以降が新着　`
           + `※前回の記録は ${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}${who}`
         : `${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}${who} 以降が新着`;
@@ -1026,7 +1036,7 @@ import '../styles/kt-components.css';
 
     /** 新着の説明文（いつ入った予約で、何を基準に新着なのか）。ツールチップに使う */
     function newBadgeTitle(r: any) {
-      // 基準は「手動の記録」か「10時・19時の自動判定」の新しい方。実際に使われた時刻を出す
+      // 基準は「手動の記録」か「19時の自動判定」の新しい方。実際に使われた時刻を出す
       const base = newBaselineTime();
       if (base === null) return addedLabel(r);
       const baseIso = new Date(base).toISOString();

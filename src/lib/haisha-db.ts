@@ -554,8 +554,10 @@ export async function setStaffAssignable(staffId: string, assignable: boolean): 
  * 貸切・スクールは当初 /shift のコード（貸切／S）を読むだけだったが、当日追加で
  * 人が変わることがあるため、こちらの日次割り当ても併用するようにした
  * （/shift 側のコードは月次シフト表示として引き続き使える。基本の担当はそちらで見る）。
+ * normal（普通）・late（遅番）は、シフトに元々コードがある区分だが、当日だけ
+ * シフト外の人を追加できるようにする要望を受けて、同じ日次割り当ての仕組みに乗せた。
  */
-export type DutyCategory = 'school_haramachi' | 'exchange' | 'charter' | 'school';
+export type DutyCategory = 'school_haramachi' | 'exchange' | 'charter' | 'school' | 'normal' | 'late';
 
 export type DailyDuty = { category: DutyCategory; staffId: string };
 

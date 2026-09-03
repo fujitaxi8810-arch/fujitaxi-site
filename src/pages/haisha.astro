@@ -1114,8 +1114,10 @@ import '../styles/kt-components.css';
     // 乗合を貸切の前に移動している。narrow の3区分を隣り合わせにしないと、
     // 間に wide の貸切が挟まって別の行に落ちてしまうため。
     const DUTY_GROUPS: { label: string; shiftKey?: string | string[]; shiftFlagKey?: 'exchangeDuty'; dailyKey?: DutyCat; wide?: boolean }[] = [
-      { label: '普通', shiftKey: '①', wide: true },
-      { label: '遅番', shiftKey: '③', wide: true },
+      // 普通・遅番も、シフトに無い人を当日だけ追加できるように（ユーザー要望：
+      // 「乗務割普通・遅番も追加できるようにしてほしい」）dailyKeyを持たせた
+      { label: '普通', shiftKey: '①', dailyKey: 'normal', wide: true },
+      { label: '遅番', shiftKey: '③', dailyKey: 'late', wide: true },
       // SHS（乗合＋スクール）は1人で2役なので、乗合とスクールの両方に同じ人が出る
       { label: 'スクール', shiftKey: ['S', '①S', 'SHS'], dailyKey: 'school', wide: true },
       { label: 'スクール原町', shiftKey: '①H', dailyKey: 'school_haramachi' },
@@ -1124,7 +1126,7 @@ import '../styles/kt-components.css';
       { label: '貸切', shiftKey: '貸切', dailyKey: 'charter', wide: true },
     ];
 
-    type DutyCat = 'school_haramachi' | 'exchange' | 'charter' | 'school';
+    type DutyCat = 'school_haramachi' | 'exchange' | 'charter' | 'school' | 'normal' | 'late';
 
     /*
      * 乗務割パネルはDOM上1つを日別ボード・全体タブで共有する。今どちらを

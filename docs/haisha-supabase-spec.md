@@ -695,6 +695,16 @@ alter table dispatch_duties add constraint dispatch_duties_category_check
 そのまま追加した）。「スクール」＝ `/shift` の `S` の当日追加分、「スクール原町」＝月次シフトに
 無い区分の日次割り当て、という違い。
 
+その後、ユーザー要望「乗務割普通・遅番も追加できるようにしてほしい」を受けて `normal`・`late`
+を追加した。普通・遅番は元々 `/shift` にコードがある区分だが、当日だけシフト外の人を
+臨時追加したい、という他の区分（貸切・スクール等）と同じニーズのため、同じ仕組みに乗せた:
+
+```sql
+alter table dispatch_duties drop constraint dispatch_duties_category_check;
+alter table dispatch_duties add constraint dispatch_duties_category_check
+  check (category in ('school_haramachi','exchange','charter','school','normal','late'));
+```
+
 ---
 
 ## 5.7 管理者UIの表示切り替え（`?admin`）

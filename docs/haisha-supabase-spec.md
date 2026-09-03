@@ -609,12 +609,9 @@ else removeProperty で既定の 1200px に戻す
 
 **貸切・スクールは両方を並べる**。基本はシフト通りだが当日変わることがある、というユーザーの運用に合わせた:
 
-- `/shift` 由来の名前 … ×なし（変更は `/shift` 側で行う）
+- `/shift` 由来の名前 … ×付きで外せる（2026-09-04追加。§5.61参照）
 - `/haisha` で足した名前 … ×付きで外せる
 - 追加セレクトの候補からは、すでに出ている人（シフト由来を含む）を除外する
-
-なお**シフト由来の人をこの画面から外すことはできない**（除外レコードを持たせていないため）。
-当日その人が抜ける運用が出てきた場合は、除外の仕組みを追加する必要がある。
 
 ## 5.56 交流の送迎の印（shifts.exchange_duty、2026-08-25 追加）
 
@@ -706,6 +703,46 @@ alter table dispatch_duties add constraint dispatch_duties_category_check
 ```
 
 ---
+
+## 5.61 乗務割の当日除外（dispatch_duty_exclusions、2026-09-04追加）
+
+ユーザー指摘：「急遽のシフトに変更があった際に変更できるいい方法はない？シフトを変更しないと
+ベースは変更できないので」。それまで乗務割の「＋追加」（§5.6）は追加しかできず、`/shift`
+由来の人（普通・遅番等）を当日だけ外すには `/shift` 側の月次シフトそのものを書き換えるしか
+なかった。急な欠勤・交代のたびに月次シフトを触るのは筋が悪い（本来の予定を消してしまう）ため、
+「追加」と対になる「除外」の仕組みを新設した。
+
+```sql
+create table dispatch_duty_exclusions (
+  id uuid primary key default gen_random_uuid(),
+  work_date date not null,
+  category text not null check (category in ('school_haramachi','exchange','charter','school','normal','late')),
+  staff_id uuid not null references staff(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (work_date, category, staff_id)
+);
+
+create index dispatch_duty_exclusions_date_idx on dispatch_duty_exclusions (work_date);
+
+alter table dispatch_duty_exclusions enable row level security;
+
+create policy dispatch_duty_exclusions_select on dispatch_duty_exclusions
+  for select to authenticated using (true);
+create policy dispatch_duty_exclusions_insert on dispatch_duty_exclusions
+  for insert to authenticated with check (true);
+create policy dispatch_duty_exclusions_delete on dispatch_duty_exclusions
+  for delete to authenticated using (true);
+```
+
+- `dispatch_duties`（追加）とほぼ同じ構造。`category` は dailyKey を持つ区分（＝追加もできる区分：
+  普通・遅番・スクール・スクール原町・交流・貸切）に限定。乗合のように追加ができない区分は
+  除外もできない、という対称性にしている
+- `/shift` 側は一切変更しない。あくまで `/haisha` 側だけの「この日はこの人を出さない」という
+  記録で、本来のシフト予定は消えずに残る
+- 除外された人は乗務割の「＋追加」セレクトの候補に「（除外中・戻す）」付きで残り、選び直すと
+  除外レコードが削除されて元のシフト由来表示に戻る（`removeDutyExclusion`）
+- ×を押す際は「シフト自体は変更されません」という一言を添えた確認ダイアログを出し、
+  `/shift` の予定そのものが消えたと誤解されないようにしている
 
 ## 5.7 管理者UIの表示切り替え（`?admin`）
 

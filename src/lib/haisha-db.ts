@@ -590,6 +590,43 @@ export async function removeDailyDuty(dateKey: string, category: DutyCategory, s
   if (error) throw error;
 }
 
+// ── 乗務割の当日除外（シフト由来の人を、その日だけ外す） ──
+// 「急遽のシフト変更（当日の休みなど）」への対応。シフトそのもの（/shift）は
+// 変えず、/haisha側だけで「この日はこの人を出さない」という記録を残す方式
+// （dispatch_dutiesの「追加」と対になる、日次の「除外」）。
+
+export type DutyExclusion = { category: DutyCategory; staffId: string };
+
+export async function fetchDutyExclusions(dateKey: string): Promise<DutyExclusion[]> {
+  const { data, error } = await supabase
+    .from('dispatch_duty_exclusions')
+    .select('category, staff_id')
+    .eq('work_date', dateKey);
+  if (error) throw error;
+  return (data || []).map((r: any) => ({ category: r.category, staffId: r.staff_id }));
+}
+
+export async function addDutyExclusion(dateKey: string, category: DutyCategory, staffId: string): Promise<void> {
+  const { error } = await supabase
+    .from('dispatch_duty_exclusions')
+    .upsert(
+      { work_date: dateKey, category, staff_id: staffId },
+      { onConflict: 'work_date,category,staff_id', ignoreDuplicates: true }
+    );
+  if (error) throw error;
+}
+
+/** 除外の取り消し（＝その人をシフト由来の表示に戻す） */
+export async function removeDutyExclusion(dateKey: string, category: DutyCategory, staffId: string): Promise<void> {
+  const { error } = await supabase
+    .from('dispatch_duty_exclusions')
+    .delete()
+    .eq('work_date', dateKey)
+    .eq('category', category)
+    .eq('staff_id', staffId);
+  if (error) throw error;
+}
+
 // ── CSV取り込み ──
 
 /**

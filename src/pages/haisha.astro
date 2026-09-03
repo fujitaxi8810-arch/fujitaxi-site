@@ -376,6 +376,7 @@ import '../styles/kt-components.css';
       initAuth, isAdmin, signInAdmin, signOutToKiosk, fetchStaff,
       fetchReservationsByDate, fetchReservationsRange, fetchShiftsByDate,
       fetchDailyDuties, addDailyDuty, removeDailyDuty,
+      fetchDutyExclusions, addDutyExclusion, removeDutyExclusion,
       insertReservation, updateReservation, deleteReservation,
       assignStaff, setChecked, setStatus, setStaffAssignable,
       fetchLatestHandover, recordHandover, deleteHandover, updateHandoverNote,
@@ -416,6 +417,7 @@ import '../styles/kt-components.css';
     let listRows: any[] = [];
     let dutyRows: any[] = [];
     let dailyDutyRows: any[] = [];
+    let dutyExclusionRows: any[] = [];
     let latestHandover: any = null;
     let historyRows: any[] = [];
     let editing: any = null;      // 編集中の予約（新規はnull）
@@ -1215,18 +1217,42 @@ import '../styles/kt-components.css';
         const fromShiftByFlag = g.shiftFlagKey
           ? dutyRows.filter((d: any) => d[g.shiftFlagKey!])
           : [];
+        // この画面で日ごとに足した分（×で外せる）
+        const cat = g.dailyKey;
+
+        /*
+         * 急遽のシフト変更（当日の休みなど）への対応：「シフトを変更しないと
+         * ベースは変更できない」というユーザー指摘を受けて、シフト由来の人でも
+         * その日・その区分だけ表示から外せるようにした。/shift 側は一切変えず、
+         * /haisha側に「この日はこの人を出さない」という除外の記録を別途持つ
+         * （dailyKeyを持つ＝追加もできる区分だけに限る。乗合など追加ができない
+         * 区分は除外もできない、という対称性にしている）
+         */
+        const excludedIds = cat
+          ? new Set(dutyExclusionRows.filter((d: any) => d.category === cat).map((d: any) => d.staffId))
+          : new Set();
+
         const fromShift = sortByShiftOrder(
           [...fromShiftByCode, ...fromShiftByFlag]
             .map((d) => ({ ...d, staff: staff.find((s) => s.id === d.staffId) }))
-            .filter((d) => d.staff && d.staff.haishaAssignable !== false)
+            .filter((d) => d.staff && d.staff.haishaAssignable !== false && !excludedIds.has(d.staffId))
         );
         shiftShown += fromShift.length;
         for (const m of fromShift) {
-          names.appendChild(dutyBadge(m.staff, { phoneDuty: m.phoneDuty }));
+          names.appendChild(dutyBadge(m.staff, {
+            phoneDuty: m.phoneDuty,
+            onRemove: cat ? async () => {
+              if (!confirm(`${m.staff.name} を本日の「${g.label}」から外します（シフト自体は変更されません）。よろしいですか？`)) return;
+              try {
+                await addDutyExclusion(dateKey, cat!, m.staffId);
+                dutyExclusionRows = [...dutyExclusionRows, { category: cat, staffId: m.staffId }];
+                renderDuty();
+              } catch (e) {
+                alert(failMsg(e, '除外の記録'));
+              }
+            } : undefined,
+          }));
         }
-
-        // この画面で日ごとに足した分（×で外せる）
-        const cat = g.dailyKey;
         const fromDaily = cat
           ? sortByShiftOrder(
               dailyDutyRows
@@ -1258,22 +1284,30 @@ import '../styles/kt-components.css';
         }
 
         // 追加用のセレクト。選ぶと即保存して、すぐ次を選べるように戻す。
-        // すでに出ている人（シフト由来も含む）は候補から外す
+        // すでに出ている人（シフト由来も含む）は候補から外す。
+        // 除外中の人（×で外したシフト由来の人）は候補に残し、選び直すと
+        // 除外を取り消して元に戻せるようにする（「（除外中）」と分かるようにする）
         if (cat) {
           const already = new Set([...fromShift, ...fromDaily].map((a) => a.staffId));
           const pick = document.createElement('select');
           pick.className = 'ha-select ha-duty-add';
           pick.appendChild(new Option('＋ 追加', ''));
           for (const s of assignableStaff().filter((s) => !already.has(s.id))) {
-            pick.appendChild(new Option(s.name, s.id));
+            pick.appendChild(new Option(excludedIds.has(s.id) ? `${s.name}（除外中・戻す）` : s.name, s.id));
           }
           pick.onchange = async () => {
             const staffId = pick.value;
             if (!staffId) return;
             pick.disabled = true;
             try {
-              await addDailyDuty(dateKey, cat, staffId);
-              dailyDutyRows = [...dailyDutyRows, { category: cat, staffId }];
+              if (excludedIds.has(staffId)) {
+                await removeDutyExclusion(dateKey, cat, staffId);
+                dutyExclusionRows = dutyExclusionRows.filter(
+                  (d: any) => !(d.category === cat && d.staffId === staffId));
+              } else {
+                await addDailyDuty(dateKey, cat, staffId);
+                dailyDutyRows = [...dailyDutyRows, { category: cat, staffId }];
+              }
               renderDuty();
             } catch (e) {
               alert(failMsg(e, '担当の追加'));
@@ -1289,7 +1323,7 @@ import '../styles/kt-components.css';
 
       $('dutyNote').textContent = shiftShown === 0
         ? 'この日のシフトが未入力です。/shift で作成すると、普通・遅番・スクール・スクール原町・交流・貸切・乗合がここに出ます。'
-        : '× が付いた名前がこの画面で足した分です。それ以外はシフトの内容なので、変更は /shift で行ってください。';
+        : '× を押すと、その人をこの日だけ表示から外せます（/shift のシフト自体は変更されません。「＋追加」で選び直すと戻せます）。基本の担当を変えたい場合は /shift で行ってください。';
     }
 
     // ── 変更履歴 ──
@@ -1646,18 +1680,36 @@ import '../styles/kt-components.css';
     }, 30 * 1000);
 
     // ── ① 配車ボード ──
+    /*
+     * dispatch_duty_exclusions はマイグレーション（テーブル作成）が別途必要な
+     * 新しい機能。マイグレーション未実行の環境でここが失敗すると、Promise.all
+     * ごと落ちて配車ボード全体が表示されなくなってしまう（実際に開発中に発生）。
+     * 除外機能はあくまで乗務割の付加機能なので、ここだけ失敗を握りつぶし、
+     * 予約データなど本体の表示は必ず続けられるようにする
+     */
+    async function fetchDutyExclusionsSafe(dateKey: string) {
+      try {
+        return await fetchDutyExclusions(dateKey);
+      } catch (e) {
+        console.error('乗務割の除外の読み込みに失敗しました（機能自体は未使用の場合は無視して構いません）', e);
+        return [];
+      }
+    }
+
     async function loadBoard() {
       const dateKey = $('datePick').value || todayJst();
       try {
-        const [rows, duties, daily, handover] = await Promise.all([
+        const [rows, duties, daily, excluded, handover] = await Promise.all([
           fetchReservationsByDate(dateKey),
           fetchShiftsByDate(dateKey),
           fetchDailyDuties(dateKey),
+          fetchDutyExclusionsSafe(dateKey),
           fetchLatestHandover(),
         ]);
         boardRows = rows;
         dutyRows = duties;
         dailyDutyRows = daily;
+        dutyExclusionRows = excluded;
         latestHandover = handover;
       } catch (e) {
         alert(failMsg(e, 'データの読み込み'));
@@ -2139,14 +2191,16 @@ import '../styles/kt-components.css';
         // 乗務割（dutyRows/dailyDutyRows）も、全体タブで見ている日付ぶんを
         // 取り直す。dutyPanel は日別ボードと共有のDOMなので、renderDuty() が
         // 参照する変数をこちらの日付で上書きしてから描き直す
-        const [reservations, duties, daily] = await Promise.all([
+        const [reservations, duties, daily, excluded] = await Promise.all([
           fetchReservationsByDate(dateKey),
           fetchShiftsByDate(dateKey),
           fetchDailyDuties(dateKey),
+          fetchDutyExclusionsSafe(dateKey),
         ]);
         allViewRows = reservations;
         dutyRows = duties;
         dailyDutyRows = daily;
+        dutyExclusionRows = excluded;
       } catch (e) {
         alert(failMsg(e, 'データの読み込み'));
         return;

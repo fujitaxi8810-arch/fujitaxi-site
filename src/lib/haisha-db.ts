@@ -8,9 +8,9 @@ import { supabase } from './kintai-db';
 import type { NormalizedRow } from './haisha-csv';
 import { normalizePhoneKey } from './haisha-csv';
 
-// 認証まわりとスタッフマスタは勤怠のものを再利用する
-export { supabase, initAuth, isAdmin, isSuperAdmin, signInAdmin, signOutToKiosk, fetchStaff, isBackendOutage } from './kintai-db';
-export type { Staff } from './kintai-db';
+// 認証まわりとスタッフマスタ・本日の打刻状況は勤怠のものを再利用する
+export { supabase, initAuth, isAdmin, isSuperAdmin, signInAdmin, signOutToKiosk, fetchStaff, isBackendOutage, fetchTodayOrOpen } from './kintai-db';
+export type { Staff, Attendance } from './kintai-db';
 export type { NormalizedRow } from './haisha-csv';
 
 export type Reservation = {
@@ -111,6 +111,14 @@ export function jstTimeLabel(iso: string): string {
 /** 今日のJST日付 'YYYY-MM-DD' */
 export function todayJst(): string {
   return jstDateKey(new Date().toISOString());
+}
+
+/** 前日のJST日付 'YYYY-MM-DD'。日をまたぐ遅番の「本日の出勤状況」判定に使う */
+export function yesterdayJst(): string {
+  const t = new Date().getTime() + 9 * 60 * 60 * 1000;
+  const d = new Date(t);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 // ── 行の変換 ──

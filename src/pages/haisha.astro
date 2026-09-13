@@ -383,7 +383,8 @@ import '../styles/kt-components.css';
       fetchDispatchHistory, revertHistoryEntry,
       fetchDeletedReservations,
       buildImportPlan, applyImportPlan, fetchLatestImportLog,
-      jstDateKey, jstTimeLabel, todayJst,
+      jstDateKey, jstTimeLabel, todayJst, yesterdayJst,
+      fetchTodayOrOpen,
       hasSession, isAuthError, isBackendOutage,
     } from '../lib/haisha-db';
     import { parseReservationCsv, decodeCsvBuffer } from '../lib/haisha-csv';
@@ -418,6 +419,8 @@ import '../styles/kt-components.css';
     let dutyRows: any[] = [];
     let dailyDutyRows: any[] = [];
     let dutyExclusionRows: any[] = [];
+    // 本日の打刻状況（/kintaiと同じ本日ボードのデータ。乗務割に「まだ出勤していない人」を出すために使う）
+    let todayAttendanceRows: any[] = [];
     let latestHandover: any = null;
     let historyRows: any[] = [];
     let editing: any = null;      // 編集中の予約（新規はnull）
@@ -1155,11 +1158,21 @@ import '../styles/kt-components.css';
         (a.staff.shiftDisplayOrder ?? a.staff.displayOrder) - (b.staff.shiftDisplayOrder ?? b.staff.displayOrder));
     }
 
-    /** 名前バッジ。日次割り当ての行では×で外せる */
+    /** 名前バッジ。日次割り当ての行では×で外せる。
+     * 本日分を見ているときだけ、出勤の打刻状況で色を変える
+     * （未打刻＝目立たせる、退勤済み＝薄くする。出勤中は通常表示） */
     function dutyBadge(st: any, opts: { phoneDuty?: boolean; onRemove?: () => void }) {
       const b = document.createElement('span');
       b.className = 'ha-badge ha-duty-name';
       applyStaffColor(b, st.id);
+      const status = attendanceStatusFor(st.id);
+      if (status === 'none') {
+        b.classList.add('ha-duty-name--notyet');
+        b.title = '本日、まだ出勤の打刻がありません';
+      } else if (status === 'done') {
+        b.classList.add('ha-duty-name--done');
+        b.title = '本日はすでに退勤の打刻があります';
+      }
       b.appendChild(document.createTextNode(st.name));
       if (opts.phoneDuty) {
         const p = document.createElement('span');
@@ -1321,9 +1334,12 @@ import '../styles/kt-components.css';
         body.appendChild(names);
       }
 
-      $('dutyNote').textContent = shiftShown === 0
+      const attendanceNote = dutyDateKey() === todayJst()
+        ? '　名前が赤い人は、まだ出勤の打刻がありません。薄い人はすでに退勤しています。'
+        : '';
+      $('dutyNote').textContent = (shiftShown === 0
         ? 'この日のシフトが未入力です。/shift で作成すると、普通・遅番・スクール・スクール原町・交流・貸切・乗合がここに出ます。'
-        : '× を押すと、その人をこの日だけ表示から外せます（/shift のシフト自体は変更されません。「＋追加」で選び直すと戻せます）。基本の担当を変えたい場合は /shift で行ってください。';
+        : '× を押すと、その人をこの日だけ表示から外せます（/shift のシフト自体は変更されません。「＋追加」で選び直すと戻せます）。基本の担当を変えたい場合は /shift で行ってください。') + attendanceNote;
     }
 
     // ── 変更履歴 ──
@@ -1696,21 +1712,46 @@ import '../styles/kt-components.css';
       }
     }
 
+    /*
+     * 「本日の出勤状況」表示用。/kintaiの本日ボードと同じ取得方法（当日分＋前日付けの
+     * まま退勤していない分＝日をまたぐ遅番）。あくまで乗務割の付加情報なので、
+     * 失敗しても配車ボード本体には影響させない
+     */
+    async function fetchTodayAttendanceSafe() {
+      try {
+        return await fetchTodayOrOpen(todayJst(), yesterdayJst());
+      } catch (e) {
+        console.error('本日の出勤状況の読み込みに失敗しました', e);
+        return [];
+      }
+    }
+    /** staffIdの本日の出勤状況を返す（'none'=未打刻／'working'=出勤中／'done'=退勤済み）。
+     * 表示している日が今日でなければnull（過去・未来の日には意味がないため出さない） */
+    function attendanceStatusFor(staffId: string): 'none' | 'working' | 'done' | null {
+      if (dutyDateKey() !== todayJst()) return null;
+      const recs = todayAttendanceRows.filter((r: any) => r.staffId === staffId);
+      if (!recs.length) return 'none';
+      const open = recs.find((r: any) => !r.out);
+      return open ? 'working' : 'done';
+    }
+
     async function loadBoard() {
       const dateKey = $('datePick').value || todayJst();
       try {
-        const [rows, duties, daily, excluded, handover] = await Promise.all([
+        const [rows, duties, daily, excluded, handover, todayAttendance] = await Promise.all([
           fetchReservationsByDate(dateKey),
           fetchShiftsByDate(dateKey),
           fetchDailyDuties(dateKey),
           fetchDutyExclusionsSafe(dateKey),
           fetchLatestHandover(),
+          dateKey === todayJst() ? fetchTodayAttendanceSafe() : Promise.resolve([]),
         ]);
         boardRows = rows;
         dutyRows = duties;
         dailyDutyRows = daily;
         dutyExclusionRows = excluded;
         latestHandover = handover;
+        todayAttendanceRows = todayAttendance;
       } catch (e) {
         alert(failMsg(e, 'データの読み込み'));
         return;
@@ -2191,16 +2232,18 @@ import '../styles/kt-components.css';
         // 乗務割（dutyRows/dailyDutyRows）も、全体タブで見ている日付ぶんを
         // 取り直す。dutyPanel は日別ボードと共有のDOMなので、renderDuty() が
         // 参照する変数をこちらの日付で上書きしてから描き直す
-        const [reservations, duties, daily, excluded] = await Promise.all([
+        const [reservations, duties, daily, excluded, todayAttendance] = await Promise.all([
           fetchReservationsByDate(dateKey),
           fetchShiftsByDate(dateKey),
           fetchDailyDuties(dateKey),
           fetchDutyExclusionsSafe(dateKey),
+          dateKey === todayJst() ? fetchTodayAttendanceSafe() : Promise.resolve([]),
         ]);
         allViewRows = reservations;
         dutyRows = duties;
         dailyDutyRows = daily;
         dutyExclusionRows = excluded;
+        todayAttendanceRows = todayAttendance;
       } catch (e) {
         alert(failMsg(e, 'データの読み込み'));
         return;
@@ -3097,6 +3140,16 @@ import '../styles/kt-components.css';
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
+    }
+    /* 本日、まだ出勤の打刻が無い人（要注意なので目立つ配色に切り替える） */
+    .ha-badge.ha-duty-name.ha-duty-name--notyet {
+      background: #fee2e2;
+      color: #991b1b;
+      border-color: #991b1b;
+    }
+    /* 本日すでに退勤済みの人（乗務割から消えるわけではないので、控えめに分かるようにする） */
+    .ha-badge.ha-duty-name.ha-duty-name--done {
+      opacity: 0.55;
     }
     .ha-duty-phone {
       background: #b91c1c;

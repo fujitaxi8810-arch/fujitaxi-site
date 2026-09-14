@@ -1167,7 +1167,12 @@ import '../styles/kt-components.css';
       applyStaffColor(b, st.id);
       const status = attendanceStatusFor(st.id);
       if (status === 'none') {
+        // applyStaffColor が背景・文字・枠線をインラインstyleで設定しているため、
+        // CSSクラスだけでは勝てない（インラインが常に優先される）。ここで明示的に上書きする
         b.classList.add('ha-duty-name--notyet');
+        b.style.background = '#fee2e2';
+        b.style.color = '#991b1b';
+        b.style.borderColor = '#991b1b';
         b.title = '本日、まだ出勤の打刻がありません';
       } else if (status === 'done') {
         b.classList.add('ha-duty-name--done');

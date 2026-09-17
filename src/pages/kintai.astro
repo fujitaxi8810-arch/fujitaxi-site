@@ -1861,11 +1861,18 @@ import Layout from '../layouts/Layout.astro';
     } else {
       const shiftType = document.querySelector('input[name="manualEntryShift"]:checked').value;
       const inIso = timeInputToIso(date, $('manualEntryIn').value);
-      const outIso = timeInputToIso(date, $('manualEntryOut').value);
+      let outIso = timeInputToIso(date, $('manualEntryOut').value);
       if (!inIso) { alert('出勤時刻を入力してください。'); return; }
       if (outIso && new Date(outIso) < new Date(inIso)) {
-        alert('退勤時刻が出勤時刻より前になっています。時刻を確認してください。');
-        return;
+        // 退勤時刻が出勤時刻より前＝日をまたぐ遅番などとみなし、翌日の時刻として記録する
+        // （出勤日はシフトが始まった日のまま変えない。実際の退勤打刻と同じ考え方）
+        const nextDayOutIso = new Date(new Date(outIso).getTime() + 24 * 60 * 60 * 1000).toISOString();
+        const nd = new Date(nextDayOutIso);
+        const nextDayLabel = `${nd.getMonth() + 1}/${nd.getDate()}`;
+        if (!confirm(`退勤時刻（${$('manualEntryOut').value}）が出勤時刻より前になっています。\n日をまたいで翌日（${nextDayLabel}）${$('manualEntryOut').value}の退勤として記録しますか？`)) {
+          return;
+        }
+        outIso = nextDayOutIso;
       }
       const breakStartIso = timeInputToIso(date, $('manualEntryBreakStart').value);
       const breakEndIso = timeInputToIso(date, $('manualEntryBreakEnd').value);

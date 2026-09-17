@@ -1,0 +1,243 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+/*
+ * 乗車中のお客様がご自身のスマホで開く想定のゲーム選択画面。
+ * 説明は最小限にして、タップ目標を大きく取っている。
+ */
+const games = [
+  {
+    href: '/game/dodge',
+    icon: '🚧',
+    title: 'よけろ！タクシー',
+    lead: '左右で車線をかえ、まんなかでジャンプ。よけながらメーターを上げる。',
+    tags: ['タップだけ', '1分で遊べる'],
+    primary: true,
+  },
+  {
+    href: '/game/quiz',
+    icon: '🚦',
+    title: '交通ルールクイズ',
+    lead: '道路標識や交通ルールの4択クイズ。親子で交通安全について学べます。',
+    tags: ['4択クイズ', '全10問'],
+    primary: false,
+  },
+  {
+    href: '/game/local',
+    icon: '🐴',
+    title: '南相馬ご当地クイズ',
+    lead: '観光地・お祭り・地理の4択クイズ。地元のことにくわしくなれます。',
+    tags: ['4択クイズ', '全10問'],
+    primary: false,
+  },
+];
+---
+
+<Layout
+  title="富士タクソゲー – 富士タクシー南相馬"
+  description="ご乗車中やタクシーをお待ちの間にお楽しみいただける、富士タクシー南相馬のミニゲームです。よけろ！タクシー、交通ルールクイズ、南相馬ご当地クイズの3種類。"
+  noindex
+  hideFloatCta
+  hideNav
+>
+
+  <section class="section bg-black gs-page">
+    <div class="container gs-shell">
+
+      <header class="gs-head">
+        <img class="gs-logo" src="/images/logo-fuji-taxi.webp" alt="富士タクシー" width="88" height="88" />
+        <h1 class="gs-title">富士タクソゲー</h1>
+        <p class="gs-lead">目的地に着くまで、よかったらどうぞ。<br>タクシーをお待ちの間の暇つぶしにも。</p>
+      </header>
+
+      <ul class="gs-list">
+        {games.map((g) => (
+          <li>
+            <a class={`gs-card${g.primary ? ' gs-card--primary' : ''}`} href={g.href}>
+              <span class="gs-card__icon">{g.icon}</span>
+              <span class="gs-card__body">
+                <span class="gs-card__title">{g.title}</span>
+                <span class="gs-card__lead">{g.lead}</span>
+                <span class="gs-card__tags">
+                  {g.tags.map((t) => <span class="gs-tag">{t}</span>)}
+                </span>
+              </span>
+              <span class="gs-card__go" aria-hidden="true">›</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+
+      <p class="gs-note">
+        走行中は画面の見すぎにご注意ください。気分が悪くなったら遠慮なくお声がけください。
+      </p>
+
+      <!-- ご案内 -->
+      <div class="gs-pr">
+        <img class="gs-pr__logo" src="/images/logo-fuji-taxi.webp" alt="富士タクシー" width="52" height="52" />
+        <div class="gs-pr__body">
+          <p class="gs-pr__name">有限会社 富士タクシー</p>
+          <p class="gs-pr__sub">創業50年以上・南相馬市小高区／原町区<br>年中無休 7:00〜24:00</p>
+          <p class="gs-pr__links">
+            <a href="tel:0244442543">本社 0244-44-2543</a>
+            <a href="tel:0244320030">原町待機所 0244-32-0030</a>
+          </p>
+          <p class="gs-pr__links">
+            <a href="/">ホームページ</a>
+            <a href="/contact">ご予約・お問い合わせ</a>
+            <a href="/recruit">乗務員募集</a>
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</Layout>
+
+<style is:global>
+  /* ============================================
+     /game — ゲーム選択
+     お客様がご自身のスマホで開く前提。
+     タップ目標を大きく、説明は短く。
+     ============================================ */
+
+  .gs-page {
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-8);
+    min-height: 100dvh;
+  }
+
+  .gs-shell {
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .gs-head { text-align: center; }
+  .gs-logo {
+    width: 88px;
+    height: 88px;
+    border-radius: var(--radius-full);
+    margin: 0 auto var(--space-3);
+  }
+  .gs-title {
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    line-height: 1.3;
+  }
+  .gs-lead {
+    margin-top: var(--space-2);
+    font-size: var(--text-sm);
+    color: #D8D5CC;
+  }
+
+  .gs-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .gs-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--fuji-black-card);
+    border: 1px solid var(--fuji-gray-border);
+    border-radius: var(--radius-lg);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+  }
+  .gs-card:hover { border-color: var(--fuji-yellow); }
+  .gs-card:active { background: #2C2C2C; }
+  .gs-card--primary { border-color: #4A431F; background: #232016; }
+
+  .gs-card__icon { font-size: 2rem; line-height: 1; flex-shrink: 0; }
+  .gs-card__body { flex: 1; min-width: 0; }
+
+  .gs-card__title {
+    display: block;
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--fuji-white);
+  }
+  .gs-card__lead {
+    display: block;
+    margin-top: 4px;
+    font-size: var(--text-xs);
+    line-height: 1.6;
+    color: var(--fuji-gray-muted);
+  }
+  .gs-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: var(--space-2);
+  }
+
+  /* 淡い背景＋濃い文字のバッジ */
+  .gs-tag {
+    padding: 2px 9px;
+    border-radius: var(--radius-full);
+    font-size: 10px;
+    font-weight: 700;
+    background: #FBF0D5;
+    color: #7A5B12;
+    border: 1px solid #E3CD8E;
+  }
+  .gs-card:not(.gs-card--primary) .gs-tag {
+    background: #E2E7EF;
+    color: #33465F;
+    border-color: #B0BDD1;
+  }
+
+  .gs-card__go {
+    font-size: var(--text-2xl);
+    color: var(--fuji-gray-muted);
+    flex-shrink: 0;
+  }
+
+  .gs-note {
+    font-size: var(--text-xs);
+    line-height: 1.7;
+    color: var(--fuji-gray-muted);
+    text-align: center;
+  }
+
+  /* ご案内 */
+  .gs-pr {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: #F6F3EA;
+    border: 1px solid #DDD6C4;
+    border-radius: var(--radius-lg);
+  }
+  .gs-pr__logo { width: 52px; height: 52px; border-radius: var(--radius-full); flex-shrink: 0; }
+  .gs-pr__body { min-width: 0; }
+  .gs-pr__name { font-size: var(--text-sm); font-weight: 700; color: #2A2A2A; }
+  .gs-pr__sub { font-size: 10px; color: #6B655A; line-height: 1.6; margin-top: 2px; }
+  .gs-pr__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: var(--space-2);
+  }
+  .gs-pr__links a {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: #7A5B12;
+    background: #FBF0D5;
+    border: 1px solid #E3CD8E;
+    border-radius: var(--radius-full);
+    padding: 3px 11px;
+    text-decoration: none;
+  }
+  .gs-pr__links a:hover { background: #F3E4BD; }
+</style>

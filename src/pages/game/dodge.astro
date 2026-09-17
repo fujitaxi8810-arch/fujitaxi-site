@@ -1,0 +1,2015 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout
+  title="よけろ！タクシー – 富士タクシー南相馬"
+  description="画面の左右をタップしてよけるだけの簡単なミニゲーム。南相馬の道をどこまで走れるか挑戦してください。"
+  noindex
+  hideFloatCta
+  hideNav
+>
+
+  <section class="section bg-black dg-page">
+    <div class="container dg-shell">
+
+      <header class="dg-topbar">
+        <a class="dg-back" href="/game">
+          <span class="dg-back__mark">‹</span>
+          <span class="dg-back__text">よけろ！タクシー</span>
+        </a>
+        <div class="dg-scores">
+          <div class="dg-score">
+            <span class="dg-score__label">メーター</span>
+            <span class="dg-score__value" id="dist">¥620</span>
+          </div>
+          <div class="dg-score">
+            <span class="dg-score__label">さいこう</span>
+            <span class="dg-score__value" id="best">¥0</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="dg-stagewrap">
+        <div class="dg-stage" id="stage">
+          <canvas id="board" class="dg-canvas"></canvas>
+
+          <!-- スタート -->
+          <div class="dg-overlay" id="ovStart">
+            <div class="dg-card">
+              <img class="dg-logo" src="/images/logo-fuji-taxi.webp" alt="富士タクシー" width="72" height="72" />
+              <h1 class="dg-card__title">よけろ！タクシー</h1>
+              <p class="dg-card__lead">
+                画面の<strong>左</strong>と<strong>右</strong>で車線をかえ、<br>
+                <strong>まんなか</strong>でジャンプします。<br>
+                道いっぱいの穴はジャンプでしか越えられません。<br>
+                広い穴（×2の印）は2回タップしないと落ちてしまいます。
+              </p>
+
+              <ul class="dg-items">
+                <li><span class="dg-chip dg-chip--fare">🙋</span>お客さま<em>チップがもらえる</em></li>
+                <li><span class="dg-chip dg-chip--charm">🛡️</span>お守り<em>1回ぶつかっても平気</em></li>
+                <li><span class="dg-chip dg-chip--slow">🐢</span>ゆっくり<em>5秒間ゆっくり走る</em></li>
+                <li><span class="dg-chip dg-chip--ride">✨</span>お客さまを何人か<em>しばらく無敵</em></li>
+                <li><span class="dg-chip dg-chip--boost">⚡</span>スピードアップ<em>4秒間、道の流れが速くなる</em></li>
+                <li><span class="dg-chip dg-chip--wobble">💨</span>突風<em>3秒間、左右のタップが逆になる</em></li>
+              </ul>
+
+              <p class="dg-pick__label">乗る車をえらぶ</p>
+              <div class="dg-cars" id="carPicker"></div>
+
+              <p class="dg-suspend" id="suspendNote" hidden>
+                <strong>免許停止中です</strong>
+                人をはねてしまうと、しばらく運転できません。
+              </p>
+              <div class="dg-startRow">
+                <button type="button" class="dg-btn" id="startBtn">はじめる</button>
+                <button type="button" class="dg-btn dg-btn--ghost" id="rankOpenBtn">ランキング</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ゲームオーバー -->
+          <div class="dg-overlay" id="ovOver" hidden>
+            <div class="dg-card">
+              <h2 class="dg-card__title" id="overTitle">ぶつかりました</h2>
+              <p class="dg-result" id="overScore">¥620</p>
+              <p class="dg-card__note" id="overNote">さいこう記録 ¥0</p>
+              <p class="dg-suspend" id="suspendNote2" hidden>
+                <strong>免許停止</strong>
+                人をはねてしまいました。しばらく運転できません。
+              </p>
+
+              <!-- ランキング登録（今月の上位に入りそうなときだけ出す） -->
+              <div class="dg-submit" id="submitBox" hidden>
+                <p class="dg-submit__label" id="submitLabel">ランキングに登録しますか？</p>
+                <div class="dg-submit__row">
+                  <input type="text" id="nickInput" class="dg-submit__input" maxlength="12" placeholder="なまえ（12文字まで）" />
+                  <button type="button" class="dg-btn dg-btn--sm" id="submitScoreBtn">登録</button>
+                </div>
+                <p class="dg-submit__msg" id="submitMsg"></p>
+              </div>
+
+              <div class="dg-overRow">
+                <button type="button" class="dg-btn" id="retryBtn">もういちど</button>
+                <button type="button" class="dg-btn dg-btn--ghost" id="rankOpenBtn2">ランキングを見る</button>
+              </div>
+
+              <!-- ご案内 -->
+              <div class="dg-pr">
+                <img class="dg-pr__logo" src="/images/logo-fuji-taxi.webp" alt="富士タクシー" width="44" height="44" />
+                <div class="dg-pr__body">
+                  <p class="dg-pr__name">富士タクシー南相馬</p>
+                  <p class="dg-pr__sub">年中無休 7:00〜24:00／小高区・原町区</p>
+                  <p class="dg-pr__links">
+                    <a href="tel:0244442543">本社 0244-44-2543</a>
+                    <a href="tel:0244320030">原町待機所 0244-32-0030</a>
+                  </p>
+                  <p class="dg-pr__links">
+                    <a href="https://line.me/R/ti/p/@580lzpne" target="_blank" rel="noopener">公式LINE</a>
+                    <a href="/">ホームページ</a>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ランキング -->
+          <div class="dg-overlay" id="ovRanking" hidden>
+            <div class="dg-card">
+              <h2 class="dg-card__title">ランキング</h2>
+              <p class="dg-card__note">乗った車ごとに、みんなの記録を競います</p>
+              <p class="dg-rankMonth" id="rankMonth"></p>
+              <div class="dg-rankTabs" id="rankTabs"></div>
+              <ol class="dg-rankList" id="rankList"></ol>
+              <p class="dg-rankMsg" id="rankMsg"></p>
+              <button type="button" class="dg-btn" id="rankCloseBtn">とじる</button>
+            </div>
+          </div>
+
+          <!-- 一時停止 -->
+          <div class="dg-overlay" id="ovPause" hidden>
+            <div class="dg-card">
+              <h2 class="dg-card__title">とまっています</h2>
+              <button type="button" class="dg-btn" id="resumeBtn">つづける</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="dg-hint" id="hint">左＝左へ／まんなか＝ジャンプ／右＝右へ（PCは矢印キー）</p>
+
+      <div class="dg-tools">
+        <button type="button" class="dg-toolbtn" id="soundBtn" aria-pressed="true">🔊 音</button>
+        <a class="dg-toolbtn" href="/game">ゲームをえらぶ</a>
+      </div>
+
+    </div>
+  </section>
+
+</Layout>
+
+<style is:global>
+  /* ============================================
+     /game/dodge — よけろ！タクシー
+     縦にスクロールする道を、左右にかわしていく。
+     操作は「左半分か右半分をタップ」だけ。
+     ============================================ */
+
+  .dg-page {
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-6);
+    min-height: 100dvh;
+  }
+
+  .dg-shell {
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .dg-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .dg-back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: var(--text-sm);
+    color: var(--fuji-white);
+    text-decoration: none;
+  }
+  .dg-back:hover { color: var(--fuji-yellow); }
+  .dg-back__mark { opacity: 0.7; font-size: var(--text-lg); }
+
+  .dg-scores { display: flex; gap: var(--space-2); }
+
+  .dg-score {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 62px;
+    padding: 2px 8px;
+    background: #1E1E1E;
+    border: 1px solid var(--fuji-gray-border);
+    border-radius: var(--radius-md);
+  }
+  .dg-score__label { font-size: 10px; color: var(--fuji-gray-muted); letter-spacing: 0.06em; }
+  .dg-score__value {
+    font-size: var(--text-base);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    font-variant-numeric: tabular-nums;
+  }
+  .dg-score__value small { font-size: 10px; margin-left: 1px; }
+
+  .dg-stagewrap { display: flex; justify-content: center; }
+
+  .dg-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 5;   /* JSで実際の高さを入れる。これはその前の見た目 */
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--fuji-gray-border);
+    background: #C8D6B4;
+  }
+
+  .dg-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: manipulation;
+  }
+
+  .dg-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    background: rgba(17, 17, 17, 0.84);
+    z-index: 2;
+  }
+  .dg-overlay[hidden] { display: none; }
+
+  .dg-card {
+    width: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    text-align: center;
+  }
+
+  .dg-logo {
+    width: 72px;
+    height: 72px;
+    border-radius: var(--radius-full);
+    margin: 0 auto var(--space-3);
+  }
+
+  .dg-card__title {
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    margin-bottom: var(--space-2);
+  }
+  .dg-card__lead {
+    font-size: var(--text-sm);
+    line-height: 1.8;
+    color: #D8D5CC;
+  }
+  .dg-card__lead strong { color: var(--fuji-yellow); }
+  .dg-card__note {
+    font-size: var(--text-xs);
+    color: var(--fuji-gray-muted);
+  }
+
+  /* 拾えるものの説明 */
+  .dg-items {
+    list-style: none;
+    margin-top: var(--space-2);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    text-align: left;
+  }
+  .dg-items li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: #E5E4DF;
+  }
+  .dg-items em {
+    font-style: normal;
+    font-weight: 400;
+    font-size: 10px;
+    color: var(--fuji-gray-muted);
+    margin-left: auto;
+  }
+  .dg-chip {
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .dg-chip--fare  { background: #FBF0D5; border: 2px solid #8A6E1E; }
+  .dg-chip--charm { background: #DCE8DE; border: 2px solid #3F6048; }
+  .dg-chip--slow  { background: #DCE6F0; border: 2px solid #33465F; }
+  .dg-chip--ride  { background: #FBF0D5; border: 2px solid #C8A23A; }
+  .dg-chip--boost { background: #FBF0D5; border: 2px solid #8A6E1E; }
+  .dg-chip--wobble { background: #F6E2D5; border: 2px solid #8A5A22; }
+
+  /* 乗る車をえらぶ */
+  .dg-pick__label {
+    margin-top: var(--space-3);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--fuji-gray-muted);
+  }
+  .dg-cars {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .dg-car {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-2) 4px;
+    background: #1E1E1E;
+    border: 1px solid #3A3A3A;
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    color: #D8D5CC;
+    cursor: pointer;
+    text-align: center;
+  }
+  .dg-car[aria-pressed="true"] {
+    border-color: var(--fuji-yellow);
+    background: #2A2515;
+  }
+  .dg-car__icon { display: block; font-size: 18px; line-height: 1.2; }
+  .dg-car__name { display: block; font-size: 11px; font-weight: 700; }
+  .dg-car__sub { display: block; font-size: 9px; color: var(--fuji-gray-muted); line-height: 1.4; }
+  .dg-car__best {
+    display: block;
+    margin-top: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #7A5B12;
+    background: #FBF0D5;
+    border: 1px solid #E3CD8E;
+    border-radius: var(--radius-full);
+    padding: 1px 4px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .dg-result {
+    font-size: var(--text-4xl);
+    font-weight: 700;
+    color: var(--fuji-white);
+    font-variant-numeric: tabular-nums;
+    margin: var(--space-1) 0;
+  }
+  .dg-result small { font-size: var(--text-lg); margin-left: 2px; }
+
+  .dg-btn {
+    margin-top: var(--space-3);
+    padding: 14px var(--space-8);
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--fuji-yellow);
+    color: var(--fuji-black);
+    font-family: inherit;
+    font-size: var(--text-base);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .dg-btn:hover:not(:disabled) { background: var(--fuji-yellow-dark); }
+  .dg-btn:active:not(:disabled) { transform: scale(0.98); }
+  .dg-btn:disabled {
+    background: #3A3A3A;
+    color: var(--fuji-gray-muted);
+    cursor: not-allowed;
+  }
+  .dg-btn--ghost {
+    background: transparent;
+    border: 1px solid #3A3A3A;
+    color: #E5E4DF;
+  }
+  .dg-btn--ghost:hover:not(:disabled) { background: transparent; border-color: var(--fuji-yellow); color: var(--fuji-yellow); }
+  .dg-btn--sm { margin-top: 0; padding: 9px var(--space-4); font-size: var(--text-xs); white-space: nowrap; }
+
+  .dg-startRow,
+  .dg-overRow {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+  .dg-startRow .dg-btn,
+  .dg-overRow .dg-btn { flex: 1; margin-top: 0; }
+
+  /* 免許停止のお知らせ。淡い背景＋濃い文字 */
+  .dg-suspend {
+    margin-top: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: #F3E2DE;
+    border: 1px solid #D3AFA6;
+    border-radius: var(--radius-md);
+    font-size: 11px;
+    line-height: 1.6;
+    color: #7A3B2C;
+    text-align: left;
+  }
+  .dg-suspend strong {
+    display: block;
+    font-size: var(--text-sm);
+    margin-bottom: 2px;
+  }
+  .dg-suspend[hidden] { display: none; }
+
+  /* ご案内（ゲームオーバー画面の下） */
+  .dg-pr {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    text-align: left;
+    margin-top: var(--space-5);
+    padding: var(--space-3);
+    background: #F6F3EA;
+    border: 1px solid #DDD6C4;
+    border-radius: var(--radius-md);
+  }
+  .dg-pr__logo { width: 44px; height: 44px; border-radius: var(--radius-full); flex-shrink: 0; }
+  .dg-pr__body { min-width: 0; }
+  .dg-pr__name { font-size: var(--text-sm); font-weight: 700; color: #2A2A2A; }
+  .dg-pr__sub { font-size: 10px; color: #6B655A; line-height: 1.5; margin-top: 1px; }
+  .dg-pr__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: 4px;
+  }
+  .dg-pr__links a {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: #7A5B12;
+    background: #FBF0D5;
+    border: 1px solid #E3CD8E;
+    border-radius: var(--radius-full);
+    padding: 2px 10px;
+    text-decoration: none;
+  }
+  .dg-pr__links a:hover { background: #F3E4BD; }
+
+  /* ランキング登録フォーム（自己ベストのときだけ出る） */
+  .dg-submit {
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    background: #FBF0D5;
+    border: 1px solid #E3CD8E;
+    border-radius: var(--radius-md);
+    text-align: left;
+  }
+  .dg-submit[hidden] { display: none; }
+  .dg-submit__label { font-size: var(--text-xs); font-weight: 700; color: #6B4E0E; }
+  .dg-submit__row { display: flex; gap: 6px; margin-top: var(--space-2); }
+  .dg-submit__input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid #D8C088;
+    border-radius: var(--radius-md);
+    background: #FDFBF3;
+    color: #2A2A2A;
+    font-family: inherit;
+    font-size: var(--text-sm);
+  }
+  .dg-submit__input:focus { outline: 2px solid #C8A23A; outline-offset: 1px; }
+  .dg-submit__msg { margin-top: 6px; font-size: 11px; color: #6B4E0E; min-height: 1.4em; }
+
+  /* ランキング画面 */
+  .dg-rankMonth {
+    display: inline-block;
+    margin-top: var(--space-2);
+    padding: 3px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #7A5B12;
+    background: #FBF0D5;
+    border: 1px solid #E3CD8E;
+    border-radius: var(--radius-full);
+  }
+  .dg-rankTabs {
+    display: flex;
+    gap: 6px;
+    margin-top: var(--space-3);
+  }
+  .dg-rankTab {
+    flex: 1;
+    padding: 7px 4px;
+    background: #1E1E1E;
+    border: 1px solid #3A3A3A;
+    border-radius: var(--radius-md);
+    color: #D8D5CC;
+    font-family: inherit;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .dg-rankTab[aria-pressed="true"] { border-color: var(--fuji-yellow); background: #2A2515; color: var(--fuji-yellow); }
+
+  .dg-rankList {
+    list-style: none;
+    margin-top: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: left;
+    max-height: 46vh;
+    overflow-y: auto;
+  }
+  .dg-rankRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 6px var(--space-2);
+    background: #1E1E1E;
+    border: 1px solid var(--fuji-gray-border);
+    border-radius: var(--radius-md);
+  }
+  .dg-rankRow--me { border-color: var(--fuji-yellow); background: #2A2515; }
+  .dg-rankRow__no {
+    width: 20px;
+    flex-shrink: 0;
+    text-align: center;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--fuji-gray-muted);
+  }
+  .dg-rankRow__name {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: #E5E4DF;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dg-rankRow__fare {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .dg-rankMsg {
+    margin-top: var(--space-3);
+    font-size: var(--text-xs);
+    color: var(--fuji-gray-muted);
+    text-align: center;
+    min-height: 1.4em;
+  }
+
+  .dg-hint {
+    font-size: var(--text-xs);
+    color: var(--fuji-gray-muted);
+    text-align: center;
+    line-height: 1.6;
+    min-height: 2.4em;
+  }
+
+  .dg-tools {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-2);
+  }
+  .dg-toolbtn {
+    padding: 7px 14px;
+    background: transparent;
+    border: 1px solid #3A3A3A;
+    border-radius: var(--radius-md);
+    color: #E5E4DF;
+    font-family: inherit;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .dg-toolbtn:hover { border-color: var(--fuji-yellow); color: var(--fuji-yellow); }
+</style>
+
+<script>
+  import { fetchTopScores, submitScore, normalizeNickname, currentMonthLabel, wouldEnterRanking } from '../../lib/game-scores';
+
+  /* ============================================================
+     よけろ！タクシー
+     道が下へ流れてくるのを、左右の車線移動だけでよける。
+     ご乗車中に片手で遊べるよう、押す場所は「画面の左半分／右半分」
+     の2つしかない。
+     ============================================================ */
+
+  /* ── 世界の横幅。縦は画面の高さから決める ── */
+  const W = 200;
+  const ROAD_L = 46;
+  const ROAD_R = 154;
+  const LANES = [64, 100, 136];   // 3車線の中心
+  const LANE_W = 36;
+
+  const TAXI_W = 26;
+  const TAXI_H = 40;
+  const TAXI_BOTTOM = 18;         // 画面下からの距離
+
+  const SPEED_START = 130;        // 道が流れてくる速さ（単位／秒）
+  const SPEED_UP = 2.2;           // 1秒ごとに速くなる量。止まらずに上がっていく
+  /* 障害物が画面に現れてからタクシーに届くまでの距離（≒画面の高さ）は
+     速さが変わっても一定なので、これ以上速くすると反応できる時間が
+     人（特に子ども）の限界を割ってしまう、という上限。
+     最高速でも「見てから0.7〜0.8秒」は残るように選んでいる */
+  const SPEED_MAX = 300;
+
+  /* 速いほど車線移動もきびきびさせないと、操作が置いていかれる */
+  const SHIFT_BASE = 170;
+  /* 速くなるほど車線変更そのものも機敏にして、反応の余裕を
+     「操作にかかる時間」ではなく「考える時間」に多く残す */
+  const shiftSpeed = () => SHIFT_BASE + (run.speed - SPEED_START) * 0.62;
+
+  /* ── 料金メーター ──
+     初乗りから走った分だけ上がっていく。距離ではなく金額を競う。 */
+  const BASE_FARE = 620;
+  const FARE_STEP = 300;          // この距離ごとに
+  const FARE_ADD = 80;            // 加算される額（車ごとの基準）
+  const RIDE_INVINCIBLE = 5;      // 無敵になるまでの人数（車ごとの基準）
+  const INVINCIBLE_SEC = 8;       // 無敵でいられる時間
+
+  /* ── 路肩の観光案内看板 ──
+     南相馬市の実在する観光地。走っているとときどき看板とすれ違う。
+     富士タクシーの看板（drawBillboard）と交互に出す。 */
+  const SPOTS = [
+    { name: '相馬野馬追\n雲雀ヶ原', icon: '🏇', bg: '#F0E4DE', line: '#8A6448' },
+    { name: '北泉海岸',       icon: '🏄', bg: '#DCE6F0', line: '#33465F' },
+    { name: '小高神社',       icon: '⛩',  bg: '#F6E2DD', line: '#8A4A3A' },
+    { name: '道の駅\n南相馬', icon: '🅿',  bg: '#E2E7EF', line: '#33465F' },
+    { name: '真野川漁港',     icon: '⚓', bg: '#DCE8DE', line: '#3F6048' },
+    { name: '横田の\nバラ園', icon: '🌹', bg: '#F6E2E8', line: '#8A3A55' },
+    { name: '南相馬\n市博物館', icon: '🏛', bg: '#E2E7EF', line: '#33465F' },
+    { name: '小高\n交流センター', icon: '🏢', bg: '#F0E4DE', line: '#8A6448' },
+    { name: '野馬追通り\n銘醸館', icon: '🏮', bg: '#F6E2DD', line: '#8A4A3A' },
+    { name: '大悲山の\n石仏',   icon: '🗿', bg: '#E2E7EF', line: '#5A5347' },
+    { name: '烏崎\n海浜公園', icon: '🌊', bg: '#DCE6F0', line: '#33465F' },
+  ];
+
+  /* ── 飛び出し ── */
+  const LICENSE_SEC = 60;         // 人をはねたときの免許停止（秒）
+  const WALK_WARN = 0.9;          // 「！」が出てから飛び出すまで
+  const WALK_W = 16;
+  const WALK_H = 20;
+
+  /* ── アイテム ── */
+  const SLOW_SEC = 5;             // 「ゆっくり」の効き目
+  const SLOW_RATE = 0.6;
+  const WOBBLE_SEC = 3;            // 突風でハンドルがふらつく時間
+  const BOOST_SEC = 4;             // 「スピードアップ」の効き目（現実の秒数。自分の効果で自分の時間が伸び縮みしないよう、これだけはdt*flowRateでなくdtで減らす）
+  const BOOST_RATE = 1.6;          // 「ゆっくり」の逆。流れが速くなる倍率
+
+  const ITEMS = [
+    { id: 'fare',   w: 30, h: 30, weight: 5, icon: '🙋', pop: '＋¥500',
+      bg: '#FBF0D5', line: '#8A6E1E', glow: '#FFD65C' },      // お客さま
+    { id: 'charm',  w: 30, h: 30, weight: 2, icon: '🛡️', pop: 'おまもり',
+      bg: '#DCE8DE', line: '#3F6048', glow: '#5FD98A' },      // 交通安全のお守り
+    { id: 'slow',   w: 30, h: 30, weight: 3, icon: '🐢', pop: 'ゆっくり',
+      bg: '#DCE6F0', line: '#33465F', glow: '#5CA8F5' },      // ゆっくり
+    { id: 'wobble', w: 30, h: 30, weight: 2, icon: '💨', pop: 'ふらふら…',
+      bg: '#F6E2D5', line: '#8A5A22', glow: '#F5A85C' },      // 突風。左右が逆になる“わざとハズレ”アイテム
+    { id: 'boost',  w: 30, h: 30, weight: 3, icon: '⚡', pop: 'スピードアップ！',
+      bg: '#FBF0D5', line: '#8A6E1E', glow: '#FFE066' },      // スピードアップ。「ゆっくり」の逆
+  ];
+  const ITEM_BY_ID = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
+
+  /* ── ボーナスラッシュ ──
+     一定の距離を走るたびに、空いている車線すべてにお客さまが乗ってくる
+     「稼ぎタイム」。誰でも必ず体験できるよう、車種やスコアに関わらず
+     走った距離だけで発動する（アイテム運や反応速度に左右されない）。 */
+  const RUSH_DIST_STEP = 4000;     // この距離を走るたびに発動する
+  const RUSH_SEC = 6;              // ラッシュが続く時間（道の流れに合わせて数える）
+
+  /* 障害物。1回に最大2車線までしかふさがない */
+  const OBSTACLES = [
+    { id: 'cone',    w: 14, h: 14 },
+    { id: 'car',     w: 26, h: 40 },
+    { id: 'barrier', w: 32, h: 12 },
+  ];
+
+  /* ── 穴 ──
+     道いっぱいに空いているので、車線をかえてもよけられない。
+     ジャンプで飛び越える。狭い穴は1タップ、広い穴は2タップ必要。
+
+     広い穴を「必ず2タップ」にするのに、穴の高さとジャンプの滞空時間の
+     比較（物理）だけに頼ると、速いときは1タップでも届いてしまい、
+     遅いときは2タップしても届かない、と速さによって結果が変わってしまう
+     （ジャンプの届く距離は速さに比例して伸びるが、穴の大きさは変わらないため）。
+     そこで広い穴だけは「タップした回数」そのものを数えて、必要な回数に
+     達したら（滞空時間の物理計算とは別に）安全とみなす方式にしている。
+     狭い穴は今まで通り、ジャンプ中かどうかの物理判定のまま。 */
+  const HOLE_H = 24;         // 狭い穴
+  const HOLE_H_WIDE = 46;    // 広い穴。見た目にもはっきり広く見える大きさ
+  /* 飛んでいる時間。遅いときほど穴が通り過ぎるのに時間がかかるので、
+     いちばん遅い場面でも越えられる長さにしてある */
+  const JUMP_TIME = 1.08;
+
+  /* ── 乗る車 ──
+     それぞれ得意・不得意がある。条件が変わるので、
+     さいこう記録は車ごとに分けて残す。 */
+  const CARS = [
+    {
+      id: 'nv200', name: '富士タクシー', icon: '🚕',
+      sub: 'お客さまが出やすい',
+      fareWeight: 1.3,   // お客さまの出やすさ
+      tip: 500,          // チップの額
+      rides: 5,          // 無敵になるまでの人数
+      width: 0,          // 当たり判定の広がり
+      speedUp: 1,        // 速くなる度合い
+      fareAdd: 80,       // 加算運賃
+      jump: 1,           // ジャンプの長さ
+    },
+    {
+      id: 'jpn', name: 'JPN TAXI', icon: '🚙',
+      sub: 'チップが多い／車体が大きい',
+      /* 稼ぎやすさが極端すぎるとの指摘を受けて、チップを800→650に調整 */
+      fareWeight: 1, tip: 650, rides: 4, width: 2, speedUp: 1, fareAdd: 80, jump: 1,
+    },
+    {
+      id: 'hansom', name: '辻馬車', icon: '🐴',
+      sub: '遅くて穴に強い／運賃は安め',
+      /* 「安全だが稼げなさすぎる」との指摘を受けて、
+         加速の遅さを0.5→0.72、加算運賃を60→72に緩和 */
+      fareWeight: 1, tip: 500, rides: 5, width: 0, speedUp: 0.78, fareAdd: 75, jump: 1.35,
+    },
+  ];
+  const CAR_BY_ID = Object.fromEntries(CARS.map((c) => [c.id, c]));
+  const car = () => CAR_BY_ID[save.car] || CARS[0];
+
+  const SAVE_KEY = 'fujitaxi-dodge-v3';
+
+  function loadSave() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      const p = raw ? JSON.parse(raw) : {};
+      return {
+        sound: p.sound !== false,
+        suspendUntil: Number.isFinite(p.suspendUntil) ? p.suspendUntil : 0,
+        car: CAR_BY_ID[p.car] ? p.car : 'nv200',
+        nickname: typeof p.nickname === 'string' ? p.nickname : '',
+        /* 以前の「ひとつだけの記録」は、そのとき乗っていた車の記録として引き継ぐ */
+        bests: Object.fromEntries(CARS.map((c) => {
+          const stored = p.bests && Number.isFinite(p.bests[c.id]) ? p.bests[c.id] : 0;
+          const legacy = (!p.bests && c.id === (p.car || 'nv200') && Number.isFinite(p.best)) ? p.best : 0;
+          return [c.id, Math.max(stored, legacy)];
+        })),
+      };
+    } catch {
+      return { sound: true, suspendUntil: 0, car: 'nv200', nickname: '', bests: Object.fromEntries(CARS.map((c) => [c.id, 0])) };
+    }
+  }
+
+  function persist() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    } catch {
+      /* 保存できなくても遊べる */
+    }
+  }
+
+  let save = loadSave();
+  let phase = 'title';   // title | run | over | paused
+  let run = null;
+  let raf = 0;
+  let lastTs = 0;
+
+  /* ランキング登録待ちの記録（ゲームオーバー直後にセットする） */
+  let pendingFare = 0;
+  let pendingCar = 'nv200';
+  let rankCar = 'nv200';   // ランキング画面でいま見ている車種
+  let rankRequestId = 0;   // 車種を素早く切り替えたときに、古い通信結果で上書きしないため
+
+  const $ = (id) => document.getElementById(id);
+  const canvas = $('board');
+  const ctx = canvas.getContext('2d');
+  const stage = $('stage');
+  const el = {
+    dist: $('dist'), best: $('best'), hint: $('hint'),
+    ovStart: $('ovStart'), ovOver: $('ovOver'), ovPause: $('ovPause'),
+    overTitle: $('overTitle'), overScore: $('overScore'), overNote: $('overNote'),
+    soundBtn: $('soundBtn'),
+    ovRanking: $('ovRanking'), rankTabs: $('rankTabs'), rankList: $('rankList'), rankMsg: $('rankMsg'),
+    rankMonth: $('rankMonth'),
+    submitBox: $('submitBox'), submitLabel: $('submitLabel'), nickInput: $('nickInput'), submitMsg: $('submitMsg'),
+  };
+
+  /* 路肩の看板に出す会社のロゴ */
+  const logo = new Image();
+  let logoOk = false;
+  logo.onload = () => { logoOk = true; draw(); };
+  logo.src = '/images/logo-fuji-taxi.webp';
+
+  const bestOf = () => save.bests[save.car] || 0;
+
+  /** いまのメーター料金。初乗り＋走った分＋チップ */
+  const fareOf = (r) => BASE_FARE + Math.floor(r.dist / FARE_STEP) * car().fareAdd + r.tip;
+  const yen = (n) => '¥' + Math.round(n).toLocaleString('ja-JP');
+
+  function newRun() {
+    return {
+      speed: SPEED_START,
+      dist: 0,
+      lane: 1,
+      x: LANES[1],
+      obstacles: [],
+      items: [],
+      walkers: [],
+      holes: [],
+      jump: 0,          // 飛んでいる残り時間
+      jumpExtended: false,   // 今のホップで、2回目のタップをもう使ったか
+      tip: 0,
+      rides: 0,         // 乗せたお客さまの人数
+      spawnIn: 180,
+      milestone: 0,
+      rush: 0,                     // ボーナスラッシュの残り時間
+      nextRushDist: RUSH_DIST_STEP,
+      shake: 0,
+      pops: [],         // 拾ったときに浮かぶ文字
+      charm: false,     // お守りを持っているか
+      slow: 0,          // 「ゆっくり」の残り秒数
+      boost: 0,         // 「スピードアップ」の残り秒数
+      wobble: 0,        // 突風でハンドルが逆になっている残り秒数
+      invuln: 0,        // お守りで助かった直後の無敵時間
+    };
+  }
+  /* ── 効果音 ──
+     「音が鳴らない」の報告を受けて、iPhone（iOS Safari）でよくある
+     「最初のタップで一度“解錠”しないとWeb Audioが鳴らない」問題への
+     対策を入れている。ページ内で最初に指・キーが触れた瞬間に、
+     無音のバッファを一度鳴らしてAudioContextを本当に使える状態にする
+     （resume()の完了を待たずに音を鳴らそうとしていたのが元の弱点）。
+     なお、iPhone本体のサイレントスイッチ（マナーモード）がオンだと、
+     Web Audioはブラウザ側の対策では鳴らせない（OS側の制限のため）。 */
+  let audioCtx = null;
+  let audioUnlocked = false;
+
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch { return null; }
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    return audioCtx;
+  }
+
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    try {
+      const buffer = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch {
+      /* 解錠できなくても、この後の通常再生に任せる */
+    }
+  }
+  ['pointerdown', 'touchstart', 'keydown'].forEach((evt) =>
+    document.addEventListener(evt, unlockAudio, { once: true, passive: true })
+  );
+
+  /**
+   * 「よけろ！タクシーは鳴るがクイズは鳴らない」という報告があった。
+   * 違いは、クイズは「はじめる」を押したその一瞬で最初の音を鳴らそうと
+   * するのに対し、よけろ！タクシーは最初のタップでは鳴らさず、2回目以降の
+   * 操作で初めて鳴らす、という点だった。端末によっては
+   * AudioContextがsuspended→runningへ切り替わる前に音を鳴らそうとすると
+   * その音だけ取りこぼすことがあるため、それが一番最初の音になりやすい
+   * クイズ側で症状が出た、という可能性を疑っている。
+   * 対策として、コンテキストがまだrunningでないときは、resume()が
+   * 完了してから鳴らすようにした（取りこぼしを防ぐ。running済みなら
+   * 今までどおり遅延ゼロで鳴る）。
+   */
+  function playTone(ctx, freq, dur, type, gain) {
+    try {
+      const osc = ctx.createOscillator();
+      const amp = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      amp.gain.setValueAtTime(gain, ctx.currentTime);
+      amp.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+      osc.connect(amp).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + dur);
+    } catch {
+      /* 音が出せない環境でも進行に影響させない */
+    }
+  }
+
+  function beep(freq, dur, type = 'square', gain = 0.05) {
+    if (!save.sound) return;
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === 'running') {
+      playTone(ctx, freq, dur, type, gain);
+      return;
+    }
+    /* まだ準備中（suspended等）なら、running になってから鳴らす。
+       resume()に失敗しても、ゲーム進行には影響させない */
+    ctx.resume().then(() => playTone(ctx, freq, dur, type, gain)).catch(() => {});
+  }
+  const sfx = {
+    move:  () => beep(520, 0.05, 'square', 0.035),
+    jump:  () => { beep(620, 0.07); setTimeout(() => beep(880, 0.1), 70); },
+    fare:  () => { beep(784, 0.07); setTimeout(() => beep(1046, 0.09), 70); setTimeout(() => beep(1318, 0.14), 140); },
+    charm: () => { beep(660, 0.09, 'triangle', 0.06); setTimeout(() => beep(990, 0.16, 'triangle', 0.06), 90); },
+    slow:  () => { beep(500, 0.1, 'sine', 0.05); setTimeout(() => beep(350, 0.18, 'sine', 0.05), 100); },
+    boost: () => {
+      /* 「ゆっくり」の逆で、音程を駆け上がらせる */
+      [440, 660, 880, 1174].forEach((hz, i) => setTimeout(() => beep(hz, 0.08, 'square', 0.05), i * 45));
+    },
+    wobble: () => {
+      /* 「ふらふら」っぽく音程を上下に揺らす */
+      [440, 660, 380, 600].forEach((hz, i) => setTimeout(() => beep(hz, 0.09, 'sawtooth', 0.05), i * 60));
+    },
+    save:  () => { beep(1046, 0.06); setTimeout(() => beep(660, 0.1), 60); setTimeout(() => beep(880, 0.16), 130); },
+    invincible: () => {
+      [523, 659, 784, 1046, 1318].forEach((hz, i) => setTimeout(() => beep(hz, 0.12, 'square', 0.055), i * 70));
+    },
+    point: () => { beep(880, 0.07); setTimeout(() => beep(1174, 0.1), 70); },
+    rush:  () => {
+      /* ボーナスラッシュの開始合図。invincibleより賑やかな上昇アルペジオ */
+      [523, 659, 784, 988, 1175, 1568].forEach((hz, i) => setTimeout(() => beep(hz, 0.1, 'square', 0.05), i * 55));
+    },
+    crash: () => { beep(180, 0.22, 'sawtooth', 0.06); setTimeout(() => beep(110, 0.32, 'sawtooth', 0.05), 120); },
+  };
+
+  /* ── 画面サイズ ── */
+  let SC = 1, OX = 0;
+  let CW = 0, CH = 0;   // 画面の大きさ（CSSピクセル）
+  let WH = 250;         // 世界の高さ。縦長の画面ほど先まで見える
+
+  /** 上下のUIを測って、残りをぜんぶ画面に回す */
+  function layoutStage() {
+    const CHROME = 12 * 3 + 40 + 8;
+    const topH = document.querySelector('.dg-topbar').offsetHeight;
+    const hintH = el.hint.offsetHeight;
+    const toolsH = document.querySelector('.dg-tools').offsetHeight;
+    const h = Math.max(280, window.innerHeight - topH - hintH - toolsH - CHROME);
+    stage.style.height = Math.floor(h) + 'px';
+    stage.style.aspectRatio = 'auto';
+  }
+
+  function resize() {
+    layoutStage();
+    CW = stage.clientWidth;
+    CH = stage.clientHeight;
+    /* 幅がまだ0のとき（レイアウト確定前など）はSCが0になり、
+       WHがInfinity化して下の描画ループが終わらなくなる。
+       そのときは何もせず、次のresize（ResizeObserver）を待つ */
+    if (CW <= 0 || CH <= 0) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(CW * dpr);
+    canvas.height = Math.round(CH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    SC = CW / W;
+    OX = 0;
+    WH = CH / SC;
+    draw();
+  }
+
+  /* 世界の座標 → 画面の座標。ドット絵のように整数に丸める */
+  const sx = (x) => Math.round(OX + x * SC);
+  const sy = (y) => Math.round(y * SC);
+  const sw = (v) => Math.max(1, Math.round(v * SC));
+
+  const EMOJI_FONT = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+  const UI_FONT = '"Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif';
+
+  const box = (x, y, w, h, fill) => {
+    ctx.fillStyle = fill;
+    ctx.fillRect(sx(x), sy(y), sw(w), sw(h));
+  };
+
+  const taxiY = () => WH - TAXI_BOTTOM - TAXI_H;   // 車の上端
+
+  function draw() {
+    /* WHが不正な値（0以下・非有限）のときは描かない。
+       そのまま進めるとこの先のループが終わらなくなる */
+    if (!Number.isFinite(WH) || WH <= 0) return;
+
+    ctx.clearRect(0, 0, CW, CH);
+    const dist = run ? run.dist : 0;
+    const shake = run && run.shake > 0 ? (Math.random() - 0.5) * 2.4 : 0;
+    OX = shake;
+
+    /* 路肩 */
+    box(0, 0, W, WH, '#C8D6B4');
+    for (let y = -((dist * 0.5) % 14), guard = 0; y < WH && guard < 2000; y += 14, guard++) {
+      box(0, y, ROAD_L, 2, '#BCCBA6');
+      box(ROAD_R, y, W - ROAD_R, 2, '#BCCBA6');
+    }
+
+    /* 道路 */
+    box(ROAD_L, 0, ROAD_R - ROAD_L, WH, '#DEDCD4');
+    box(ROAD_L, 0, 2, WH, '#F4F2EC');
+    box(ROAD_R - 2, 0, 2, WH, '#F4F2EC');
+
+    /* 車線の点線 */
+    const dashSpan = 34;
+    const off = dist % dashSpan;
+    for (let y = off - dashSpan, guard = 0; y < WH + dashSpan && guard < 2000; y += dashSpan, guard++) {
+      box(ROAD_L + LANE_W, y, 3, 16, '#F4F2EC');
+      box(ROAD_L + LANE_W * 2, y, 3, 16, '#F4F2EC');
+    }
+
+    /* 路肩の飾り（電柱・木・看板）。
+       左右をそれぞれ独立に決めているので、
+       毎回同じ順番で並ぶ「規則正しさ」が出ない。
+       同じ距離では毎フレーム同じ絵になるよう、乱数は距離から
+       決定的に作っている（そうしないと描くたびにチラつく）。 */
+    const slot = 130;
+    const kFrom = Math.floor((dist - 60) / slot);
+    const kTo = Math.min(kFrom + 200, Math.ceil((dist + WH + 60) / slot));
+    for (let k = kFrom; k <= kTo; k++) {
+      const y = WH + dist - k * slot;
+      drawRoadside(23, y, k, 0);
+      drawRoadside(177, y, k, 1);
+    }
+
+    if (run) {
+      run.holes.forEach(drawHole);
+      run.items.forEach(drawItem);
+      run.obstacles.forEach(drawObstacle);
+      run.walkers.forEach(drawWalker);
+      /* 飛んでいるあいだの見せ方。「ジャンプがわかりにくい」との指摘を受けて、
+         ①持ち上がる高さを2倍以上に、②影を地面に固定して大きさ・濃さで
+         高さを伝える、③車自体もひとまわり大きく描く、の3つを組み合わせている。 */
+      const jumpArc = run.jump > 0 ? Math.sin((1 - run.jump / JUMP_TIME) * Math.PI) : 0;
+      const lift = jumpArc * 18;
+      if (jumpArc > 0.02) {
+        const shrink = jumpArc * 0.45;
+        ctx.save();
+        ctx.globalAlpha = 0.28 - shrink * 0.18;
+        box(run.x - (TAXI_W / 2) * (1 - shrink) + 2, taxiY() + 3, TAXI_W * (1 - shrink) - 4, (TAXI_H - 4) * (1 - shrink * 0.6), '#3C3E34');
+        ctx.restore();
+      }
+      const ty = taxiY() - lift;
+      /* 突風のあいだは見た目だけ小刻みに揺らす（当たり判定はrun.xのまま） */
+      const wobbleX = run.wobble > 0 ? run.x + Math.sin(Date.now() / 85) * 3 : run.x;
+      const blink = run.invuln > 0 && run.invuln < 1.2 && Math.floor(run.invuln * 12) % 2 === 0;
+      if (!blink) {
+        if (jumpArc > 0.02) {
+          const scale = 1 + jumpArc * 0.25;
+          const pcx = sx(wobbleX), pcy = sy(ty + TAXI_H / 2);
+          ctx.save();
+          ctx.translate(pcx, pcy);
+          ctx.scale(scale, scale);
+          ctx.translate(-pcx, -pcy);
+          drawTaxi(wobbleX, ty);
+          ctx.restore();
+        } else {
+          drawTaxi(wobbleX, ty);
+        }
+      }
+      if (run.invuln > 0) drawRing(wobbleX, ty, '#E8C24A', 5);
+      if (run.charm) drawRing(wobbleX, ty, '#5F8C6F', 3);
+      if (run.boost > 0) drawBoostTrail(wobbleX, ty);
+      drawPops();
+      drawZoneHint();
+      drawSpeedGauge();
+    } else {
+      drawTaxi(LANES[1], taxiY());
+    }
+
+    OX = 0;
+  }
+
+  /** 距離から決まる、チラつかない疑似乱数（0〜1） */
+  function hash(n) {
+    const x = Math.sin(n * 12.9898) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  /**
+   * 路肩の1マスぶんを決める。電柱・木・看板・何もなし、を
+   * 左右それぞれ独立な乱数で選ぶ。看板のときは、さらに
+   * 富士タクシーか観光地のどれかを乱数で選ぶ。
+   */
+  function drawRoadside(cx, y, k, side) {
+    const r = hash(k * 2.37 + side * 17.1);
+    if (r < 0.11) {
+      const rc = hash(k * 5.13 + side * 3.7 + 91);
+      if (rc < 0.4) drawBillboard(cx, y, { kind: 'fuji' });
+      else {
+        const spot = SPOTS[Math.floor(hash(k * 9.41 + side * 6.3 + 17) * SPOTS.length) % SPOTS.length];
+        drawBillboard(cx, y, { kind: 'spot', spot });
+      }
+    } else if (r < 0.42) {
+      drawTree(cx - 1, y);
+    } else if (r < 0.78) {
+      drawPole(cx + 1, y);
+    }
+    /* 残りは何も置かない（自然な隙間になる） */
+  }
+
+  /** 富士タクシーの看板か、南相馬の観光地の看板かをここで振り分ける */
+  function drawBillboard(cx, y, content) {
+    if (content && content.kind === 'spot') drawSpotBillboard(cx, y, content.spot);
+    else drawFujiBillboard(cx, y);
+  }
+
+  function drawFujiBillboard(cx, y) {
+    box(cx - 2, y - 6, 4, 14, '#8A8478');
+    box(cx - 16, y - 38, 32, 32, '#3E3529');
+    box(cx - 15, y - 37, 30, 30, '#FDFCF8');
+    if (logoOk) {
+      ctx.drawImage(logo, sx(cx - 14), sy(y - 36), sw(28), sw(28));
+    } else {
+      box(cx - 14, y - 36, 28, 28, '#F5C800');
+    }
+  }
+
+  /** 南相馬の観光案内看板。アイコン＋短い地名の2段組み */
+  function drawSpotBillboard(cx, y, spot) {
+    const w = 34, h = 40;
+    box(cx - 2, y - 6, 4, 14, '#8A8478');
+    box(cx - w / 2, y - 6 - h, w, h, spot.line);
+    box(cx - w / 2 + 1, y - 5 - h, w - 2, h - 2, spot.bg);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = Math.round(15 * SC) + 'px ' + EMOJI_FONT;
+    ctx.fillText(spot.icon, sx(cx), sy(y - h - 6 + 14));
+
+    ctx.font = '700 ' + Math.round(7 * SC) + 'px ' + UI_FONT;
+    ctx.fillStyle = spot.line;
+    const lines = spot.name.split('\n');
+    lines.forEach((line, i) => {
+      ctx.fillText(line, sx(cx), sy(y - h - 6 + 26 + i * 8));
+    });
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  function drawPole(cx, y) {
+    box(cx - 1, y - 7, 3, 14, '#98A38C');
+    box(cx - 5, y - 1, 11, 2, '#98A38C');
+  }
+
+  function drawTree(cx, y) {
+    box(cx - 6, y - 6, 12, 12, '#7E9470');
+    box(cx - 4, y - 4, 8, 8, '#93A883');
+  }
+
+  /** 自分のタクシー（真上から） */
+  function drawTaxi(cx, top) {
+    if (save.car === 'jpn') drawCarJpn(cx, top);
+    else if (save.car === 'hansom') drawHansom(cx, top);
+    else drawCarNv200(cx, top);
+  }
+
+  const wheels = (x, top, color) => {
+    box(x - 1, top + 5, 3, 8, color);
+    box(x + TAXI_W - 2, top + 5, 3, 8, color);
+    box(x - 1, top + TAXI_H - 13, 3, 8, color);
+    box(x + TAXI_W - 2, top + TAXI_H - 13, 3, 8, color);
+  };
+
+  /** 富士タクシーの黄色い車（日産NV200） */
+  function drawCarNv200(cx, top) {
+    const x = cx - TAXI_W / 2;
+    wheels(x, top, '#2B2620');
+    box(x, top, TAXI_W, TAXI_H, '#6B5410');
+    box(x + 1, top + 1, TAXI_W - 2, TAXI_H - 2, '#EFC13F');
+    box(x + 4, top + 4, TAXI_W - 8, 7, '#5C6E7A');
+    box(x + 4, top + TAXI_H - 12, TAXI_W - 8, 7, '#5C6E7A');
+    /* 黄色地に黒の行灯（FUJI TAXI） */
+    box(x + 5, top + 14, TAXI_W - 10, 9, '#241E15');
+    box(x + 7, top + 17, TAXI_W - 14, 3, '#EFC13F');
+    box(x + 2, top + 1, TAXI_W - 4, 2, '#F6D877');
+  }
+
+  /** JPN TAXI（黒い大型の車） */
+  function drawCarJpn(cx, top) {
+    const x = cx - TAXI_W / 2;
+    wheels(x, top, '#15181C');
+    box(x, top, TAXI_W, TAXI_H, '#0E1620');
+    box(x + 1, top + 1, TAXI_W - 2, TAXI_H - 2, '#22303F');
+    box(x + 4, top + 4, TAXI_W - 8, 7, '#4E6274');
+    box(x + 4, top + TAXI_H - 12, TAXI_W - 8, 7, '#4E6274');
+    /* 白く光る行灯 */
+    box(x + 5, top + 14, TAXI_W - 10, 9, '#0E1620');
+    box(x + 6, top + 15, TAXI_W - 12, 7, '#DCE6F0');
+    /* 前まわりのメッキ */
+    box(x + 3, top + 1, TAXI_W - 6, 2, '#8A93A0');
+  }
+
+  /** 辻馬車。馬・梶棒・二輪の客車を真上から */
+  function drawHansom(cx, top) {
+    const x = cx - TAXI_W / 2;
+
+    /* 馬 */
+    box(x + 8, top, 10, 15, '#7A736A');
+    box(x + 9, top + 1, 8, 13, '#E4E2DC');
+    box(x + 11, top - 3, 4, 4, '#E4E2DC');
+
+    /* 梶棒 */
+    box(x + 6, top + 14, 2, 7, '#6B5334');
+    box(x + TAXI_W - 8, top + 14, 2, 7, '#6B5334');
+
+    /* 車輪 */
+    box(x - 2, top + 24, 4, 13, '#3E3529');
+    box(x + TAXI_W - 2, top + 24, 4, 13, '#3E3529');
+
+    /* 客車 */
+    box(x + 1, top + 19, TAXI_W - 2, TAXI_H - 20, '#6B5334');
+    box(x + 2, top + 20, TAXI_W - 4, TAXI_H - 22, '#E8DFC8');
+    box(x + 5, top + 24, TAXI_W - 10, 6, '#8A7A5A');
+  }
+
+  /**
+   * 拾えるもの。障害物（暗い色）と見分けがつくように、
+   * 淡い色の札に絵をのせて、少し大きくしている。
+   */
+  /**
+   * 拾えるもの。道の色に埋もれて見にくいという指摘を受けて、
+   * ①外側に色つきの光る輪（脈打たせて動きで目を引く）
+   * ②縁取りを太く
+   * ③ひとまわり大きく
+   * の3つで、遠くからでも「何かある」と分かるようにしている。
+   */
+  function drawItem(it) {
+    const t = ITEM_BY_ID[it.id];
+    const x = it.x - it.w / 2, y = it.y;
+    const cx = it.x, cy = y + it.h / 2;
+
+    /* 脈打つ光の輪。アイテムごとに位相をずらして、揃って点滅しないようにする */
+    const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 200 + it.x * 0.4);
+    ctx.save();
+    ctx.globalAlpha = 0.28 + pulse * 0.24;
+    ctx.fillStyle = t.glow;
+    ctx.beginPath();
+    ctx.arc(sx(cx), sy(cy), (it.w / 2 + 5 + pulse * 3) * SC, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    box(x + 2, y + it.h, it.w - 4, 3, 'rgba(90, 92, 80, 0.2)');
+    box(x - 1, y - 1, it.w + 2, it.h + 2, t.line);
+    box(x + 2.5, y + 2.5, it.w - 5, it.h - 5, t.bg);
+
+    ctx.font = Math.round(it.w * 0.68 * SC) + 'px ' + EMOJI_FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(t.icon, sx(cx), sy(cy + 0.8));
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  /** 拾ったときに浮かぶ文字 */
+  function drawPops() {
+    ctx.font = '700 ' + Math.round(9 * SC) + 'px ' + UI_FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = Math.max(2, 3 * SC);
+    ctx.lineJoin = 'round';
+    run.pops.forEach((p) => {
+      ctx.globalAlpha = Math.min(1, p.life * 1.6);
+      ctx.strokeStyle = '#FDFCF8';
+      ctx.strokeText(p.text, sx(p.x), sy(p.y));
+      ctx.fillStyle = '#2F3A2A';
+      ctx.fillText(p.text, sx(p.x), sy(p.y));
+    });
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  /** 車を囲む枠。お守り（緑）と無敵（金）で色と大きさを変えている */
+  function drawRing(cx, top, color, pad) {
+    const x = cx - TAXI_W / 2 - pad, y = top - pad;
+    const w = TAXI_W + pad * 2, h = TAXI_H + pad * 2;
+    box(x, y, w, 2, color);
+    box(x, y + h - 2, w, 2, color);
+    box(x, y, 2, h, color);
+    box(x + w - 2, y, 2, h, color);
+  }
+
+  /** スピードアップ中、車の後ろに流れる速度線 */
+  function drawBoostTrail(cx, top) {
+    const t = Date.now() / 60;
+    for (let i = 0; i < 3; i++) {
+      const off = ((t + i * 9) % 27);
+      const alpha = 0.35 * (1 - off / 27);
+      ctx.fillStyle = 'rgba(232, 194, 74, ' + alpha.toFixed(2) + ')';
+      const lx = cx - TAXI_W / 2 - 2 - i * 3;
+      const rx = cx + TAXI_W / 2 - 1 + i * 3;
+      ctx.fillRect(sx(lx), sy(top + TAXI_H + off), sw(2), sw(6));
+      ctx.fillRect(sx(rx), sy(top + TAXI_H + off), sw(2), sw(6));
+    }
+  }
+
+  /** スピードの目盛りと、いま効いているもの */
+  function drawSpeedGauge() {
+    const ratio = Math.min(1, (run.speed - SPEED_START) / (SPEED_MAX - SPEED_START));
+    const on = run.slow > 0 ? '#8FB4CE' : '#E8C24A';
+    box(2, 4, 42, 15, 'rgba(48, 54, 42, 0.26)');
+    for (let i = 0; i < 6; i++) {
+      box(4.5 + i * 6.4, 7.5, 5, 8, ratio > i / 6 ? on : 'rgba(255, 255, 255, 0.38)');
+    }
+
+    /* お守りを持っている／ゆっくり中／ふらふら中は右上に出す */
+    const badges = [];
+    if (run.charm) badges.push({ icon: '🛡️', bg: '#DCE8DE', line: '#3F6048' });
+    if (run.slow > 0) badges.push({ icon: '🐢', bg: '#DCE6F0', line: '#33465F' });
+    if (run.boost > 0) badges.push({ icon: '⚡', bg: '#FBF0D5', line: '#8A6E1E' });
+    if (run.wobble > 0) badges.push({ icon: '💨', bg: '#F6E2D5', line: '#8A5A22' });
+    if (run.rush > 0) badges.push({ icon: '🙋', bg: '#FBF0D5', line: '#8A6E1E' });
+    badges.forEach((b, i) => {
+      const bx = W - 22 - i * 22;
+      box(bx, 4, 19, 19, b.line);
+      box(bx + 2, 6, 15, 15, b.bg);
+      ctx.font = Math.round(12 * SC) + 'px ' + EMOJI_FONT;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.icon, sx(bx + 9.5), sy(14));
+      ctx.textAlign = 'start';
+      ctx.textBaseline = 'alphabetic';
+    });
+  }
+
+  function drawObstacle(o) {
+    const x = o.x - o.w / 2;
+    if (o.id === 'cone') {
+      box(x, o.y, 14, 14, '#3E3529');
+      box(x + 1, o.y + 1, 12, 12, '#C98B57');
+      box(x + 3, o.y + 3, 8, 8, '#EDDDC9');
+      box(x + 5, o.y + 5, 4, 4, '#C98B57');
+    } else if (o.id === 'car') {
+      box(x, o.y, 26, 40, '#4A525C');
+      box(x + 1, o.y + 1, 24, 38, '#8C97A3');
+      box(x + 4, o.y + 5, 18, 7, '#4A555F');
+      box(x + 4, o.y + 27, 18, 7, '#4A555F');
+      box(x - 1, o.y + 5, 3, 8, '#2B2620');
+      box(x + 24, o.y + 5, 3, 8, '#2B2620');
+      box(x - 1, o.y + 27, 3, 8, '#2B2620');
+      box(x + 24, o.y + 27, 3, 8, '#2B2620');
+    } else {
+      box(x, o.y, 32, 12, '#3E3529');
+      box(x + 2, o.y + 2, 8, 8, '#C9B26A');
+      box(x + 12, o.y + 2, 8, 8, '#C9B26A');
+      box(x + 22, o.y + 2, 8, 8, '#C9B26A');
+    }
+  }
+
+  /** 道いっぱいの穴。車線をかえてもよけられない */
+  /** 道いっぱいの穴。広い穴（2タップ必要）には「×2」の目印をつけて、
+      見た目の大きさだけでなく、はっきり分かるようにしている */
+  function drawHole(h) {
+    const w = ROAD_R - ROAD_L;
+    box(ROAD_L, h.y - 2, w, 3, '#C6C2B4');
+    box(ROAD_L, h.y, w, h.h, '#B9B5A8');
+    box(ROAD_L + 2, h.y + 2, w - 4, h.h - 4, '#4A463C');
+    box(ROAD_L + 7, h.y + 5, w - 14, h.h - 10, '#26241E');
+    /* ふちの欠け */
+    box(ROAD_L + 14, h.y + 1, 8, 3, '#6E6A5E');
+    box(ROAD_L + 46, h.y + h.h - 4, 12, 3, '#6E6A5E');
+    box(ROAD_L + 80, h.y + 2, 9, 3, '#6E6A5E');
+
+    if (h.wide) {
+      const cx = (ROAD_L + ROAD_R) / 2, cy = h.y + h.h / 2;
+      const done = h.hits > 0;
+      box(cx - 14, cy - 9, 28, 18, done ? '#3F6048' : '#8A5A22');
+      box(cx - 12, cy - 7, 24, 14, done ? '#DCE8DE' : '#FBF0D5');
+      ctx.font = '700 ' + Math.round(11 * SC) + 'px ' + UI_FONT;
+      ctx.fillStyle = done ? '#2C5138' : '#6B4E0E';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(h.hits >= 2 ? '✓' : (h.hits >= 1 ? 'あと1' : '×2'), sx(cx), sy(cy + 0.5));
+      ctx.textAlign = 'start';
+      ctx.textBaseline = 'alphabetic';
+    }
+  }
+
+  /** 最初のうちだけ、どこを押すと何が起きるかを出す */
+  function drawZoneHint() {
+    if (run.dist > 1400) return;
+    const alpha = Math.min(1, (1400 - run.dist) / 400);
+    const y = WH - 13;
+    ctx.globalAlpha = alpha * 0.85;
+    box(4, y - 7, W - 8, 15, 'rgba(40, 44, 36, 0.4)');
+    ctx.font = '700 ' + Math.round(7.5 * SC) + 'px ' + UI_FONT;
+    ctx.fillStyle = '#FDFCF8';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('◀ 左へ', sx(W * 0.18), sy(y));
+    ctx.fillText('ジャンプ', sx(W * 0.5), sy(y));
+    ctx.fillText('右へ ▶', sx(W * 0.82), sy(y));
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+    ctx.globalAlpha = 1;
+  }
+
+  /** 飛び出してくる人。渡り始める前は「！」で知らせる */
+  /**
+   * 飛び出してくる人。「見にくい」という指摘を受けて、
+   * ①警告の「！」を大きく・点滅ではなく脈打つように（点滅は見えない瞬間が
+   *   半分あるため）②本人にも赤みがかった光る輪をつけて、
+   * 道の色に埋もれないようにしている（当たり判定の大きさ WALK_W/WALK_H 自体は変えていない）。
+   */
+  function drawWalker(p) {
+    if (p.warn > 0) {
+      const pulse = 0.55 + 0.45 * Math.sin(Date.now() / 110);
+      const w = 22, h = 26;
+      ctx.save();
+      ctx.globalAlpha = 0.3 + pulse * 0.3;
+      ctx.fillStyle = '#F5A85C';
+      ctx.beginPath();
+      ctx.arc(sx(p.x), sy(p.y + h / 2), (w / 2 + 6 + pulse * 3) * SC, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.globalAlpha = 0.65 + pulse * 0.35;
+      box(p.x - w / 2, p.y, w, h, '#C8A23A');
+      box(p.x - w / 2 + 2, p.y + 2, w - 4, h - 4, '#FBF0D5');
+      ctx.font = '700 ' + Math.round(h * 0.62 * SC) + 'px ' + UI_FONT;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#8A5A12';
+      ctx.fillText('！', sx(p.x), sy(p.y + h / 2 + 1));
+      ctx.textAlign = 'start';
+      ctx.textBaseline = 'alphabetic';
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 150 + p.x * 0.3);
+    ctx.save();
+    ctx.globalAlpha = 0.3 + pulse * 0.25;
+    ctx.fillStyle = '#F5A85C';
+    ctx.beginPath();
+    ctx.arc(sx(p.x), sy(p.y + WALK_H / 2), (WALK_H * 0.75 + pulse * 3) * SC, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    box(p.x - 6, p.y + WALK_H - 1, 12, 3, 'rgba(90, 92, 80, 0.26)');
+    ctx.font = Math.round(WALK_H * 1.5 * SC) + 'px ' + EMOJI_FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🏃', sx(p.x), sy(p.y + WALK_H / 2));
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  /* ── 乗る車をえらぶ ── */
+  function renderCars() {
+    $('carPicker').innerHTML = CARS.map((c) =>
+      '<button type="button" class="dg-car" data-car="' + c.id + '"'
+      + ' aria-pressed="' + (save.car === c.id) + '">'
+      + '<span class="dg-car__icon">' + c.icon + '</span>'
+      + '<span class="dg-car__name">' + c.name + '</span>'
+      + '<span class="dg-car__sub">' + c.sub + '</span>'
+      + '<span class="dg-car__best">さいこう ' + yen(save.bests[c.id] || 0) + '</span>'
+      + '</button>').join('');
+  }
+
+  function chooseCar(id) {
+    if (!CAR_BY_ID[id] || save.car === id) return;
+    save.car = id;
+    persist();
+    renderCars();
+    draw();
+    beep(700, 0.06);
+  }
+
+  /* ── みんなのランキング ──
+     Supabaseに全員共通のスコアを置いている。走行中の車内で
+     電波が悪くて読み込めなくても、ゲーム自体は普通に遊べるようにする。 */
+  function renderRankTabs() {
+    el.rankTabs.innerHTML = CARS.map((c) =>
+      '<button type="button" class="dg-rankTab" data-car="' + c.id + '"'
+      + ' aria-pressed="' + (rankCar === c.id) + '">' + c.icon + ' ' + c.name + '</button>'
+    ).join('');
+  }
+
+  async function loadRanking() {
+    const myRequestId = ++rankRequestId;
+    el.rankList.innerHTML = '';
+    el.rankMsg.textContent = '読み込み中…';
+
+    const { ok, rows, error } = await fetchTopScores(rankCar, 10);
+    if (myRequestId !== rankRequestId) return;   // その間に別の車種に切り替えられていたら捨てる
+
+    if (!ok) {
+      el.rankMsg.textContent = '読み込めませんでした（電波の状態をご確認ください）';
+      return;
+    }
+    if (!rows.length) {
+      el.rankMsg.textContent = 'まだ記録がありません。最初の記録をつくりましょう！';
+      return;
+    }
+    el.rankMsg.textContent = '';
+    el.rankList.innerHTML = rows.map((r, i) =>
+      '<li class="dg-rankRow"><span class="dg-rankRow__no">' + (i + 1) + '</span>'
+      + '<span class="dg-rankRow__name">' + escapeHtml(r.nickname) + '</span>'
+      + '<span class="dg-rankRow__fare">' + yen(r.fare) + '</span></li>'
+    ).join('');
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+
+  function openRanking() {
+    rankCar = save.car;
+    renderRankTabs();
+    el.rankMonth.textContent = currentMonthLabel() + 'のランキング';
+    el.ovRanking.hidden = false;
+    loadRanking();
+  }
+
+  async function submitPendingScore() {
+    const btn = $('submitScoreBtn');
+    const nickname = normalizeNickname(el.nickInput.value);
+    save.nickname = nickname;
+    persist();
+
+    btn.disabled = true;
+    btn.textContent = '登録中…';
+    el.submitMsg.textContent = '';
+
+    const { ok, error } = await submitScore(pendingCar, nickname, pendingFare);
+    if (ok) {
+      btn.textContent = '登録しました';
+      el.submitMsg.textContent = 'ランキングに登録しました！';
+    } else {
+      btn.disabled = false;
+      btn.textContent = '登録';
+      el.submitMsg.textContent = '登録できませんでした（電波の状態をご確認ください）';
+    }
+  }
+
+  /* ── 免許停止 ──
+     人をはねてしまったら、しばらく運転できない。
+     ページを開き直しても解けないよう、期限を保存している。 */
+  const suspendLeft = () => Math.max(0, Math.ceil((save.suspendUntil - Date.now()) / 1000));
+  const mmss = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+
+  function suspendLicense() {
+    save.suspendUntil = Date.now() + LICENSE_SEC * 1000;
+    persist();
+    refreshSuspend();
+  }
+
+  function refreshSuspend() {
+    const left = suspendLeft();
+    const on = left > 0;
+    const startBtn = $('startBtn');
+    const retryBtn = $('retryBtn');
+    startBtn.disabled = on;
+    retryBtn.disabled = on;
+    startBtn.textContent = on ? 'あと ' + mmss(left) : 'はじめる';
+    retryBtn.textContent = on ? 'あと ' + mmss(left) : 'もういちど';
+    $('suspendNote').hidden = !on;
+    $('suspendNote2').hidden = !on;
+  }
+
+  /* ── ゲームの進行 ── */
+  function start() {
+    if (suspendLeft() > 0) return;
+    run = newRun();
+    phase = 'run';
+    el.ovStart.hidden = true;
+    el.ovOver.hidden = true;
+    el.ovPause.hidden = true;
+    el.hint.textContent = '左・右で車線変更、まんなかでジャンプ';
+    updateHud();
+    lastTs = 0;
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(tick);
+  }
+
+  function jump() {
+    if (phase !== 'run') return;
+    if (run.jump <= 0) {
+      /* 新しいホップ */
+      run.jump = JUMP_TIME * car().jump;
+      run.jumpExtended = false;
+    } else if (!run.jumpExtended) {
+      /* 飛んでいる最中の2回目のタップ。見た目も連続ジャンプに見えるよう、
+         もうひと伸びさせる（3回目以降のタップはここで弾かれる） */
+      run.jump += JUMP_TIME * car().jump * 0.55;
+      run.jumpExtended = true;
+    } else {
+      return;
+    }
+    sfx.jump();
+    registerJumpTap();
+  }
+
+  /**
+   * いま近くにある「広い穴」に対して、タップした回数を加算する。
+   * 必要回数（2回）に達したら、その穴はもう安全（cleared）にする。
+   * 狭い穴はここでは扱わない（従来通り run.jump のあるなしだけで判定する）。
+   */
+  function registerJumpTap() {
+    const top = taxiY(), bottom = top + TAXI_H;
+    for (const h of run.holes) {
+      if (!h.wide || h.cleared) continue;
+      if (h.y + h.h > top - 40 && h.y < bottom + 40) {
+        h.hits = (h.hits || 0) + 1;
+        if (h.hits >= 2) h.cleared = true;
+      }
+    }
+  }
+
+  function move(dir) {
+    if (phase !== 'run') return;
+    /* 突風で「ふらふら」のあいだは、左右のタップが逆になる */
+    const d = run.wobble > 0 ? -dir : dir;
+    const next = Math.min(LANES.length - 1, Math.max(0, run.lane + d));
+    if (next === run.lane) return;
+    run.lane = next;
+    sfx.move();
+  }
+
+  function tick(ts) {
+    if (phase !== 'run') return;
+    const dt = lastTs ? Math.min((ts - lastTs) / 1000, 0.05) : 0;
+    lastTs = ts;
+    step(dt);
+    if (phase === 'run') {
+      draw();
+      updateHud();
+      raf = requestAnimationFrame(tick);
+    }
+  }
+
+  function step(dt) {
+    run.speed = Math.min(SPEED_MAX, run.speed + SPEED_UP * car().speedUp * dt);
+    if (run.slow > 0) run.slow -= dt;
+    if (run.boost > 0) run.boost -= dt;
+    if (run.invuln > 0) run.invuln -= dt;
+    if (run.shake > 0) run.shake -= dt;
+
+    /* 「ゆっくり」の間は流れが遅く、「スピードアップ」の間は速くなる。
+       スピード自体（run.speed、だんだん速くなっていく部分）は変えていない。
+       両方同時に効いていたら、スピードアップを優先する */
+    const flowRate = run.boost > 0 ? BOOST_RATE : (run.slow > 0 ? SLOW_RATE : 1);
+    const move2 = run.speed * flowRate * dt;
+    run.dist += move2;
+
+    /* 一定距離を走るたびにボーナスラッシュ（お客さんがいっぱい）が発動する。
+       車種やアイテム運に関わらず、走ってさえいれば誰でも必ず体験できる */
+    if (run.dist >= run.nextRushDist) {
+      run.rush = RUSH_SEC;
+      run.nextRushDist += RUSH_DIST_STEP;
+      run.pops.push({ x: run.x, y: taxiY() - 10, text: 'お客さんラッシュ！', life: 1.6 });
+      sfx.rush();
+    }
+    if (run.rush > 0) run.rush -= dt * flowRate;
+
+    /* 車線の移動 */
+    const target = LANES[run.lane];
+    const sp = shiftSpeed() * dt;
+    if (run.x < target) run.x = Math.min(target, run.x + sp);
+    else if (run.x > target) run.x = Math.max(target, run.x - sp);
+
+    /* 障害物とアイテムが下へ流れてくる */
+    run.obstacles.forEach((o) => { o.y += move2; });
+    run.obstacles = run.obstacles.filter((o) => o.y < WH + 60);
+    run.items.forEach((o) => { o.y += move2; });
+    run.items = run.items.filter((o) => o.y < WH + 60);
+
+    /* 穴。飛んでいる最中は落ちない */
+    run.holes.forEach((h) => { h.y += move2; });
+    run.holes = run.holes.filter((h) => h.y < WH + 60);
+    /* ジャンプも道の流れに合わせて数える。
+       そうしないと「ゆっくり」中に着地が早すぎて穴に落ちてしまう */
+    if (run.jump > 0) run.jump -= dt * flowRate;
+    if (run.wobble > 0) run.wobble -= dt * flowRate;
+
+    /* 飛び出してくる人。まず「！」が出て、少し置いてから渡り始める */
+    run.walkers.forEach((p) => {
+      p.y += move2;
+      /* 横に渡る速さも道の流れに合わせる。
+         そうしないと「ゆっくり」中だけ渡り方が変わってよけ方が読めない */
+      if (p.warn > 0) p.warn -= dt * flowRate;
+      else p.x += p.vx * dt * flowRate;
+    });
+    run.walkers = run.walkers.filter((p) => p.y < WH + 60 && p.x > -30 && p.x < W + 30);
+
+    collectItems();
+
+    /* 浮かんだ文字は上がりながら消える */
+    run.pops.forEach((p) => { p.life -= dt; p.y -= 26 * dt; });
+    run.pops = run.pops.filter((p) => p.life > 0);
+
+    run.spawnIn -= move2;
+    if (run.spawnIn <= 0) spawnWave();
+
+    const fare = fareOf(run);
+    if (fare >= run.milestone + 1000) {
+      run.milestone = Math.floor(fare / 1000) * 1000;
+      sfx.point();
+    }
+
+    const hole = hitHole();
+    if (hole) { gameOver('hole'); return; }
+
+    const walker = hitWalker();
+    const hit = walker || hitObstacle();
+    if (hit) {
+      if (run.charm || run.invuln > 0) {
+        if (run.charm) {
+          run.charm = false;
+          run.invuln = 1.0;
+          run.shake = 0.3;
+          sfx.save();
+        }
+        /* 助かったぶん、それは通り抜ける */
+        run.obstacles = run.obstacles.filter((o) => o !== hit);
+        run.walkers = run.walkers.filter((p) => p !== hit);
+      } else {
+        if (walker) suspendLicense();
+        gameOver(walker ? 'walker' : 'crash');
+      }
+    }
+  }
+
+  /** 重なったアイテムを拾う */
+  function collectItems() {
+    const r = taxiRect();
+    for (let i = run.items.length - 1; i >= 0; i--) {
+      const it = run.items[i];
+      if (!overlaps(r, { l: it.x - it.w / 2, r2: it.x + it.w / 2, t: it.y, b: it.y + it.h })) continue;
+      run.items.splice(i, 1);
+      run.pops.push({ x: it.x, y: it.y, text: ITEM_BY_ID[it.id].pop, life: 1.1 });
+      if (it.id === 'fare') {
+        run.tip += car().tip;
+        run.rides += 1;
+        sfx.fare();
+        /* たくさん乗せると、しばらく無敵になる */
+        if (run.rides % car().rides === 0) {
+          run.invuln = INVINCIBLE_SEC;
+          run.pops.push({ x: run.x, y: taxiY() - 10, text: '無敵！', life: 1.5 });
+          sfx.invincible();
+        }
+      } else if (it.id === 'charm') {
+        run.charm = true;
+        sfx.charm();
+      } else if (it.id === 'slow') {
+        run.slow = SLOW_SEC;
+        sfx.slow();
+      } else if (it.id === 'boost') {
+        run.boost = BOOST_SEC;
+        sfx.boost();
+      } else {
+        run.wobble = WOBBLE_SEC;
+        sfx.wobble();
+      }
+    }
+  }
+
+  /**
+   * 障害物を出す。
+   * 「必ず通れる車線」は、いま走っている車線かそのとなりから選ぶ。
+   * 2車線ふさがるとき、空いている車線が2つ隣だと
+   * あいだの車線を突っ切ることになって物理的によけられないため。
+   */
+  function spawnWave() {
+    /* たまに「穴」だけの回にする。道いっぱいなのでジャンプでしかよけられない。
+       広い穴（2タップ必要）は、狭い穴に慣れたころに混ざり始める。
+       ボーナスラッシュ中は出さない（せっかくの稼ぎタイムに水を差さないため） */
+    if (run.rush <= 0 && run.dist > 2500 && run.holes.length === 0 && Math.random() < 0.22) {
+      const wide = run.dist > 6000 && Math.random() < 0.4;
+      const h = wide ? HOLE_H_WIDE : HOLE_H;
+      run.holes.push({ y: -h - 10, h, wide, hits: 0, cleared: false });
+      /* 次までの間は、飛び越えるのに必要な分より必ず長く取る。
+         着地した瞬間に次の穴、では跳びようがないため。
+         広い穴は2回タップする分、少し余分に見ている */
+      const need = wide ? JUMP_TIME * car().jump * 1.5 : JUMP_TIME * car().jump;
+      run.spawnIn = run.speed * (need + 0.6) + 70;
+      return;
+    }
+
+    /* ある程度走ってから、たまに「飛び出し」だけの回にする。
+       障害物と重ならないので、必ずよけられる。ボーナスラッシュ中は出さない */
+    if (run.rush <= 0 && run.dist > 4000 && run.walkers.length === 0 && Math.random() < 0.2) {
+      const fromLeft = Math.random() < 0.5;
+      run.walkers.push({
+        x: fromLeft ? ROAD_L - 8 : ROAD_R + 8,
+        y: -WALK_H - 10,
+        vx: (fromLeft ? 1 : -1) * run.speed * 0.26,
+        warn: WALK_WARN,
+      });
+      run.spawnIn = run.speed * 0.95 + 60;
+      return;
+    }
+
+    const near = [run.lane - 1, run.lane, run.lane + 1].filter((i) => i >= 0 && i < LANES.length);
+    const free = near[(Math.random() * near.length) | 0];
+
+    const others = [0, 1, 2].filter((i) => i !== free);
+    const blockTwo = run.speed > 160 && Math.random() < 0.45;
+    const blocked = blockTwo ? others : [others[(Math.random() * others.length) | 0]];
+
+    blocked.forEach((lane) => {
+      const t = OBSTACLES[(Math.random() * OBSTACLES.length) | 0];
+      run.obstacles.push({ id: t.id, w: t.w, h: t.h, x: LANES[lane], y: -t.h - 6 });
+    });
+
+    if (run.rush > 0) {
+      /* ボーナスラッシュ中は、ふさがっていない車線すべてにお客さまが乗る */
+      const it = ITEM_BY_ID.fare;
+      [0, 1, 2].filter((lane) => !blocked.includes(lane)).forEach((lane) => {
+        run.items.push({ id: 'fare', w: it.w, h: it.h, x: LANES[lane], y: -it.h - 26 });
+      });
+    } else if (Math.random() < 0.38) {
+      /* アイテムは「必ず通れる車線」に置く。無理な取り方をしなくて済む */
+      const weightOf = (it) => it.weight * (it.id === 'fare' ? car().fareWeight : 1);
+      const total = ITEMS.reduce((a, it) => a + weightOf(it), 0);
+      let pick = Math.random() * total;
+      const item = ITEMS.find((it) => (pick -= weightOf(it)) < 0) || ITEMS[0];
+      run.items.push({ id: item.id, w: item.w, h: item.h, x: LANES[free], y: -item.h - 26 });
+    }
+
+    run.lastFree = free;
+    run.spawnIn = run.speed * (0.85 + Math.random() * 0.5) + 60;
+  }
+
+  /** 当たり判定に使う自分の四角。見た目より少し小さめ＝甘くしている */
+  function taxiRect() {
+    const t = taxiY() + 3;
+    const w = TAXI_W / 2 - 3 + car().width;   // 大きい車ほど当たりやすい
+    return {
+      l: run.x - w,
+      r2: run.x + w,
+      t,
+      b: t + TAXI_H - 6,
+    };
+  }
+
+  const overlaps = (a, b) => b.r2 > a.l && b.l < a.r2 && b.b > a.t && b.t < a.b;
+
+  /** 落ちる穴を返す。飛んでいるあいだ・無敵のあいだは落ちない */
+  function hitHole() {
+    if (run.invuln > 0) return undefined;
+    const r = taxiRect();
+    return run.holes.find((h) => {
+      if (h.y + h.h - 3 <= r.t || h.y + 3 >= r.b) return false;   // 重なっていない
+      if (h.wide) return !h.cleared;    // 広い穴：2タップ達成済みなら安全
+      return run.jump <= 0;             // 狭い穴：従来通り、ジャンプ中なら安全
+    });
+  }
+
+  /** ぶつかっている人を返す（渡り始める前は当たらない） */
+  function hitWalker() {
+    const r = taxiRect();
+    return run.walkers.find((p) => p.warn <= 0 &&
+      overlaps(r, { l: p.x - WALK_W / 2 + 2, r2: p.x + WALK_W / 2 - 2, t: p.y + 2, b: p.y + WALK_H - 2 }));
+  }
+
+  /** ぶつかっている障害物を返す（無ければ undefined） */
+  function hitObstacle() {
+    const r = taxiRect();
+    return run.obstacles.find((o) =>
+      overlaps(r, { l: o.x - o.w / 2 + 2, r2: o.x + o.w / 2 - 2, t: o.y + 2, b: o.y + o.h - 2 }));
+  }
+
+  function gameOver(reason) {
+    phase = 'over';
+    cancelAnimationFrame(raf);
+    run.shake = 0.35;
+    sfx.crash();
+
+    const fare = fareOf(run);
+    const isBest = fare > bestOf();
+    if (isBest) { save.bests[save.car] = fare; persist(); }
+
+    el.overTitle.textContent = reason === 'walker' ? '人身事故'
+      : (isBest ? 'さいこう記録！' : 'ぶつかりました');
+    el.overScore.textContent = yen(fare);
+    el.overNote.textContent = isBest
+      ? 'これまでの記録をこえました'
+      : car().name + 'のさいこう記録 ' + yen(bestOf());
+    el.ovOver.hidden = false;
+    el.hint.textContent = reason === 'walker' ? '飛び出しにご注意ください' : 'もういちど遊べます';
+
+    /* 今月のランキング（上位10位）に入りそうなときだけ、なまえ登録欄を出す */
+    el.submitBox.hidden = true;
+    pendingFare = fare;
+    pendingCar = save.car;
+    checkRankingEntry(fare, save.car, isBest);
+
+    refreshSuspend();
+    renderCars();
+    updateHud();
+    draw();
+  }
+
+  let submitCheckId = 0;
+  async function checkRankingEntry(fare, carId, isBest) {
+    const myId = ++submitCheckId;
+    const { ok, enters } = await wouldEnterRanking(carId, fare);
+    if (myId !== submitCheckId) return;   // 判定が返る前に次のプレイが始まっていたら捨てる
+    if (ok && !enters) return;            // 上位に入らないと分かったので登録欄は出さない
+    // 通信エラーで判定できなかったときは、登録の機会を奪わないよう従来通り出しておく
+    el.submitBox.hidden = false;
+    el.submitLabel.textContent = isBest ? '🎉 自己ベスト！ランキングに登録しますか？' : 'ランキングに登録しますか？';
+    el.nickInput.value = save.nickname || '';
+    el.submitMsg.textContent = '';
+    $('submitScoreBtn').disabled = false;
+    $('submitScoreBtn').textContent = '登録';
+  }
+
+  function updateHud() {
+    el.dist.textContent = yen(run ? fareOf(run) : BASE_FARE);
+    el.best.textContent = yen(bestOf());
+  }
+
+  /* ── 操作 ── */
+  stage.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, a')) return;
+    e.preventDefault();
+    if (phase === 'title') { start(); return; }
+    if (phase !== 'run') return;
+    const rect = stage.getBoundingClientRect();
+    const at = (e.clientX - rect.left) / rect.width;
+    if (at < 0.34) move(-1);
+    else if (at > 0.66) move(1);
+    else jump();
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { e.preventDefault(); move(-1); return; }
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { e.preventDefault(); move(1); return; }
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { e.preventDefault(); jump(); return; }
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      if (phase === 'title' || phase === 'over') start();
+      else jump();
+    }
+  });
+
+  $('carPicker').addEventListener('click', (e) => {
+    const btn = e.target.closest('.dg-car');
+    if (btn) chooseCar(btn.dataset.car);
+  });
+
+  $('startBtn').addEventListener('click', start);
+  $('retryBtn').addEventListener('click', start);
+
+  $('rankOpenBtn').addEventListener('click', openRanking);
+  $('rankOpenBtn2').addEventListener('click', openRanking);
+  $('rankCloseBtn').addEventListener('click', () => { el.ovRanking.hidden = true; });
+  el.rankTabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.dg-rankTab');
+    if (!btn || btn.dataset.car === rankCar) return;
+    rankCar = btn.dataset.car;
+    renderRankTabs();
+    loadRanking();
+  });
+
+  $('submitScoreBtn').addEventListener('click', submitPendingScore);
+  el.nickInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitPendingScore();
+  });
+  $('resumeBtn').addEventListener('click', () => {
+    if (phase !== 'paused') return;
+    phase = 'run';
+    el.ovPause.hidden = true;
+    lastTs = 0;
+    raf = requestAnimationFrame(tick);
+  });
+
+  el.soundBtn.addEventListener('click', () => {
+    save.sound = !save.sound;
+    persist();
+    el.soundBtn.setAttribute('aria-pressed', String(save.sound));
+    el.soundBtn.textContent = save.sound ? '🔊 音' : '🔈 消';
+  });
+
+  /* 画面を離れたら止める（車内で話しかけられたときなど） */
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && phase === 'run') {
+      phase = 'paused';
+      cancelAnimationFrame(raf);
+      el.ovPause.hidden = false;
+    }
+  });
+
+  /* ── 起動 ── */
+  el.soundBtn.setAttribute('aria-pressed', String(save.sound));
+  el.soundBtn.textContent = save.sound ? '🔊 音' : '🔈 消';
+  updateHud();
+  renderCars();
+  refreshSuspend();
+  setInterval(refreshSuspend, 1000);
+  resize();
+  window.addEventListener('resize', resize);
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+</script>

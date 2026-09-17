@@ -1,0 +1,673 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout
+  title="交通ルールクイズ – 富士タクシー南相馬"
+  description="道路標識と交通ルールの4択クイズ。ご乗車中やお待ちの間に、親子で楽しみながら交通安全について学べます。"
+  noindex
+  hideFloatCta
+  hideNav
+>
+
+  <section class="section bg-black qz-page">
+    <div class="container qz-shell">
+
+      <header class="qz-topbar">
+        <a class="qz-back" href="/game">
+          <span class="qz-back__mark">‹</span>
+          <span class="qz-back__text">交通ルールクイズ</span>
+        </a>
+        <div class="qz-progress" id="progress" hidden>
+          <span id="progressText">1 / 10</span>
+        </div>
+      </header>
+
+      <div class="qz-stage">
+
+        <!-- スタート -->
+        <div class="qz-card" id="ovStart">
+          <img class="qz-logo" src="/images/logo-fuji-taxi.webp" alt="富士タクシー" width="72" height="72" />
+          <h1 class="qz-title">交通ルールクイズ</h1>
+          <p class="qz-lead">
+            道路標識や交通ルールの4択クイズです。<br>
+            全10問、毎回ちがう問題が出ます。親子でどうぞ。
+          </p>
+          <button type="button" class="qz-btn" id="startBtn">はじめる</button>
+        </div>
+
+        <!-- 出題中 -->
+        <div class="qz-card" id="ovQuiz" hidden>
+          <p class="qz-qnum" id="qNum">問題 1</p>
+          <p class="qz-question" id="qText">問題文</p>
+          <div class="qz-choices" id="choices"></div>
+          <div class="qz-explain" id="explainBox" hidden>
+            <p class="qz-explain__result" id="explainResult"></p>
+            <p class="qz-explain__text" id="explainText"></p>
+            <button type="button" class="qz-btn" id="nextBtn">つぎへ</button>
+          </div>
+        </div>
+
+        <!-- 結果 -->
+        <div class="qz-card" id="ovResult" hidden>
+          <p class="qz-rank" id="rankEmoji">🏆</p>
+          <h2 class="qz-title" id="resultTitle">パーフェクト！</h2>
+          <p class="qz-score" id="resultScore">8 / 8 問正解</p>
+          <button type="button" class="qz-btn" id="retryBtn">もういちど</button>
+
+          <!-- ご案内 -->
+          <div class="qz-pr">
+            <img class="qz-pr__logo" src="/images/logo-fuji-taxi.webp" alt="富士タクシー" width="44" height="44" />
+            <div class="qz-pr__body">
+              <p class="qz-pr__name">富士タクシー南相馬</p>
+              <p class="qz-pr__sub">年中無休 7:00〜24:00／小高区・原町区</p>
+              <p class="qz-pr__links">
+                <a href="tel:0244442543">本社 0244-44-2543</a>
+                <a href="tel:0244320030">原町待機所 0244-32-0030</a>
+              </p>
+              <p class="qz-pr__links">
+                <a href="https://line.me/R/ti/p/@580lzpne" target="_blank" rel="noopener">公式LINE</a>
+                <a href="/">ホームページ</a>
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <p class="qz-hint">選択肢をタップして答えます</p>
+
+      <div class="qz-tools">
+        <button type="button" class="qz-toolbtn" id="soundBtn" aria-pressed="true">🔊 音</button>
+        <a class="qz-toolbtn" href="/game">ゲームをえらぶ</a>
+      </div>
+
+    </div>
+  </section>
+
+</Layout>
+
+<style is:global>
+  /* ============================================
+     /game/quiz — 交通ルールクイズ
+     道路標識・交通ルールの4択クイズ。
+     カード1枚で完結する、動きの少ない静かなゲーム。
+     ============================================ */
+
+  .qz-page {
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-6);
+    min-height: 100dvh;
+  }
+
+  .qz-shell {
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .qz-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  .qz-back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: var(--text-sm);
+    color: var(--fuji-white);
+    text-decoration: none;
+  }
+  .qz-back:hover { color: var(--fuji-yellow); }
+  .qz-back__mark { opacity: 0.7; font-size: var(--text-lg); }
+
+  .qz-progress {
+    padding: 4px 10px;
+    background: #1E1E1E;
+    border: 1px solid var(--fuji-gray-border);
+    border-radius: var(--radius-md);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    font-variant-numeric: tabular-nums;
+  }
+  .qz-progress[hidden] { display: none; }
+
+  .qz-stage { display: flex; justify-content: center; }
+
+  .qz-card {
+    width: 100%;
+    padding: var(--space-5) var(--space-4);
+    background: var(--fuji-black-card);
+    border: 1px solid var(--fuji-gray-border);
+    border-radius: var(--radius-lg);
+    text-align: center;
+  }
+  .qz-card[hidden] { display: none; }
+
+  .qz-logo {
+    width: 72px;
+    height: 72px;
+    border-radius: var(--radius-full);
+    margin: 0 auto var(--space-3);
+  }
+
+  .qz-title {
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    color: var(--fuji-yellow);
+    margin-bottom: var(--space-2);
+  }
+  .qz-lead {
+    font-size: var(--text-sm);
+    line-height: 1.8;
+    color: #D8D5CC;
+  }
+
+  .qz-btn {
+    margin-top: var(--space-4);
+    padding: 14px var(--space-8);
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--fuji-yellow);
+    color: var(--fuji-black);
+    font-family: inherit;
+    font-size: var(--text-base);
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+  }
+  .qz-btn:hover { background: var(--fuji-yellow-dark); }
+  .qz-btn:active { transform: scale(0.98); }
+
+  /* 出題中 */
+  .qz-qnum {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--fuji-gray-muted);
+    margin-bottom: var(--space-2);
+  }
+  .qz-question {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--fuji-white);
+    line-height: 1.6;
+    margin-bottom: var(--space-4);
+  }
+
+  .qz-choices {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .qz-choice {
+    padding: 12px var(--space-4);
+    background: #1E1E1E;
+    border: 1px solid #3A3A3A;
+    border-radius: var(--radius-md);
+    color: #E5E4DF;
+    font-family: inherit;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+  }
+  .qz-choice:hover:not(:disabled) { border-color: var(--fuji-yellow); }
+  .qz-choice:disabled { cursor: default; }
+
+  /* 淡い背景＋濃い文字の正誤バッジ */
+  .qz-choice.is-correct {
+    background: #DCE8DE;
+    border-color: #5FA179;
+    color: #2C5138;
+  }
+  .qz-choice.is-wrong {
+    background: #F3E2DE;
+    border-color: #C98A76;
+    color: #7A3B2C;
+  }
+  .qz-choice.is-dim { opacity: 0.55; }
+
+  .qz-explain {
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--fuji-gray-border);
+    text-align: left;
+  }
+  .qz-explain[hidden] { display: none; }
+  .qz-explain__result {
+    font-size: var(--text-base);
+    font-weight: 700;
+    margin-bottom: var(--space-2);
+  }
+  .qz-explain__result.is-correct { color: #6FBE93; }
+  .qz-explain__result.is-wrong { color: #E0A9A9; }
+  .qz-explain__text {
+    font-size: var(--text-xs);
+    line-height: 1.8;
+    color: #D8D5CC;
+  }
+
+  /* 結果 */
+  .qz-rank { font-size: 2.5rem; line-height: 1; margin-bottom: var(--space-2); }
+  .qz-score {
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: var(--fuji-white);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: var(--space-1);
+  }
+
+  .qz-pr {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    text-align: left;
+    margin-top: var(--space-5);
+    padding: var(--space-3);
+    background: #F6F3EA;
+    border: 1px solid #DDD6C4;
+    border-radius: var(--radius-md);
+  }
+  .qz-pr__logo { width: 44px; height: 44px; border-radius: var(--radius-full); flex-shrink: 0; }
+  .qz-pr__body { min-width: 0; }
+  .qz-pr__name { font-size: var(--text-sm); font-weight: 700; color: #2A2A2A; }
+  .qz-pr__sub { font-size: 10px; color: #6B655A; line-height: 1.5; margin-top: 1px; }
+  .qz-pr__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: 4px;
+  }
+  .qz-pr__links a {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: #7A5B12;
+    background: #FBF0D5;
+    border: 1px solid #E3CD8E;
+    border-radius: var(--radius-full);
+    padding: 2px 10px;
+    text-decoration: none;
+  }
+  .qz-pr__links a:hover { background: #F3E4BD; }
+
+  .qz-hint {
+    font-size: var(--text-xs);
+    color: var(--fuji-gray-muted);
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .qz-tools {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-2);
+  }
+  .qz-toolbtn {
+    padding: 7px 14px;
+    background: transparent;
+    border: 1px solid #3A3A3A;
+    border-radius: var(--radius-md);
+    color: #E5E4DF;
+    font-family: inherit;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .qz-toolbtn:hover { border-color: var(--fuji-yellow); color: var(--fuji-yellow); }
+</style>
+
+<script>
+  /* ============================================================
+     交通ルールクイズ
+     道路標識・交通ルールの4択クイズ。全15問の中からランダムに8問。
+     選択肢の順番も毎回シャッフルする。
+
+     出題内容は「信号の色」「シートベルト」「横断歩道」など、
+     日本の道路交通法で広く確立していて確信を持てる基本ルールに絞っている。
+     罰金額・点数など変わりやすい／自信のない数字は扱わない。
+     ============================================================ */
+
+  const QUESTIONS = [
+    {
+      q: '信号が赤色のとき、車はどうする？',
+      choices: ['止まる', 'そのまま進む', 'クラクションを鳴らして進む', '急いで渡る'],
+      correct: 0,
+      explain: '赤は「止まれ」の合図。交差点の手前でしっかり止まります。',
+    },
+    {
+      q: '黄色の信号の意味は？',
+      choices: ['安全に止まれるなら止まる', '急いで渡ってよい', '進んでよい合図', '意味はない'],
+      correct: 0,
+      explain: '黄色は「止まれ」の合図。ただし安全に止まれない位置にいるときは、そのまま注意して進みます。',
+    },
+    {
+      q: '「止まれ」の標識（赤い逆三角形）を見たら？',
+      choices: ['一時停止して安全を確認する', '徐行するだけでよい', 'そのまま進んでよい', '見なかったことにする'],
+      correct: 0,
+      explain: '赤い逆三角形は「一時停止」の標識。完全に止まって、左右の安全を確かめてから進みます。',
+    },
+    {
+      q: 'この標識（赤い丸に白い横線）の意味は？',
+      choices: ['この先には車が入れない', 'この先は徐行', 'この先は一方通行', 'この先は駐車禁止'],
+      correct: 0,
+      explain: '「進入禁止」の標識です。この先に車で入ることはできません。',
+    },
+    {
+      q: 'シートベルトを締めるのは？',
+      choices: ['前も後ろも、すべての座席', '運転席だけ', '助手席だけ', '高速道路のときだけ'],
+      correct: 0,
+      explain: '日本では前の座席も後ろの座席も、シートベルトの着用が必要です。',
+    },
+    {
+      q: 'チャイルドシートが必要なのは、何歳未満？',
+      choices: ['6歳未満', '3歳未満', '10歳未満', '12歳未満'],
+      correct: 0,
+      explain: '6歳未満の子どもを車に乗せるときは、チャイルドシートを使うことになっています。',
+    },
+    {
+      q: '救急車のサイレンが聞こえてきたら、車はどうする？',
+      choices: ['道の端に寄って道をゆずる', '追い越して先に行く', '止まらなくてよい', 'クラクションで対抗する'],
+      correct: 0,
+      explain: '緊急車両には道をゆずります。安全な場所に寄って進路をあけましょう。',
+    },
+    {
+      q: '横断歩道を渡ろうとしている歩行者がいたら、車は？',
+      choices: ['一時停止して歩行者を優先する', 'クラクションを鳴らして急がせる', 'そのまま進む', '歩行者が道をゆずる'],
+      correct: 0,
+      explain: '横断歩道では歩行者が優先。渡ろうとしている人がいたら、車は止まって待ちます。',
+    },
+    {
+      q: '歩道が無い道を歩くときは、どちら側を歩く？',
+      choices: ['右側（車と向き合う向き）', '左側', '道のまん中', 'どこでもよい'],
+      correct: 0,
+      explain: '歩道が無い道では、車と向き合う右側を歩くのが安全とされています。近づいてくる車が見えるからです。',
+    },
+    {
+      q: '踏切（ふみきり）を渡るときは？',
+      choices: ['一時停止して安全を確認してから渡る', '止まらずにそのまま渡る', '音がしなければ確認しなくてよい', '急いで渡る'],
+      correct: 0,
+      explain: '踏切の手前ではかならず一時停止。電車が来ていないか、しっかり確認してから渡ります。',
+    },
+    {
+      q: 'この標識（丸に数字）の意味は？',
+      choices: ['最高速度の制限', '最低速度の制限', 'トンネルの高さ制限', '車の台数の制限'],
+      correct: 0,
+      explain: '「最高速度」の標識です。書かれている数字より速く走ってはいけません。',
+    },
+    {
+      q: '道路を渡る前の合言葉は？',
+      choices: ['右見て、左見て、また右見て', '前だけ見る', '下を見る', '音だけ聞けばよい'],
+      correct: 0,
+      explain: '渡る前に右・左・右と確認する習慣が、交通安全の基本です。',
+    },
+    {
+      q: '自転車に乗るとき、かぶると安全なのは？',
+      choices: ['ヘルメット', '帽子', 'マスク', '手袋'],
+      correct: 0,
+      explain: '自転車でのケガを防ぐため、ヘルメットをかぶることがすすめられています。',
+    },
+    {
+      q: '雨で道路がぬれているとき、車はどう走る？',
+      choices: ['いつもよりゆっくり、車間距離を広くとる', 'いつも通りのスピードで走る', '逆にスピードを出す', 'ワイパーを止める'],
+      correct: 0,
+      explain: 'ぬれた道路はブレーキが効きにくくなるので、速度を落として車間距離を広くとります。',
+    },
+    {
+      q: 'タクシーに乗るとき、大切なことは？',
+      choices: ['シートベルトを締める', 'スマホばかり見る', '窓から手を出す', '運転手に大声を出す'],
+      correct: 0,
+      explain: 'タクシーでもシートベルトの着用をお願いしています。安全に目的地まで。',
+    },
+  ];
+
+  const ROUND_SIZE = 10;
+  const SAVE_KEY = 'fujitaxi-quiz-v1';
+
+  function loadSave() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      const p = raw ? JSON.parse(raw) : {};
+      return { sound: p.sound !== false };
+    } catch {
+      return { sound: true };
+    }
+  }
+
+  function persist() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    } catch {
+      /* 保存できなくても遊べる */
+    }
+  }
+
+  /** Fisher–Yatesで配列をシャッフルする（元の配列は変えない） */
+  function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  let save = loadSave();
+  let phase = 'title';   // title | quiz | result
+  let round = [];        // このラウンドの問題（選択肢もシャッフル済み）
+  let index = 0;
+  let correctCount = 0;
+  let answered = false;
+
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    ovStart: $('ovStart'), ovQuiz: $('ovQuiz'), ovResult: $('ovResult'),
+    progress: $('progress'), progressText: $('progressText'),
+    qNum: $('qNum'), qText: $('qText'), choices: $('choices'),
+    explainBox: $('explainBox'), explainResult: $('explainResult'), explainText: $('explainText'),
+    rankEmoji: $('rankEmoji'), resultTitle: $('resultTitle'), resultScore: $('resultScore'),
+    soundBtn: $('soundBtn'),
+  };
+  /* ── 効果音 ──
+     「音が鳴らない」の報告を受けて、iPhone（iOS Safari）でよくある
+     「最初のタップで一度“解錠”しないとWeb Audioが鳴らない」問題への
+     対策を入れている。ページ内で最初に指・キーが触れた瞬間に、
+     無音のバッファを一度鳴らしてAudioContextを本当に使える状態にする
+     （resume()の完了を待たずに音を鳴らそうとしていたのが元の弱点）。
+     なお、iPhone本体のサイレントスイッチ（マナーモード）がオンだと、
+     Web Audioはブラウザ側の対策では鳴らせない（OS側の制限のため）。 */
+  let audioCtx = null;
+  let audioUnlocked = false;
+
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch { return null; }
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    return audioCtx;
+  }
+
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    try {
+      const buffer = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch {
+      /* 解錠できなくても、この後の通常再生に任せる */
+    }
+  }
+  ['pointerdown', 'touchstart', 'keydown'].forEach((evt) =>
+    document.addEventListener(evt, unlockAudio, { once: true, passive: true })
+  );
+
+  /**
+   * 「よけろ！タクシーは鳴るがクイズは鳴らない」という報告があった。
+   * 違いは、クイズは「はじめる」を押したその一瞬で最初の音を鳴らそうと
+   * するのに対し、よけろ！タクシーは最初のタップでは鳴らさず、2回目以降の
+   * 操作で初めて鳴らす、という点だった。端末によっては
+   * AudioContextがsuspended→runningへ切り替わる前に音を鳴らそうとすると
+   * その音だけ取りこぼすことがあるため、それが一番最初の音になりやすい
+   * クイズ側で症状が出た、という可能性を疑っている。
+   * 対策として、コンテキストがまだrunningでないときは、resume()が
+   * 完了してから鳴らすようにした（取りこぼしを防ぐ。running済みなら
+   * 今までどおり遅延ゼロで鳴る）。
+   */
+  function playTone(ctx, freq, dur, type, gain) {
+    try {
+      const osc = ctx.createOscillator();
+      const amp = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      amp.gain.setValueAtTime(gain, ctx.currentTime);
+      amp.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+      osc.connect(amp).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + dur);
+    } catch {
+      /* 音が出せない環境でも進行に影響させない */
+    }
+  }
+
+  function beep(freq, dur, type = 'square', gain = 0.05) {
+    if (!save.sound) return;
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === 'running') {
+      playTone(ctx, freq, dur, type, gain);
+      return;
+    }
+    /* まだ準備中（suspended等）なら、running になってから鳴らす。
+       resume()に失敗しても、ゲーム進行には影響させない */
+    ctx.resume().then(() => playTone(ctx, freq, dur, type, gain)).catch(() => {});
+  }
+  const sfx = {
+    correct: () => { beep(784, 0.08); setTimeout(() => beep(1046, 0.14), 90); },
+    wrong:   () => { beep(300, 0.14, 'sawtooth', 0.05); setTimeout(() => beep(220, 0.2, 'sawtooth', 0.05), 100); },
+    tap:     () => beep(520, 0.05, 'square', 0.03),
+    fanfare: () => {
+      [523, 659, 784, 1046].forEach((hz, i) => setTimeout(() => beep(hz, 0.14, 'square', 0.05), i * 90));
+    },
+  };
+
+  /* ── ラウンドの組み立て ── */
+  function buildRound() {
+    const picked = shuffled(QUESTIONS).slice(0, Math.min(ROUND_SIZE, QUESTIONS.length));
+    return picked.map((q) => {
+      const order = shuffled(q.choices.map((_, i) => i));
+      return {
+        text: q.q,
+        explain: q.explain,
+        choices: order.map((i) => q.choices[i]),
+        correctIndex: order.indexOf(q.correct),
+      };
+    });
+  }
+
+  function start() {
+    round = buildRound();
+    index = 0;
+    correctCount = 0;
+    phase = 'quiz';
+    el.ovStart.hidden = true;
+    el.ovResult.hidden = true;
+    el.ovQuiz.hidden = false;
+    el.progress.hidden = false;
+    showQuestion();
+  }
+
+  function showQuestion() {
+    answered = false;
+    const q = round[index];
+    el.qNum.textContent = '問題 ' + (index + 1);
+    el.qText.textContent = q.text;
+    el.progressText.textContent = (index + 1) + ' / ' + round.length;
+    el.explainBox.hidden = true;
+
+    el.choices.innerHTML = q.choices.map((c, i) =>
+      '<button type="button" class="qz-choice" data-i="' + i + '">' + c + '</button>'
+    ).join('');
+  }
+
+  function chooseAnswer(i) {
+    if (answered) return;
+    answered = true;
+    const q = round[index];
+    const isCorrect = i === q.correctIndex;
+    if (isCorrect) { correctCount++; sfx.correct(); } else { sfx.wrong(); }
+
+    const buttons = el.choices.querySelectorAll('.qz-choice');
+    buttons.forEach((btn, bi) => {
+      btn.disabled = true;
+      if (bi === q.correctIndex) btn.classList.add('is-correct');
+      else if (bi === i) btn.classList.add('is-wrong');
+      else btn.classList.add('is-dim');
+    });
+
+    el.explainResult.textContent = isCorrect ? '⭕ 正解！' : '❌ ざんねん';
+    el.explainResult.className = 'qz-explain__result ' + (isCorrect ? 'is-correct' : 'is-wrong');
+    el.explainText.textContent = q.explain;
+    el.explainBox.hidden = false;
+  }
+
+  function nextQuestion() {
+    if (index < round.length - 1) {
+      index++;
+      showQuestion();
+    } else {
+      showResult();
+    }
+  }
+
+  function showResult() {
+    phase = 'result';
+    el.ovQuiz.hidden = true;
+    el.progress.hidden = true;
+    el.ovResult.hidden = false;
+
+    const total = round.length;
+    const ratio = correctCount / total;
+    let emoji, title;
+    if (correctCount === total) { emoji = '🏆'; title = 'パーフェクト！交通安全マスター'; sfx.fanfare(); }
+    else if (ratio >= 0.75) { emoji = '🎉'; title = 'よくできました！'; }
+    else if (ratio >= 0.5) { emoji = '👍'; title = 'もう少し！つぎはがんばろう'; }
+    else { emoji = '📖'; title = 'また挑戦してね'; }
+
+    el.rankEmoji.textContent = emoji;
+    el.resultTitle.textContent = title;
+    el.resultScore.textContent = correctCount + ' / ' + total + ' 問正解';
+  }
+
+  /* ── 操作 ── */
+  el.choices.addEventListener('click', (e) => {
+    const btn = e.target.closest('.qz-choice');
+    if (btn && !answered) { sfx.tap(); chooseAnswer(Number(btn.dataset.i)); }
+  });
+
+  $('startBtn').addEventListener('click', () => { sfx.tap(); start(); });
+  $('retryBtn').addEventListener('click', () => { sfx.tap(); start(); });
+  $('nextBtn').addEventListener('click', () => { sfx.tap(); nextQuestion(); });
+
+  el.soundBtn.addEventListener('click', () => {
+    save.sound = !save.sound;
+    persist();
+    el.soundBtn.setAttribute('aria-pressed', String(save.sound));
+    el.soundBtn.textContent = save.sound ? '🔊 音' : '🔈 消';
+  });
+
+  /* ── 起動 ── */
+  el.soundBtn.setAttribute('aria-pressed', String(save.sound));
+  el.soundBtn.textContent = save.sound ? '🔊 音' : '🔈 消';
+</script>

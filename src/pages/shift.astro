@@ -29,6 +29,7 @@ import Layout from '../layouts/Layout.astro';
             <button type="button" class="kt-btn kt-btn--ghost" id="prevMonthBtn">◀</button>
             <input type="month" id="monthPick" class="kt-input" />
             <button type="button" class="kt-btn kt-btn--ghost" id="nextMonthBtn">▶</button>
+            <button type="button" class="kt-btn kt-btn--ghost" id="fitBtn" aria-pressed="false">⤢ 画面に収める</button>
             <button type="button" class="kt-btn kt-btn--ghost" id="fullscreenBtn" aria-pressed="false">⛶ 全画面</button>
           </div>
         </div>
@@ -493,6 +494,8 @@ import Layout from '../layouts/Layout.astro';
         renderBindingChecks(month, days, staff);
       }
       syncTableMaxHeight();
+      // 表を作り直したので、収める倍率も取り直す（日数の違う月に移ると必要な倍率が変わる）
+      applyFit();
     }
 
     /*
@@ -517,6 +520,64 @@ import Layout from '../layouts/Layout.astro';
     window.addEventListener('resize', syncTableMaxHeight);
 
     /*
+     * ── 画面に収める ──
+     * 1か月分（最大31日）×全スタッフは等倍だと横2177px・縦1290pxあり、
+     * 1280x720の画面には全く収まらない（実測）。セルの寸法を --sf-fit 倍して
+     * 縦横とも枠に収まる倍率まで縮める。
+     *
+     * 等倍を基準に測ってから倍率を出す：現在の倍率のまま測ると、前回の縮小結果を
+     * さらに縮める形になって、開くたびに小さくなっていく。
+     * 下限0.4は、これ以上縮めると読めなくなるため（実測で31日が0.5前後に収まる）
+     */
+    const FIT_KEY = 'fuji-shift-fit';
+    const FIT_MIN = 0.4;
+    function applyFit() {
+      const table = $('shiftTable');
+      const wrap = $('shiftTableWrap');
+      if (!document.body.classList.contains('sf-fit')) {
+        table.style.setProperty('--sf-fit', '1');
+        return;
+      }
+      table.style.setProperty('--sf-fit', '1');
+      const natW = table.scrollWidth;
+      const natH = table.scrollHeight;
+      // 端数の丸めで1pxだけ溢れてスクロールバーが出るのを避けるため、少しだけ余裕を見る
+      const availW = wrap.clientWidth - 2;
+      const availH = wrap.clientHeight - 2;
+      if (!natW || !natH || !availW || !availH) return;
+      let k = Math.min(1, availW / natW, availH / natH);
+      table.style.setProperty('--sf-fit', String(Math.max(FIT_MIN, k)));
+      /*
+       * 枠線（1px×行数）のように倍率で縮まない部分があるため、1回の計算では
+       * 数px溢れる（実測で縦14px残った）。実際の寸法を測り直して詰める
+       */
+      for (let i = 0; i < 3; i++) {
+        const overW = table.scrollWidth - availW;
+        const overH = table.scrollHeight - availH;
+        if (overW <= 0 && overH <= 0) break;
+        const adjust = Math.min(
+          overW > 0 ? availW / table.scrollWidth : 1,
+          overH > 0 ? availH / table.scrollHeight : 1,
+        );
+        k = Math.max(FIT_MIN, k * adjust);
+        table.style.setProperty('--sf-fit', String(k));
+      }
+      // 見出しの2行目（曜日）の貼り付き位置は行の高さに連動するので測り直す
+      const rowDate = table.querySelector('thead tr:first-child');
+      if (rowDate) wrap.style.setProperty('--sf-date-row-h', `${rowDate.getBoundingClientRect().height}px`);
+    }
+    function setFit(on) {
+      document.body.classList.toggle('sf-fit', on);
+      const btn = $('fitBtn');
+      btn.textContent = on ? '⤢ 収めるのを解除' : '⤢ 画面に収める';
+      btn.setAttribute('aria-pressed', String(on));
+      localStorage.setItem(FIT_KEY, on ? 'on' : 'off');
+      applyFit();
+    }
+    $('fitBtn').onclick = () => setFit(!document.body.classList.contains('sf-fit'));
+    window.addEventListener('resize', applyFit);
+
+    /*
      * ── 全画面表示 ──
      * 表以外（備考・管理者パネル等）を隠して、シフト表だけを画面いっぱいに広げる。
      * ブラウザの全画面API（アドレスバーごと消える）も併せて要求するが、
@@ -529,6 +590,8 @@ import Layout from '../layouts/Layout.astro';
       btn.textContent = on ? '⛶ 全画面を終了' : '⛶ 全画面';
       btn.setAttribute('aria-pressed', String(on));
       syncTableMaxHeight();
+      // 使える広さが変わるので、収める倍率も取り直す
+      applyFit();
     }
     $('fullscreenBtn').onclick = async () => {
       const next = !document.body.classList.contains('sf-fullscreen');
@@ -1064,6 +1127,10 @@ import Layout from '../layouts/Layout.astro';
     syncPrintScope();
     $('printBtn').onclick = () => window.print();
 
+    // 「画面に収める」は端末ごとに記憶する（事務所のモニターでは入れっぱなし、
+    // タブレットで入力するときは等倍、という使い分けを想定）
+    if (localStorage.getItem(FIT_KEY) === 'on') setFit(true);
+
     // シフトと実績の差異・拘束時間チェック・変更履歴は、普段は畳んでおいて
     // 必要なときだけ開く（端末ごとに開閉状態を記憶。既定は畳んだ状態）
     const PANEL_OPEN_KEYS = {
@@ -1357,13 +1424,25 @@ import Layout from '../layouts/Layout.astro';
       -webkit-overflow-scrolling: touch;
     }
     .sf-grid { border-collapse: collapse; }
-    .sf-grid th, .sf-grid td { text-align: center; padding: 0.4rem 0.5rem; color: #111; font-size: 1.05rem; }
+    /*
+     * --sf-fit は「画面に収める」の縮尺（1 = 等倍）。JSが実測して入れる。
+     * セルの寸法をここから引くことで、拡大縮小しても sticky（日付固定）の
+     * 基準がずれない。transform:scale や zoom だと座標系がずれて、
+     * renderGrid() が実測して入れている --sf-date-row-h と食い違う
+     */
+    #shiftTable { --sf-fit: 1; }
+    .sf-grid th, .sf-grid td {
+      text-align: center;
+      padding: calc(0.4rem * var(--sf-fit, 1)) calc(0.5rem * var(--sf-fit, 1));
+      color: #111;
+      font-size: calc(1.05rem * var(--sf-fit, 1));
+    }
     .sf-grid th.sf-name, .sf-grid td.sf-cell { text-align: center; }
     th.sf-name {
       text-align: left !important;
       color: #111;
       white-space: nowrap;
-      font-size: 1.1rem;
+      font-size: calc(1.1rem * var(--sf-fit, 1));
       font-weight: 900;
       position: sticky;
       left: 0;
@@ -1436,10 +1515,10 @@ import Layout from '../layouts/Layout.astro';
       border-radius: var(--radius-md);
       color: #111;
       font-weight: 700;
-      font-size: 1.2rem;
-      min-width: 52px;
-      min-height: 44px;
-      padding: 0.2rem 0.3rem;
+      font-size: calc(1.2rem * var(--sf-fit, 1));
+      min-width: calc(52px * var(--sf-fit, 1));
+      min-height: calc(44px * var(--sf-fit, 1));
+      padding: calc(0.2rem * var(--sf-fit, 1)) calc(0.3rem * var(--sf-fit, 1));
       cursor: pointer;
     }
     .sf-code:disabled { cursor: default; opacity: 0.85; }

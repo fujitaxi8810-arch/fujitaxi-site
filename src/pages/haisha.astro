@@ -234,6 +234,7 @@ import '../styles/kt-components.css';
       <div class="ha-zoombar">
         <div class="ha-zoom" role="group" aria-label="文字サイズ">
           <span class="ha-zoom__label">文字サイズ</span>
+          <button type="button" class="ha-zoom__btn" data-zoom="85">小</button>
           <button type="button" class="ha-zoom__btn" data-zoom="100">標準</button>
           <button type="button" class="ha-zoom__btn" data-zoom="130">大</button>
           <button type="button" class="ha-zoom__btn" data-zoom="165">特大</button>
@@ -1507,8 +1508,10 @@ import '../styles/kt-components.css';
     }
 
     // ── 文字サイズ ──
-    // ルートの font-size を変えることで、rem指定のものが一括で拡大する。
-    // 65型のタッチ表示では離れて見るため、PCと同じ大きさでは読めない。
+    // ルートの font-size を変えることで、rem指定のものが一括で拡大・縮小する。
+    // 65型のタッチ表示では離れて見るため、PCと同じ大きさでは読めない（大・特大）。
+    // 逆に「小」は、件数が多い日でも縦スクロールなしで全体を見渡したい、
+    // というユーザー要望への対応（85%。文字サイズ以外の仕組みは同じ）。
     const ZOOM_KEY = 'fuji-haisha-zoom';
 
     function applyZoom(pct: number) {

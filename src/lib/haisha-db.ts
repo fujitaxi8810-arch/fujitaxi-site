@@ -68,10 +68,11 @@ export type Reservation = {
  * - normal    … 通常
  * - changed   … 変更あり。DS側で時間等が変わり、別行として取り込まれた古い方に付ける
  * - cancelled … キャンセル。DS側で取り消された予約に付ける
+ * - charter   … 貸切。通常のタクシー呼び出しではなく貸切の予約であることを示す（2026-10-01追加）
  *
  * 取り込みで自動判定はしない（誤ったCSVを1回貼っただけで大量に消える/書き換わるのを避けるため）。
  */
-export type ReservationStatus = 'normal' | 'changed' | 'cancelled';
+export type ReservationStatus = 'normal' | 'changed' | 'cancelled' | 'charter';
 
 const TABLE = 'dispatch_reservations';
 

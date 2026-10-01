@@ -62,8 +62,8 @@ create table dispatch_reservations (
   staff_id   uuid references staff(id) on delete set null,  -- 担当者（勤怠のスタッフ）
   checked    boolean not null default false,                -- 配車確認シートのチェックリスト相当
   app_memo   text,                                          -- アプリ側の申し送り
-  status     text not null default 'normal'                 -- 通常／変更あり／キャンセル（人が手で設定）
-             check (status in ('normal','changed','cancelled')),
+  status     text not null default 'normal'                 -- 通常／変更あり／キャンセル／貸切（人が手で設定）
+             check (status in ('normal','changed','cancelled','charter')),  -- charterは§5.62で追加
   source     text not null default 'csv' check (source in ('csv','manual')),
   sort_order int,                                           -- 同時刻内の並び調整用
 
@@ -757,6 +757,29 @@ create policy dispatch_duty_exclusions_delete on dispatch_duty_exclusions
   除外レコードが削除されて元のシフト由来表示に戻る（`removeDutyExclusion`）
 - ×を押す際は「シフト自体は変更されません」という一言を添えた確認ダイアログを出し、
   `/shift` の予定そのものが消えたと誤解されないようにしている
+
+## 5.62 状態「貸切」の追加（dispatch_reservations.status、2026-10-01追加）
+
+ユーザー要望：「状態に貸切を追加してほしい」。従来の `status`（通常／変更あり／キャンセル、§5冒頭の
+DDL参照）は人が手で設定するフラグで、通常のタクシー呼び出しではない「貸切」の予約であることを
+示す選択肢が無かった。既存3つの並び順・選択位置は変えず、末尾に追加する。
+
+（`乗務割`の「貸切」カテゴリ＝§5.6/5.61の `dispatch_duties.category`/`dispatch_duty_exclusions.category`
+の `'charter'` とは別物。こちらは予約1件ごとの `status`。配色だけ `/shift` の貸切コード
+（`.sf-code--charter`、`#fdf2f8`/`#be185d`）に揃えている）
+
+`status` 列には既存のCHECK制約があるため、マイグレーションが必要：
+
+```sql
+alter table dispatch_reservations drop constraint dispatch_reservations_status_check;
+alter table dispatch_reservations add constraint dispatch_reservations_status_check
+  check (status in ('normal','changed','cancelled','charter'));
+```
+
+- 集計（`renderBoardSummary`/`renderAllView`の集計行）にも「貸切 N件」を追加。キャンセルと違い
+  母数（要対応／未割当／確認済）からは外さない（貸切も対応が必要な予約のため）
+- CSV再取り込みは `status` 列を一切触らない（§5冒頭「触らない」列）ため、取り込みで貸切指定が
+  消えたり書き換わったりすることはない
 
 ## 5.7 管理者UIの表示切り替え（`?admin`）
 

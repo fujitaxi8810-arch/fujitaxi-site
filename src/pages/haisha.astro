@@ -1095,11 +1095,13 @@ import '../styles/kt-components.css';
       return parts.join(' ／ ');
     }
 
-    // ── 状態（通常／変更あり／キャンセル） ──
+    // ── 状態（通常／変更あり／キャンセル／貸切） ──
     // DS側の変更・取り消しは自動判定せず、人がここで指定する。
     // アプリ側の列なのでCSVを取り込み直しても消えない。
-    const STATUS_KEYS = ['normal', 'changed', 'cancelled'];
-    const STATUS_LABELS = { normal: '通常', changed: '変更あり', cancelled: 'キャンセル' };
+    // 貸切はユーザー要望で追加（2026-10-01）。末尾に追加し、既存3つの並び順・
+    // 選択位置は変えない（現場で慣れている位置を動かさないため）
+    const STATUS_KEYS = ['normal', 'changed', 'cancelled', 'charter'];
+    const STATUS_LABELS = { normal: '通常', changed: '変更あり', cancelled: 'キャンセル', charter: '貸切' };
 
     /**
      * 状態のセレクト。
@@ -1130,6 +1132,7 @@ import '../styles/kt-components.css';
     function applyRowStatus(tr: HTMLElement, r: any) {
       tr.classList.toggle('ha-row--cancelled', r.status === 'cancelled');
       tr.classList.toggle('ha-row--changed', r.status === 'changed');
+      tr.classList.toggle('ha-row--charter', r.status === 'charter');
       tr.classList.toggle('ha-row--unassigned', !r.staffId && r.status !== 'cancelled');
     }
 
@@ -2015,12 +2018,14 @@ import '../styles/kt-components.css';
       const unassigned = live.filter((r) => !r.staffId).length;
       const done = live.filter((r) => r.checked).length;
       const changed = live.filter((r) => r.status === 'changed').length;
+      const charter = live.filter((r) => r.status === 'charter').length;
       const cancelled = shown.length - live.length;
 
       const fresh = live.filter(isNewSinceHandover).length;
 
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
       if (changed > 0) parts.push(`変更あり ${changed}件`);
+      if (charter > 0) parts.push(`貸切 ${charter}件`);
       if (cancelled > 0) parts.push(`キャンセル ${cancelled}件`);
       if (fresh > 0) parts.push(`新着 ${fresh}件`);
       if (hidden > 0) parts.push(`時間経過で非表示 ${hidden}件`);
@@ -2291,6 +2296,7 @@ import '../styles/kt-components.css';
     function applyAllCardStatus(card: HTMLElement, r: any) {
       card.classList.toggle('ha-all-card--cancelled', r.status === 'cancelled');
       card.classList.toggle('ha-all-card--changed', r.status === 'changed');
+      card.classList.toggle('ha-all-card--charter', r.status === 'charter');
       card.classList.toggle('ha-all-card--unassigned', !r.staffId && r.status !== 'cancelled');
     }
 
@@ -2323,9 +2329,11 @@ import '../styles/kt-components.css';
       const unassigned = live.filter((r) => !r.staffId).length;
       const done = live.filter((r) => r.checked).length;
       const changedCount = live.filter((r) => r.status === 'changed').length;
+      const charterCount = live.filter((r) => r.status === 'charter').length;
       const cancelledCount = rows.length - live.length;
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
       if (changedCount > 0) parts.push(`変更あり ${changedCount}件`);
+      if (charterCount > 0) parts.push(`貸切 ${charterCount}件`);
       if (cancelledCount > 0) parts.push(`キャンセル ${cancelledCount}件`);
       if (hidden > 0) parts.push(`時間経過で非表示 ${hidden}件`);
       $('allSummary').textContent = parts.join('　');
@@ -3442,6 +3450,10 @@ import '../styles/kt-components.css';
     .ha-row--changed td.ha-sticky, .ha-row--changed { background: #fffbeb; }
     .ha-row--changed td.ha-time { color: #92400e; }
 
+    /* 貸切：/shiftの貸切コード（.sf-code--charter）と同じ配色に揃える */
+    .ha-row--charter td.ha-sticky, .ha-row--charter { background: #fdf2f8; }
+    .ha-row--charter td.ha-time { color: #be185d; }
+
     /* キャンセル：対応不要なので沈める。取り消し線で一目で分かるように */
     .ha-row--cancelled td.ha-sticky, .ha-row--cancelled { background: #f4f4f5; }
     .ha-row--cancelled td { color: #9ca3af; text-decoration: line-through; }
@@ -3485,6 +3497,7 @@ import '../styles/kt-components.css';
     .ha-select.ha-status--normal { background: #fff; border-color: #bbb; color: #111; }
     .ha-select.ha-status--changed { background: #fffbeb; border-color: #92400e; color: #92400e; }
     .ha-select.ha-status--cancelled { background: #f4f4f5; border-color: #6b7280; color: #6b7280; }
+    .ha-select.ha-status--charter { background: #fdf2f8; border-color: #be185d; color: #be185d; }
     /* 新着（＝状態は通常のまま、引き継ぎ以降に入った予約）。行左端の縦線と同じ青緑で揃える */
     .ha-select.ha-status--new { background: #ecfeff; border-color: #0e7490; color: #0e7490; }
 
@@ -3641,6 +3654,7 @@ import '../styles/kt-components.css';
     }
     .ha-all-card--unassigned td { background: #fffaf0; }
     .ha-all-card--changed td { background: #fffbeb; }
+    .ha-all-card--charter td { background: #fdf2f8; }
     .ha-all-card--cancelled td { background: #f4f4f5; color: #9ca3af; text-decoration: line-through; }
     .ha-all-card--cancelled .ha-select, .ha-all-card--cancelled .ha-check { text-decoration: none; }
     .ha-all-card--new td:first-child { box-shadow: inset 4px 0 0 #0e7490; }

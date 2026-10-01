@@ -791,15 +791,32 @@ import '../styles/kt-components.css';
     }
 
     /**
+     * 手動の引き継ぎ記録が、まだ基準として有効か（＝押してから
+     * AUTO_HANDOVER_WINDOW_HOURS 以内か）。
+     *
+     * ユーザー指摘：「引き継いでいないのに新着になる」。原因は、手動の記録に
+     * 有効期限が無く、何日押し忘れても古い記録がそのまま基準に残り続け、
+     * その間に入った予約が全部「新着」のままになっていたこと（自動判定には
+     * 最初から期限＝AUTO_HANDOVER_WINDOW_HOURSがあるのに、手動にだけ無かった）。
+     * 自動判定と同じ期限を手動にも適用し、一定時間で自然に基準が消えるようにする。
+     */
+    function manualHandoverTime(): number | null {
+      if (!latestHandover?.handedOverAt) return null;
+      const t = new Date(latestHandover.handedOverAt).getTime();
+      const ageHours = (Date.now() - t) / 3600000;
+      return ageHours <= AUTO_HANDOVER_WINDOW_HOURS ? t : null;
+    }
+
+    /**
      * 「新着」の基準時刻。手動の引き継ぎ記録と、19時の自動判定の
-     * **新しい方**を使う。
+     * **新しい方**を使う（どちらも期限切れなら null＝新着なし）。
      *
      * 手動を優先しないのは、押し忘れ防止のため。逆に自動を優先しないのは、
      * 19時より後に手で押し直したとき（例：20時に実際に交代）に、
      * その操作が無視されてしまわないようにするため。
      */
     function newBaselineTime(): number | null {
-      const manual = latestHandover?.handedOverAt ? new Date(latestHandover.handedOverAt).getTime() : null;
+      const manual = manualHandoverTime();
       const auto = autoHandoverTime();
       if (manual === null) return auto;
       if (auto === null) return manual;
@@ -850,11 +867,20 @@ import '../styles/kt-components.css';
 
       const t = latestHandover.handedOverAt;
       const who = latestHandover.handedOverBy ? `（${latestHandover.handedOverBy}）` : '';
-      when.textContent = baselineIsAuto()
-        // 記録はあるが、それより後に19時を過ぎている（前日の記録が残っている等）
-        ? `${autoTimeLabel}（自動）以降が新着　`
-          + `※前回の記録は ${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}${who}`
-        : `${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}${who} 以降が新着`;
+      const recordedLabel = `${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}${who}`;
+      if (baselineIsAuto()) {
+        // 手動の記録は期限切れだが、19時の自動判定（翌10時まで）が効いている
+        when.textContent = `${autoTimeLabel}（自動）以降が新着　※前回の記録は ${recordedLabel}`;
+      } else if (newBaselineTime() === null) {
+        /*
+         * 手動の記録はあるが期限切れ（AUTO_HANDOVER_WINDOW_HOURS超）で、
+         * 自動判定の時間帯でもない＝今は新着の基準が無い状態。記録自体は
+         * 残っているが「それ以降が新着」と出すと誤解を招くため、期限切れと分かる表示にする
+         */
+        when.textContent = `前回の記録は ${recordedLabel}（期限切れのため、今は新着の判定をしていません）`;
+      } else {
+        when.textContent = `${recordedLabel} 以降が新着`;
+      }
 
       noteEl.hidden = false;
       const hasNote = !!latestHandover.note;

@@ -3424,6 +3424,17 @@ import '../styles/kt-components.css';
       white-space: nowrap;
     }
     .ha-grid thead th.ha-sticky { z-index: 2; }
+
+    /* 済チェックボックスは最も頻繁に押す操作なので、横スクロールしても
+       常に押せるよう右端にも固定する（時刻の左固定と対になる形）。
+       ユーザー指摘：「チェックボックスがスクロールしないとならない」 */
+    .ha-grid th:nth-child(8), .ha-grid td:nth-child(8) {
+      position: sticky;
+      right: 0;
+      background: #fff;
+      z-index: 1;
+    }
+    .ha-grid thead th:nth-child(8) { z-index: 2; }
     .ha-time { font-weight: 900; font-size: 1.1rem; }
     .ha-rownum { color: #999; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 
@@ -3443,19 +3454,19 @@ import '../styles/kt-components.css';
       max-width: 20rem;
     }
 
-    .ha-row--unassigned td.ha-sticky, .ha-row--unassigned { background: #fffaf0; }
+    .ha-row--unassigned td.ha-sticky, .ha-row--unassigned td:nth-child(8), .ha-row--unassigned { background: #fffaf0; }
     .ha-row--click { cursor: pointer; }
 
     /* 変更あり：確認が要る行として目立たせる */
-    .ha-row--changed td.ha-sticky, .ha-row--changed { background: #fffbeb; }
+    .ha-row--changed td.ha-sticky, .ha-row--changed td:nth-child(8), .ha-row--changed { background: #fffbeb; }
     .ha-row--changed td.ha-time { color: #92400e; }
 
     /* 貸切：/shiftの貸切コード（.sf-code--charter）と同じ配色に揃える */
-    .ha-row--charter td.ha-sticky, .ha-row--charter { background: #fdf2f8; }
+    .ha-row--charter td.ha-sticky, .ha-row--charter td:nth-child(8), .ha-row--charter { background: #fdf2f8; }
     .ha-row--charter td.ha-time { color: #be185d; }
 
     /* キャンセル：対応不要なので沈める。取り消し線で一目で分かるように */
-    .ha-row--cancelled td.ha-sticky, .ha-row--cancelled { background: #f4f4f5; }
+    .ha-row--cancelled td.ha-sticky, .ha-row--cancelled td:nth-child(8), .ha-row--cancelled { background: #f4f4f5; }
     .ha-row--cancelled td { color: #9ca3af; text-decoration: line-through; }
     .ha-row--cancelled td.ha-time { color: #9ca3af; }
     /* 操作できる部分に取り消し線がかかると読みにくいので戻す */
@@ -3652,6 +3663,16 @@ import '../styles/kt-components.css';
       /* .ha-all-grid が白背景の角丸カードになったため、他の見出しセルと同じ白に揃える */
       background: #fff;
     }
+    /* 済チェックボックスも、最も頻繁に押す操作のため右端に固定する
+       （tdは既に不透明な背景を持っているので、追加の背景指定は不要）。
+       ユーザー指摘：「チェックボックスがスクロールしないとならない」 */
+    .ha-all-table th:nth-child(8), .ha-all-table td:nth-child(8) {
+      position: sticky; right: 0; z-index: 1;
+    }
+    .ha-all-table thead th:nth-child(8) {
+      z-index: 2;
+      background: #fff;
+    }
     .ha-all-card--unassigned td { background: #fffaf0; }
     .ha-all-card--changed td { background: #fffbeb; }
     .ha-all-card--charter td { background: #fdf2f8; }
@@ -3776,6 +3797,7 @@ import '../styles/kt-components.css';
       /* ラベルの無いセル（編集ボタン等）は左右中央寄せのままでよい */
       .ha-grid td:not([data-label]) { justify-content: flex-end; }
       .ha-grid td.ha-sticky { position: static; background: none; }
+      .ha-grid td:nth-child(8) { position: static; background: none; }
       .ha-time { font-size: 1.05rem; }
       .ha-select { max-width: 65%; }
 

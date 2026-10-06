@@ -2154,7 +2154,8 @@ import Layout from '../layouts/Layout.astro';
     const minutes = parseInt(input, 10);
     if (isNaN(minutes) || minutes < 0) { alert('休憩時間は0以上の数字で入力してください。'); return; }
     try {
-      await upsertAttendance({ staffId, date, manualBreakMinutes: minutes });
+      // 固定休憩の日を手入力に切り替える場合もあるため、この日の記録は手入力方式にする
+      await upsertAttendance({ staffId, date, breakMode: 'manual', manualBreakMinutes: minutes });
       await refreshData();
       renderHist(); renderWage();
     } catch (e) {
@@ -2239,6 +2240,14 @@ import Layout from '../layouts/Layout.astro';
         btn.className = 'kt-btn kt-btn--ghost';
         btn.textContent = rec.manualBreakMinutes != null ? '休憩を修正' : '休憩を入力';
         btn.onclick = () => editManualBreak(rec.staffId, rec.date, rec.manualBreakMinutes);
+        tr.lastElementChild.appendChild(btn);
+      } else if (rec.out && recBreakMode(rec) === 'fixed') {
+        // 勤務時間が短い日など、固定の休憩分数が合わない日だけ手入力に切り替えられるようにする
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'kt-btn kt-btn--ghost';
+        btn.textContent = '休憩を手入力に変更';
+        btn.onclick = () => editManualBreak(rec.staffId, rec.date, breakMinutes(rec));
         tr.lastElementChild.appendChild(btn);
       }
       // 元帳から取り込んだ運行実績がある行は、クリックで詳細を開けるようにする

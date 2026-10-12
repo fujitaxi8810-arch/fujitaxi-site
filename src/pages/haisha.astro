@@ -609,9 +609,11 @@ import '../styles/kt-components.css';
     function renderAdminBar() {
       applyAdminUiVisibility();
       const unlocked = isAdmin();
+      // 予約内容の編集（✎・新規予約）は管理者のみ。担当者・状態・済の操作は誰でも可
+      document.body.classList.toggle('ha-readonly', !unlocked);
       $('adminState').textContent = unlocked
-        ? '🔓 管理者：削除もできます'
-        : '🔒 閲覧・編集は可能／削除は管理者のみ';
+        ? '🔓 管理者：予約の編集・削除ができます'
+        : '🔒 予約の編集・削除は管理者のみ（担当者・状態・済は操作できます）';
       $('adminToggleBtn').textContent = unlocked ? 'ロックする' : '管理者ロック解除';
       $('staffAdminPanel').hidden = !unlocked;
       if (unlocked) renderStaffAdmin();
@@ -2494,6 +2496,7 @@ import '../styles/kt-components.css';
 
     // ── 編集モーダル ──
     function openEdit(rec: any) {
+      if (!isAdmin()) return;
       editing = rec;
       $('editTitle').textContent = rec ? '予約の編集' : '新規予約';
       $('fReservedAt').value = rec ? toLocalInput(rec.reservedAt) : `${$('datePick').value || todayJst()}T09:00`;
@@ -3593,6 +3596,14 @@ import '../styles/kt-components.css';
       font-size: 1.1rem;
       line-height: 1;
     }
+    /* 管理者ロック中（既定）は予約内容の編集をさせない。✎ボタンの列ごと隠し、
+       予約一覧の行クリック・＋新規予約も無効にする（openEditでも弾いている） */
+    .ha-readonly .ha-grid td:has(> .ha-linkbtn--icon),
+    .ha-readonly .ha-all-table td:has(> .ha-linkbtn--icon),
+    .ha-readonly .ha-grid th:nth-child(9),
+    .ha-readonly .ha-all-table th:nth-child(9),
+    .ha-readonly #newBtn { display: none; }
+    .ha-readonly .ha-row--click { cursor: default; }
 
     /* ── 全体配車ボード（横長の1枚表） ── */
     /*

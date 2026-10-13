@@ -3710,6 +3710,11 @@ import '../styles/kt-components.css';
       background: #ffedd5; border: 1px solid #ea580c; border-radius: var(--radius-md);
       color: #9a3412; font-weight: 800; padding: 0.05rem 0.55rem;
     }
+    /* ただしキャンセル行の未割当は対応不要なので、オレンジにせず灰色に沈める（ユーザー指摘） */
+    .ha-row--cancelled .ha-select.ha-staff--none,
+    .ha-all-card--cancelled .ha-select.ha-staff--none {
+      background: #e5e7eb; border-color: #9ca3af; color: #6b7280; font-weight: 700;
+    }
     .ha-select.ha-staff--none {
       background: #ffedd5; border-color: #ea580c; color: #9a3412; font-weight: 800;
     }

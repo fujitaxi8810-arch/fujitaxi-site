@@ -611,6 +611,7 @@ import '../styles/kt-components.css';
     // ユーザー要望：「不具合があった際に何かアラートがでるように。プッシュはしない」。
     // これまでは読み込み失敗のたびに alert() が出ていた（自動更新だと30秒ごとに
     // 画面を塞いで出続ける）。画面を塞がないバナーに変え、直ると自動で消す。
+    let newVersionWaiting = false;
     const HEALTH_STALE_REFRESH_MS = 3 * 60 * 1000; // 自動更新が3分止まったら警告
     const HEALTH_STALE_IMPORT_HOURS = 8;           // 日中にCSV取り込みがこれ以上空いたら警告
     let loadFailure: string | null = null;         // 直近の読み込みの失敗理由（成功で null）
@@ -636,6 +637,10 @@ import '../styles/kt-components.css';
         if (boardShown && document.visibilityState === 'visible' && now - since > HEALTH_STALE_REFRESH_MS) {
           problems.push(`画面の自動更新が止まっている可能性があります（最後に更新できたのは ${hhmm(lastLoadOkAt)}）。ページを再読み込みしてください。`);
         }
+      }
+
+      if (newVersionWaiting) {
+        problems.push('新しいバージョンがあります。操作が終わると自動で再読み込みします（今すぐなら、ページを再読み込みしてください）。');
       }
 
       if (lastImportAt !== null) {
@@ -669,6 +674,32 @@ import '../styles/kt-components.css';
     }
 
     setInterval(renderHealth, 60 * 1000);
+
+    /*
+     * ── 新しいバージョンの自動反映 ──
+     * 事務所の画面などは開きっぱなしで、データは自動更新されても**プログラム自体は古いまま**になる
+     * （ユーザー指摘「変更ありの表示が反映されていない」の原因の一つ。更新後に再読み込みしないと、
+     * 直した表示が出ない）。数分ごとに配信中のページのスクリプト名（ハッシュ）を見て、今読み込んでいる
+     * ものと違えば再読み込みする。操作中（入力欄にフォーカス・モーダル表示中）は待ち、画面上部に案内を出す。
+     * 開発環境（スクリプト名にハッシュが無い）では何もしない。
+     */
+    const loadedScript = Array.from(document.querySelectorAll('script[type="module"][src]'))
+      .map((s) => s.getAttribute('src') || '').find((src) => /\/_astro\/hoisted\..+\.js$/.test(src)) || '';
+
+    async function checkNewVersion() {
+      if (!loadedScript) return;
+      try {
+        const res = await fetch(location.pathname, { cache: 'no-store' });
+        if (!res.ok) return;
+        const m = (await res.text()).match(/\/_astro\/hoisted\.[^"']+\.js/);
+        if (!m || m[0] === loadedScript) { newVersionWaiting = false; return; }
+      } catch (e) { return; }
+      const modalOpen = !!document.querySelector('.kt-modal-overlay:not([hidden])');
+      if (!modalOpen && !isInteractingWithForm()) { location.reload(); return; }
+      newVersionWaiting = true;
+      renderHealth();
+    }
+    setInterval(checkNewVersion, 3 * 60 * 1000);
 
     $('authRetryBtn').onclick = async () => {
       const result = await initAuth();

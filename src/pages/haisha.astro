@@ -480,15 +480,21 @@ import '../styles/kt-components.css';
     // 勤務欄の名前と、配車ボードの担当者欄で同じ色になるので、
     // 「今日の普通番は誰か」と「この予約は誰に割り当てたか」を色で照合できる。
     // 淡い背景＋濃い文字（高彩度のベタ塗りは使わない）。
+    /*
+     * 担当者の色。橙・茶・黄・琥珀系は使わない：「未割当」のオレンジ（#ffedd5／#ea580c）や
+     * 状態「変更あり」の黄と見分けがつかなくなるため（ユーザー指摘「未割当の色が違うので
+     * 併せてください」。実際に荒さんがオレンジで、未割当と見間違える状態だった）。
+     * 未割当のオレンジは、担当者の誰の色とも重ならない専用色にする
+     */
     const STAFF_COLORS = [
       { bg: '#eff6ff', fg: '#1d4ed8' }, { bg: '#fef2f2', fg: '#b91c1c' },
-      { bg: '#f0fdf4', fg: '#15803d' }, { bg: '#fffbeb', fg: '#92400e' },
+      { bg: '#f0fdf4', fg: '#15803d' }, { bg: '#e0f2fe', fg: '#0369a1' },
       { bg: '#f5f3ff', fg: '#6d28d9' }, { bg: '#ecfeff', fg: '#0e7490' },
       { bg: '#fdf2f8', fg: '#be185d' }, { bg: '#f7fee7', fg: '#4d7c0f' },
-      { bg: '#eef2ff', fg: '#4338ca' }, { bg: '#fff7ed', fg: '#c2410c' },
-      { bg: '#f0fdfa', fg: '#115e59' }, { bg: '#fef3c7', fg: '#a16207' },
+      { bg: '#eef2ff', fg: '#4338ca' }, { bg: '#f5f5f4', fg: '#57534e' },
+      { bg: '#f0fdfa', fg: '#115e59' }, { bg: '#d1fae5', fg: '#047857' },
       { bg: '#faf5ff', fg: '#a21caf' }, { bg: '#f1f5f9', fg: '#334155' },
-      { bg: '#fef7ed', fg: '#b45309' }, { bg: '#eceff1', fg: '#37474f' },
+      { bg: '#eceff1', fg: '#37474f' },
     ];
 
     let staffColorMap = new Map();
@@ -2097,6 +2103,23 @@ import '../styles/kt-components.css';
       table.appendChild(tbody);
     }
 
+    // 集計行。「未割当 N件」だけは、表の未割当（.ha-staff--none）と同じオレンジのバッジにする
+    function renderSummary(el: HTMLElement, parts: string[], tail: string) {
+      el.textContent = '';
+      parts.forEach((p, i) => {
+        if (i > 0) el.appendChild(document.createTextNode('　'));
+        if (p.startsWith('未割当')) {
+          const chip = document.createElement('span');
+          chip.className = 'ha-summary-none';
+          chip.textContent = p;
+          el.appendChild(chip);
+        } else {
+          el.appendChild(document.createTextNode(p));
+        }
+      });
+      if (tail) el.appendChild(document.createTextNode(tail));
+    }
+
     function renderBoardSummary() {
       // 件数も画面に出ている分だけを数える（隠した分を足すと数が合わなく見えるため）
       const shown = visibleBoardRows();
@@ -2125,7 +2148,7 @@ import '../styles/kt-components.css';
         ? `　　「新着」は${jstDateKey(baseIso).slice(5).replace('-', '/')} `
           + `${jstTimeLabel(baseIso)}${baselineIsAuto() ? '（自動）' : 'の引き継ぎ'}以降に入った予約です。`
         : '　　担当者・状態を選ぶとその場で保存されます。';
-      $('boardSummary').textContent = parts.join('　') + tail;
+      renderSummary($('boardSummary'), parts, tail);
     }
 
     $('datePick').onchange = loadBoard;
@@ -2428,7 +2451,7 @@ import '../styles/kt-components.css';
       if (charterCount > 0) parts.push(`貸切 ${charterCount}件`);
       if (cancelledCount > 0) parts.push(`キャンセル ${cancelledCount}件`);
       if (hidden > 0) parts.push(`時間経過で非表示 ${hidden}件`);
-      $('allSummary').textContent = parts.join('　');
+      renderSummary($('allSummary'), parts, '');
 
       /*
        * 複数の狭い表に分ける方式（列優先）は、幅の見積もりが実際の内容と
@@ -3629,7 +3652,8 @@ import '../styles/kt-components.css';
     }
     .ha-grid thead th:nth-child(8) { z-index: 2; }
     .ha-time { font-weight: 900; font-size: 1.1rem; }
-    .ha-rownum { color: #999; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+    /* №：以前は薄い灰色の小さい数字で見にくかった（ユーザー指摘）。濃い色・太字・大きめにする */
+    .ha-rownum { color: #1f2937; font-size: 1.15rem; font-weight: 900; font-variant-numeric: tabular-nums; text-align: center; min-width: 2.4rem; white-space: nowrap; }
 
     /*
      * 迎車場所・行き先メモは折り返し表示にしていたが、長い住所・メモだと
@@ -3682,6 +3706,10 @@ import '../styles/kt-components.css';
      * キャンセル行だけ白だったりした）。行の色は状態で決まり、未割当はこの色だけで示す。
      * 予約一覧・編集画面の担当者セレクトにも同じ色が付く
      */
+    .ha-summary-none {
+      background: #ffedd5; border: 1px solid #ea580c; border-radius: var(--radius-md);
+      color: #9a3412; font-weight: 800; padding: 0.05rem 0.55rem;
+    }
     .ha-select.ha-staff--none {
       background: #ffedd5; border-color: #ea580c; color: #9a3412; font-weight: 800;
     }
@@ -3920,7 +3948,7 @@ import '../styles/kt-components.css';
     .ha-all-card--new.ha-all-card--changed td:first-child { box-shadow: inset 6px 0 0 #0e7490, inset 12px 0 0 #d97706; }
     .ha-all-card--new.ha-all-card--charter td:first-child { box-shadow: inset 6px 0 0 #0e7490, inset 12px 0 0 #db2777; }
     .ha-all-card--new.ha-all-card--cancelled td:first-child { box-shadow: inset 6px 0 0 #0e7490, inset 12px 0 0 #9ca3af; }
-    .ha-all-rownum { color: #999; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+    .ha-all-rownum { color: #1f2937; font-size: 1.05rem; font-weight: 900; font-variant-numeric: tabular-nums; text-align: center; min-width: 2.2rem; white-space: nowrap; }
     .ha-all-time { font-weight: 700; white-space: nowrap; }
     .ha-all-name { font-weight: 700; white-space: nowrap; }
     /*

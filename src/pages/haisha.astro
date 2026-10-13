@@ -33,6 +33,11 @@ import '../styles/kt-components.css';
         <button type="button" class="kt-btn" id="authRetryBtn">ログインする</button>
       </div>
 
+      <!-- 不具合・異常の警告（画面内に出すだけ。プッシュ通知はしない）。
+           読み込み失敗・自動更新の停止・CSV取り込みの滞りを、直るまで出し続ける
+           （renderHealth 参照）。直ると自動で消える -->
+      <div class="ha-healthbanner" id="healthBanner" role="alert" hidden></div>
+
       <!-- タブ -->
       <div class="ha-tabs">
         <button type="button" class="ha-tab is-active" id="tabBoardBtn">日別の配車ボード</button>
@@ -578,6 +583,68 @@ import '../styles/kt-components.css';
       $('importBtn').disabled = false;
       $('newBtn').disabled = false;
     }
+
+    // ── 不具合の警告バナー ──
+    // ユーザー要望：「不具合があった際に何かアラートがでるように。プッシュはしない」。
+    // これまでは読み込み失敗のたびに alert() が出ていた（自動更新だと30秒ごとに
+    // 画面を塞いで出続ける）。画面を塞がないバナーに変え、直ると自動で消す。
+    const HEALTH_STALE_REFRESH_MS = 3 * 60 * 1000; // 自動更新が3分止まったら警告
+    const HEALTH_STALE_IMPORT_HOURS = 8;           // 日中にCSV取り込みがこれ以上空いたら警告
+    let loadFailure: string | null = null;         // 直近の読み込みの失敗理由（成功で null）
+    let lastLoadOkAt = Date.now();
+    let lastVisibleAt = Date.now();
+    let lastImportAt: number | null = null;
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') { lastVisibleAt = Date.now(); renderHealth(); }
+    });
+
+    function renderHealth() {
+      const problems: string[] = [];
+      const now = Date.now();
+      const hhmm = (t: number) => jstTimeLabel(new Date(t).toISOString());
+
+      if (loadFailure) {
+        problems.push(`最新の予約を読み込めていません（最後に更新できたのは ${hhmm(lastLoadOkAt)}）。${loadFailure}`);
+      } else {
+        const boardShown = !$('boardPanel').hidden || !$('allPanel').hidden;
+        const since = Math.max(lastLoadOkAt, lastVisibleAt);
+        if (boardShown && document.visibilityState === 'visible' && now - since > HEALTH_STALE_REFRESH_MS) {
+          problems.push(`画面の自動更新が止まっている可能性があります（最後に更新できたのは ${hhmm(lastLoadOkAt)}）。ページを再読み込みしてください。`);
+        }
+      }
+
+      if (lastImportAt !== null) {
+        const jstHour = new Date(now + 9 * 3600 * 1000).getUTCHours();
+        const ageH = (now - lastImportAt) / 3600000;
+        if (jstHour >= 7 && jstHour < 23 && ageH >= HEALTH_STALE_IMPORT_HOURS) {
+          const d = jstDateKey(new Date(lastImportAt).toISOString()).slice(5).replace('-', '/');
+          problems.push(`CSVの取り込みから${Math.floor(ageH)}時間以上たっています（最終取込 ${d} ${hhmm(lastImportAt)}）。DSの最新のCSVを取り込んでください。`);
+        }
+      }
+
+      const box = $('healthBanner');
+      box.innerHTML = '';
+      for (const p of problems) {
+        const el = document.createElement('p');
+        el.textContent = `⚠ ${p}`;
+        box.appendChild(el);
+      }
+      box.hidden = problems.length === 0;
+    }
+
+    function markLoadOk() {
+      loadFailure = null;
+      lastLoadOkAt = Date.now();
+      renderHealth();
+    }
+
+    function markLoadFailed(msg: string) {
+      loadFailure = msg;
+      renderHealth();
+    }
+
+    setInterval(renderHealth, 60 * 1000);
 
     $('authRetryBtn').onclick = async () => {
       const result = await initAuth();
@@ -1744,7 +1811,7 @@ import '../styles/kt-components.css';
       return onField && Date.now() - lastFormActivityAt < IDLE_REFRESH_MS;
     }
     setInterval(() => {
-      if (!$('boardPanel').hidden && !isInteractingWithForm()) loadBoard();
+      if (!$('boardPanel').hidden && !isInteractingWithForm()) loadBoard({ auto: true });
     }, 30 * 1000);
 
     // ── ① 配車ボード ──
@@ -1787,7 +1854,8 @@ import '../styles/kt-components.css';
       return open ? 'working' : 'done';
     }
 
-    async function loadBoard() {
+    // opts.auto: タイマーによる自動更新。失敗してもalertで画面を塞がず、警告バナーだけ出す
+    async function loadBoard(opts?: any) {
       const dateKey = $('datePick').value || todayJst();
       try {
         const [rows, duties, daily, excluded, handover, todayAttendance] = await Promise.all([
@@ -1805,9 +1873,12 @@ import '../styles/kt-components.css';
         latestHandover = handover;
         todayAttendanceRows = todayAttendance;
       } catch (e) {
-        alert(failMsg(e, 'データの読み込み'));
+        const msg = failMsg(e, 'データの読み込み');
+        markLoadFailed(msg);
+        if (opts?.auto !== true) alert(msg);
         return;
       }
+      markLoadOk();
       // 日付は真下の配車ボードの見出しと日付選択に出ているので、ここでは繰り返さない
       renderHandover();
       renderDuty();
@@ -2277,10 +2348,10 @@ import '../styles/kt-components.css';
 
     // 日別ボードと同じ理由で、こちらも開けっぱなしで自動更新する
     setInterval(() => {
-      if (!$('allPanel').hidden && !isInteractingWithForm()) loadAllView();
+      if (!$('allPanel').hidden && !isInteractingWithForm()) loadAllView({ auto: true });
     }, 30 * 1000);
 
-    async function loadAllView() {
+    async function loadAllView(opts?: any) {
       const dateKey = $('allDatePick').value || todayJst();
       try {
         // 乗務割（dutyRows/dailyDutyRows）も、全体タブで見ている日付ぶんを
@@ -2299,9 +2370,12 @@ import '../styles/kt-components.css';
         dutyExclusionRows = excluded;
         todayAttendanceRows = todayAttendance;
       } catch (e) {
-        alert(failMsg(e, 'データの読み込み'));
+        const msg = failMsg(e, 'データの読み込み');
+        markLoadFailed(msg);
+        if (opts?.auto !== true) alert(msg);
         return;
       }
+      markLoadOk();
       renderDuty();
       renderAllView();
     }
@@ -2626,7 +2700,10 @@ import '../styles/kt-components.css';
       const text = importLogText(log);
       $('importLogLine').textContent = text;
       $('importModalLogLine').textContent = text;
+      if (log) { lastImportAt = new Date(log.importedAt).getTime(); renderHealth(); }
     }
+    // 他の端末で取り込まれた分も拾えるよう、取り込みの鮮度は定期的に取り直す
+    setInterval(refreshImportLog, 5 * 60 * 1000);
 
     function openImport() {
       importPlan = null;
@@ -2999,6 +3076,22 @@ import '../styles/kt-components.css';
       white-space: nowrap;
     }
     .ha-authbanner .kt-btn:hover { background: #92400e; }
+
+    /* 不具合の警告（画面を塞がないバナー）。淡い背景＋濃い文字で、authbannerと同系の配色 */
+    .ha-healthbanner {
+      background: #fef2f2;
+      border: 1px solid #b91c1c;
+      border-radius: var(--radius-lg);
+      color: #7f1d1d;
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1.6;
+      padding: 0.7rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .ha-healthbanner[hidden] { display: none; }
+    .ha-healthbanner p { margin: 0; }
+    .ha-healthbanner p + p { margin-top: 0.3rem; }
 
     /* ── 引き継ぎ ──
        他のパネル同様 <details> に変えたので、色付きの見た目は
@@ -3851,7 +3944,7 @@ import '../styles/kt-components.css';
 
     /* ── 印刷 ── */
     @media print {
-      .nav, .footer, .page-hero, .kt-adminbar, .ha-zoombar, .ha-tabs,
+      .nav, .footer, .page-hero, .kt-adminbar, .ha-zoombar, .ha-tabs, .ha-healthbanner,
       .kt-panel__tools, .ha-noprint { display: none !important; }
       body, .section { background: #fff !important; }
       .kt-panel { border-color: #000; background: #fff; padding: 0; }

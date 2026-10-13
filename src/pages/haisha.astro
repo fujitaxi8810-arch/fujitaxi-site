@@ -3599,7 +3599,8 @@ import '../styles/kt-components.css';
       background: #fff;
       font-size: 0.9rem;
     }
-    .ha-grid td { border-bottom: 1px solid #e5e5e5; }
+    /* 行の区切り線。薄いと行が追いにくい（ユーザー指摘）ため、はっきりした灰色にする */
+    .ha-grid td { border-bottom: 1px solid #aab0bb; }
     .ha-grid tbody tr:hover { background: #fafafa; }
 
     /* 予約一覧で日付が変わる行の上に区切り線。毎行の薄い線(#e5e5e5)より
@@ -3866,7 +3867,7 @@ import '../styles/kt-components.css';
       border-bottom: 2px solid #ccc;
       white-space: nowrap;
     }
-    .ha-all-table td { padding: 0.05rem 0.6rem; border-bottom: 1px solid #eee; color: #111; background: #fff; }
+    .ha-all-table td { padding: 0.05rem 0.6rem; border-bottom: 1px solid #aab0bb; color: #111; background: #fff; }
     .ha-all-table tr:last-child td { border-bottom: none; }
     /*
      * №・時刻・状態・担当者の4列を左に固定（ユーザー指摘：右にスクロールすると
@@ -4008,7 +4009,7 @@ import '../styles/kt-components.css';
       .ha-grid thead { display: none; }
       .ha-grid, .ha-grid tbody, .ha-grid tr { display: block; width: 100%; }
       .ha-grid tr {
-        border: 1px solid #e5e5e5;
+        border: 1px solid #aab0bb;
         border-radius: var(--radius-md);
         margin-bottom: 0.6rem;
         padding: 0.3rem 0.7rem;
@@ -4019,7 +4020,7 @@ import '../styles/kt-components.css';
         justify-content: space-between;
         gap: 0.7rem;
         padding: 0.5rem 0;
-        border-bottom: 1px solid #f2f2f2;
+        border-bottom: 1px solid #dde1e7;
         white-space: normal;
         min-width: 0;
         max-width: none;

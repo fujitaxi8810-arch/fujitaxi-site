@@ -38,6 +38,9 @@ import '../styles/kt-components.css';
            （renderHealth 参照）。直ると自動で消える -->
       <div class="ha-healthbanner" id="healthBanner" role="alert" hidden></div>
 
+      <!-- 毎日の「0時以降の予約チェック」の未完了／完了の表示（renderCheckBanner 参照） -->
+      <div class="ha-checkbanner" id="checkBanner" hidden></div>
+
       <!-- タブ -->
       <div class="ha-tabs">
         <button type="button" class="ha-tab is-active" id="tabBoardBtn">日別の配車ボード</button>
@@ -601,6 +604,7 @@ import '../styles/kt-components.css';
 
     function renderHealth() {
       renderImportLines(); // 「◯分前」の表記も1分ごとに更新する
+      renderCheckBanner(); // 0時での日付切り替えを拾う
       const problems: string[] = [];
       const now = Date.now();
       const hhmm = (t: number) => jstTimeLabel(new Date(t).toISOString());
@@ -1203,6 +1207,7 @@ import '../styles/kt-components.css';
       tr.classList.toggle('ha-row--cancelled', r.status === 'cancelled');
       tr.classList.toggle('ha-row--changed', r.status === 'changed');
       tr.classList.toggle('ha-row--charter', r.status === 'charter');
+      tr.classList.toggle('ha-row--overdue', isOverdueUnchecked(r));
       tr.classList.toggle('ha-row--unassigned', !r.staffId && r.status !== 'cancelled');
     }
 
@@ -1770,6 +1775,102 @@ import '../styles/kt-components.css';
       return hidingApplies() ? boardRows.filter(isPastReservation) : [];
     }
 
+    /*
+     * ── 毎日の「0時以降の予約チェック」を確実にやらせる ──
+     * ユーザー要望：「毎日業務終了後に次の日の予約をチェックすることになっているため、
+     * 業務終了後0時以降にチェックすることを確実にやらせたい」。
+     * 0時になったら、その日（0時から始まる日）の全予約（キャンセルを除く）の「済」に
+     * チェックを入れるのが運用。終わるまで、ページ最上部に赤い警告を出し続ける
+     * （全タブ共通・ブラウザのタブ名にも未チェック件数を出す）。全部入ると緑の完了表示に変わる。
+     * 画面で開いている日付には依存せず、当日の予約を別に取得して数える。
+     * 予約は時刻から1時間たつとボードから自動で隠れるため、隠れた分もこの数に含め、
+     * 「未チェックを確認する」ボタンで隠れている分も表示して開く。
+     * 日付が変わる（0時）と対象が新しい日に切り替わり、その日の分が未チェックから始まる。
+     * 日中に新しく入った予約が未チェックなら、再び赤になる（新しい予約も確認が要るため）。
+     */
+    const BASE_TITLE = document.title;
+    let checkDayKey = '';
+    let checkDayRows: any[] = [];
+    let checkDayLoading = false;
+    let checkDayLastTry = 0; // 通信失敗時に、描画のたびに取りにいって連打しないため
+
+    async function refreshCheckDay() {
+      if (checkDayLoading) return;
+      checkDayLoading = true;
+      checkDayLastTry = Date.now();
+      const key = todayJst();
+      try {
+        checkDayRows = await fetchReservationsByDate(key);
+        checkDayKey = key;
+      } catch (e) {
+        // 失敗しても本体の表示には影響させない（日付が変わっていれば出さない）
+      } finally {
+        checkDayLoading = false;
+      }
+      renderCheckBanner();
+    }
+    setInterval(refreshCheckDay, 2 * 60 * 1000);
+
+    // ボードで「済」セルを赤くするのは、今日以前の未チェック（これから先の日は対象外）
+    function isOverdueUnchecked(r: any) {
+      return !r.checked && r.status !== 'cancelled' && jstDateKey(r.reservedAt) <= todayJst();
+    }
+
+    function renderCheckBanner() {
+      const box = $('checkBanner');
+      if (checkDayKey !== todayJst()) {
+        // 0時を過ぎて日付が変わった。新しい日の予約を取り直す
+        box.hidden = true;
+        document.title = BASE_TITLE;
+        if (!checkDayLoading && Date.now() - checkDayLastTry > 30 * 1000) refreshCheckDay();
+        return;
+      }
+      const rows = checkDayRows.filter((r) => r.status !== 'cancelled');
+      if (rows.length === 0) { box.hidden = true; document.title = BASE_TITLE; return; }
+
+      const label = `本日(${checkDayKey.slice(5).replace('-', '/')})`;
+      const missed = rows.filter((r) => !r.checked);
+      box.innerHTML = '';
+
+      const head = document.createElement('p');
+      head.className = 'ha-checkbanner__head';
+      if (missed.length === 0) {
+        box.className = 'ha-checkbanner ha-checkbanner--ok';
+        head.textContent = `✓ ${label}の予約チェック完了　全${rows.length}件を確認済み`;
+        box.appendChild(head);
+        document.title = BASE_TITLE;
+      } else {
+        box.className = 'ha-checkbanner ha-checkbanner--warn';
+        head.textContent = `⚠ ${label}の予約チェックが終わっていません　未チェック ${missed.length}件（全${rows.length}件中）`;
+        box.appendChild(head);
+
+        const note = document.createElement('p');
+        note.className = 'ha-checkbanner__note';
+        note.textContent = '業務終了後（0時以降）に、すべての予約の「済」にチェックを入れてください。';
+        box.appendChild(note);
+
+        const list = document.createElement('p');
+        list.className = 'ha-checkbanner__list';
+        const names = missed.slice(0, 8).map((r) => `${jstTimeLabel(r.reservedAt)} ${r.customerName}`);
+        list.textContent = names.join('　／　') + (missed.length > 8 ? `　ほか${missed.length - 8}件` : '');
+        box.appendChild(list);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'kt-btn';
+        btn.textContent = '未チェックを確認する';
+        btn.onclick = () => {
+          $('datePick').value = checkDayKey;
+          showPast = true; // 時間がたって自動で隠れた分も出す
+          $('showPastBtn').textContent = '経過分を隠す';
+          showTab('board');
+        };
+        box.appendChild(btn);
+        document.title = `⚠未チェック${missed.length}件 ${BASE_TITLE}`;
+      }
+      box.hidden = false;
+    }
+
     function visibleBoardRows() {
       return hidingApplies() ? boardRows.filter((r) => !isPastReservation(r)) : boardRows;
     }
@@ -2061,6 +2162,8 @@ import '../styles/kt-components.css';
           try {
             await setChecked(r.id, next);
             r.checked = next;
+            applyRowStatus(tr, r);
+            refreshCheckDay();
             renderBoardSummary();
           } catch (e) {
             alert(failMsg(e, 'チェックの保存'));
@@ -2096,6 +2199,7 @@ import '../styles/kt-components.css';
     }
 
     function renderBoardSummary() {
+      renderCheckBanner();
       // 件数も画面に出ている分だけを数える（隠した分を足すと数が合わなく見えるため）
       const shown = visibleBoardRows();
       const hidden = hiddenRows().length;
@@ -2387,6 +2491,7 @@ import '../styles/kt-components.css';
       card.classList.toggle('ha-all-card--cancelled', r.status === 'cancelled');
       card.classList.toggle('ha-all-card--changed', r.status === 'changed');
       card.classList.toggle('ha-all-card--charter', r.status === 'charter');
+      card.classList.toggle('ha-all-card--overdue', isOverdueUnchecked(r));
       card.classList.toggle('ha-all-card--unassigned', !r.staffId && r.status !== 'cancelled');
     }
 
@@ -2398,6 +2503,7 @@ import '../styles/kt-components.css';
      * 時系列に振り分ける（1列目の上から下へ、次に2列目の上から下へ…）。
      */
     function renderAllView() {
+      renderCheckBanner();
       const dateKey = $('allDatePick').value || todayJst();
       $('allTitle').textContent = `全体配車ボード　${dateKey.replace(/-/g, '/')}（${weekdayOf(dateKey)}）`;
 
@@ -2535,6 +2641,7 @@ import '../styles/kt-components.css';
           try {
             await setChecked(r.id, next);
             r.checked = next;
+            refreshCheckDay();
             renderAllView();
           } catch (e) {
             alert(failMsg(e, 'チェックの保存'));
@@ -3018,6 +3125,7 @@ import '../styles/kt-components.css';
       renderAdminBar();
       await loadBoard();
       refreshImportLog();
+      refreshCheckDay();
     }
 
     boot();
@@ -3136,6 +3244,27 @@ import '../styles/kt-components.css';
       padding: 0.7rem 1.25rem;
       margin-bottom: 1rem;
     }
+    /* 毎日の予約チェック（未完了=赤／完了=緑）。淡い背景＋濃い文字、一番上で目に入る大きさ */
+    .ha-checkbanner {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.2rem;
+      border: 3px solid;
+      border-radius: var(--radius-lg);
+      padding: 0.8rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .ha-checkbanner[hidden] { display: none; }
+    .ha-checkbanner p { margin: 0; }
+    .ha-checkbanner__head { font-size: 1.4rem; font-weight: 900; }
+    .ha-checkbanner__note { font-size: 1rem; font-weight: 700; flex-basis: 100%; }
+    .ha-checkbanner__list { font-size: 0.95rem; font-weight: 700; flex-basis: 100%; }
+    .ha-checkbanner--ok { background: #ecfdf5; border-color: #047857; color: #065f46; }
+    .ha-checkbanner--warn { background: #fef2f2; border-color: #b91c1c; color: #7f1d1d; }
+    /* 未チェックの行は、済のセルを赤く目立たせる */
+    .ha-grid .ha-row--overdue td:nth-child(8), .ha-all-table .ha-all-card--overdue td:nth-child(8) { background: #fecaca; }
+    .ha-row--overdue .ha-check, .ha-all-card--overdue .ha-check { outline: 2px solid #b91c1c; outline-offset: 1px; }
     .ha-healthbanner[hidden] { display: none; }
     .ha-healthbanner p { margin: 0; }
     .ha-healthbanner p + p { margin-top: 0.3rem; }
@@ -4025,7 +4154,7 @@ import '../styles/kt-components.css';
 
     /* ── 印刷 ── */
     @media print {
-      .nav, .footer, .page-hero, .kt-adminbar, .ha-zoombar, .ha-tabs, .ha-healthbanner,
+      .nav, .footer, .page-hero, .kt-adminbar, .ha-zoombar, .ha-tabs, .ha-healthbanner, .ha-checkbanner,
       .kt-panel__tools, .ha-noprint { display: none !important; }
       body, .section { background: #fff !important; }
       .kt-panel { border-color: #000; background: #fff; padding: 0; }

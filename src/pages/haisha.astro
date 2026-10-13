@@ -1726,9 +1726,22 @@ import '../styles/kt-components.css';
      * ちょうどセレクトを選んでいる最中に描き直すと選択中の項目が消えてしまうため、
      * フォーカスが表内の入力に無いときだけ更新する
      */
+    /*
+     * セレクト・チェックボックスは、触ったあともフォーカスが残り続ける
+     * （操作中に disabled にしても activeElement は変わらないことを実機で確認）。
+     * 「フォーカスがあれば操作中」とすると、誰かが一度済や担当者を触って放置した
+     * 端末は自動更新が永久に止まり、他の端末でCSVを取り込んでも画面に出なくなる。
+     * そこで、最後に操作してから一定時間が過ぎたら放置とみなして更新する。
+     */
+    const IDLE_REFRESH_MS = 20 * 1000;
+    let lastFormActivityAt = 0;
+    for (const ev of ['focusin', 'input', 'change', 'pointerdown', 'keydown']) {
+      document.addEventListener(ev, () => { lastFormActivityAt = Date.now(); }, true);
+    }
     function isInteractingWithForm() {
       const el = document.activeElement;
-      return !!el && (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+      const onField = !!el && (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+      return onField && Date.now() - lastFormActivityAt < IDLE_REFRESH_MS;
     }
     setInterval(() => {
       if (!$('boardPanel').hidden && !isInteractingWithForm()) loadBoard();

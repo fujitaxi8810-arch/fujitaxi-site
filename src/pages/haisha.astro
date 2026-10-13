@@ -3523,31 +3523,47 @@ import '../styles/kt-components.css';
 
     .ha-legend { color: rgba(255,255,255,0.85); font-size: 0.9rem; margin: 0.25rem 0 0.75rem; }
     .ha-note { color: rgba(255,255,255,0.75); font-size: 0.85rem; line-height: 1.6; margin: 0; }
-    /* 「このデータは最新版か」の確認用。控えめだが常に見える位置に出す */
+    /*
+     * 「このデータは最新版か」の確認用。ユーザー要望「もっと見やすくして。囲い文字」で、
+     * 行全体を太い黄色の枠（囲い）に入れ、日時は白地・太い枠・極太の文字にした。
+     * 古いとき（警告バナーと同じしきい値）は赤系に変える
+     */
     .ha-import-log {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 0.4rem 0.9rem;
-      margin: 0.4rem 0 0.8rem;
+      gap: 0.5rem 1.1rem;
+      width: fit-content;
+      max-width: 100%;
+      margin: 0.5rem 0 1rem;
+      padding: 0.6rem 1.2rem;
+      border: 3px solid var(--fuji-yellow);
+      border-radius: var(--radius-lg);
+      background: rgba(0, 0, 0, 0.35);
     }
-    .ha-import-log__label { color: rgba(255,255,255,0.85); font-size: 1rem; font-weight: 700; }
-    /* 淡い背景＋濃い文字のバッジ。古いとき（警告バナーと同じしきい値）は赤系に変える */
+    .ha-import-log__label { color: #fff; font-size: 1.25rem; font-weight: 900; letter-spacing: 0.08em; }
     .ha-import-log__time {
-      background: #ecfeff;
-      border: 2px solid #0e7490;
+      background: #fff;
+      border: 4px solid #0e7490;
       border-radius: var(--radius-md);
-      color: #0e7490;
-      font-size: 1.7rem;
+      color: #083344;
+      -webkit-text-stroke: 1px #083344;
+      font-size: 2.6rem;
       font-weight: 900;
       font-variant-numeric: tabular-nums;
-      line-height: 1.2;
-      padding: 0.15rem 0.8rem;
+      line-height: 1.15;
+      padding: 0.1rem 1rem;
     }
-    .ha-import-log__time--stale { background: #fef2f2; border-color: #b91c1c; color: #b91c1c; }
-    .ha-import-log__ago { color: #67e8f9; font-size: 1.15rem; font-weight: 700; }
-    .ha-import-log__ago--stale { color: #fca5a5; }
-    .ha-import-log__detail { color: rgba(255,255,255,0.7); font-size: 0.85rem; }
+    .ha-import-log__time--stale { border-color: #b91c1c; color: #7f1d1d; -webkit-text-stroke-color: #7f1d1d; background: #fef2f2; }
+    .ha-import-log__ago {
+      color: #fff;
+      font-size: 1.6rem;
+      font-weight: 900;
+      -webkit-text-stroke: 0.6px #0e7490;
+      text-shadow: 0 0 4px #0e7490, 0 0 2px #0e7490;
+    }
+    .ha-import-log__ago--stale { -webkit-text-stroke-color: #b91c1c; text-shadow: 0 0 4px #b91c1c, 0 0 2px #b91c1c; }
+    .ha-import-log__detail { color: rgba(255,255,255,0.8); font-size: 0.9rem; }
 
     /* ── 絞り込み ── */
     .ha-filters {

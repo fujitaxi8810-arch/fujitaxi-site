@@ -502,6 +502,8 @@ import '../styles/kt-components.css';
 
     /** 要素にその人の色を当てる。未割当なら既定の見た目に戻す */
     function applyStaffColor(el: HTMLElement, staffId: string | null) {
+      // 未割当の色は、行の状態に関わらず常に同じ（CSSの .ha-staff--none）
+      if (el instanceof HTMLSelectElement) el.classList.toggle('ha-staff--none', !staffId);
       const c = staffId ? staffColorMap.get(staffId) : null;
       if (c) {
         el.style.background = c.bg;
@@ -3650,7 +3652,7 @@ import '../styles/kt-components.css';
      *  ・行全体の色 ＝ 「状態」だけで決める（状態セレクトと同じ色相）
      *      通常＝白／新着＝水色／変更あり＝黄／貸切＝ピンク／キャンセル＝灰色（取り消し線）
      *  ・行の左端の太い縦線 ＝ 同じ色の濃い版（遠くからでも状態が分かる）
-     *  ・未割当は行の色にせず、「担当者」のセルだけオレンジで強調する
+     *  ・未割当は行の色にせず、担当者セレクト（予約一覧はバッジ）だけを同じオレンジにする
      *    （以前は未割当を行全体の淡いクリーム色にしていて、変更あり（黄）と区別がつかず、
      *      貸切などと重なると色が潰れていた）
      *  tdの背景が不透明な固定列（時刻・済）にも同じ色を明示する
@@ -3673,10 +3675,14 @@ import '../styles/kt-components.css';
     .ha-row--charter td:first-child { box-shadow: inset 6px 0 0 #db2777; }
     .ha-row--charter td.ha-time { color: #be185d; }
 
-    /* 未割当：担当者のセルだけオレンジ（行の色は状態で決まる） */
-    .ha-row--unassigned td:nth-child(4), .ha-all-card--unassigned td:nth-child(4) { background: #ffedd5; }
-    .ha-row--unassigned td:nth-child(4) .ha-select, .ha-all-card--unassigned td:nth-child(4) .ha-select {
-      background: #fff7ed; border-color: #ea580c; color: #9a3412; font-weight: 800;
+    /*
+     * 未割当：担当者セレクト自体を、**どこでも・どの状態の行でも同じ1色のオレンジ**にする
+     * （ユーザー指摘「未割当の色がバラバラ」。以前は行の種類でセルとセレクトの色が二重になったり、
+     * キャンセル行だけ白だったりした）。行の色は状態で決まり、未割当はこの色だけで示す。
+     * 予約一覧・編集画面の担当者セレクトにも同じ色が付く
+     */
+    .ha-select.ha-staff--none {
+      background: #ffedd5; border-color: #ea580c; color: #9a3412; font-weight: 800;
     }
 
     /* キャンセル：対応不要なので沈める。取り消し線で一目で分かるように */
@@ -3700,7 +3706,8 @@ import '../styles/kt-components.css';
       white-space: nowrap;
     }
     .ha-badge--assigned { background: #eff6ff; border-color: #1d4ed8; color: #1d4ed8; }
-    .ha-badge--unassigned { background: #fef7ed; border-color: #b45309; color: #b45309; }
+    /* 予約一覧の「未割当」バッジも、ボードの担当者セレクト（.ha-staff--none）と同じオレンジに揃える */
+    .ha-badge--unassigned { background: #ffedd5; border-color: #ea580c; color: #9a3412; font-weight: 800; }
     .ha-badge--changed { background: #fffbeb; border-color: #92400e; color: #92400e; }
     .ha-badge--cancelled { background: #f4f4f5; border-color: #6b7280; color: #6b7280; }
     /* 引き継ぎ後の新着。他の状態色と衝突しないよう青緑を当てる */

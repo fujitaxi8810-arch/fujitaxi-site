@@ -3644,19 +3644,44 @@ import '../styles/kt-components.css';
       max-width: 20rem;
     }
 
-    .ha-row--unassigned td.ha-sticky, .ha-row--unassigned td:nth-child(8), .ha-row--unassigned { background: #fffaf0; }
+    /*
+     * ── 行の色の約束（日別・全体ボード共通。ユーザー指摘「行の色が整合性がとれていない。
+     *    見やすくを追求して」で整理）──
+     *  ・行全体の色 ＝ 「状態」だけで決める（状態セレクトと同じ色相）
+     *      通常＝白／新着＝水色／変更あり＝黄／貸切＝ピンク／キャンセル＝灰色（取り消し線）
+     *  ・行の左端の太い縦線 ＝ 同じ色の濃い版（遠くからでも状態が分かる）
+     *  ・未割当は行の色にせず、「担当者」のセルだけオレンジで強調する
+     *    （以前は未割当を行全体の淡いクリーム色にしていて、変更あり（黄）と区別がつかず、
+     *      貸切などと重なると色が潰れていた）
+     *  tdの背景が不透明な固定列（時刻・済）にも同じ色を明示する
+     */
     .ha-row--click { cursor: pointer; }
 
+    /* 新着：状態が通常のままのときだけ水色（状態を変えたら、その状態の色が優先） */
+    .ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--cancelled) td.ha-sticky,
+    .ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--cancelled) td:nth-child(8),
+    .ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--cancelled) { background: #ecfeff; }
+    .ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--cancelled) td:first-child { box-shadow: inset 6px 0 0 #0e7490; }
+
     /* 変更あり：確認が要る行として目立たせる */
-    .ha-row--changed td.ha-sticky, .ha-row--changed td:nth-child(8), .ha-row--changed { background: #fffbeb; }
+    .ha-row--changed td.ha-sticky, .ha-row--changed td:nth-child(8), .ha-row--changed { background: #fef3c7; }
+    .ha-row--changed td:first-child { box-shadow: inset 6px 0 0 #d97706; }
     .ha-row--changed td.ha-time { color: #92400e; }
 
-    /* 貸切：/shiftの貸切コード（.sf-code--charter）と同じ配色に揃える */
-    .ha-row--charter td.ha-sticky, .ha-row--charter td:nth-child(8), .ha-row--charter { background: #fdf2f8; }
+    /* 貸切：/shiftの貸切コード（.sf-code--charter）と同系のピンク */
+    .ha-row--charter td.ha-sticky, .ha-row--charter td:nth-child(8), .ha-row--charter { background: #fce7f3; }
+    .ha-row--charter td:first-child { box-shadow: inset 6px 0 0 #db2777; }
     .ha-row--charter td.ha-time { color: #be185d; }
 
+    /* 未割当：担当者のセルだけオレンジ（行の色は状態で決まる） */
+    .ha-row--unassigned td:nth-child(4), .ha-all-card--unassigned td:nth-child(4) { background: #ffedd5; }
+    .ha-row--unassigned td:nth-child(4) .ha-select, .ha-all-card--unassigned td:nth-child(4) .ha-select {
+      background: #fff7ed; border-color: #ea580c; color: #9a3412; font-weight: 800;
+    }
+
     /* キャンセル：対応不要なので沈める。取り消し線で一目で分かるように */
-    .ha-row--cancelled td.ha-sticky, .ha-row--cancelled td:nth-child(8), .ha-row--cancelled { background: #f4f4f5; }
+    .ha-row--cancelled td.ha-sticky, .ha-row--cancelled td:nth-child(8), .ha-row--cancelled { background: #eeeeee; }
+    .ha-row--cancelled td:first-child { box-shadow: inset 6px 0 0 #9ca3af; }
     .ha-row--cancelled td { color: #9ca3af; text-decoration: line-through; }
     .ha-row--cancelled td.ha-time { color: #9ca3af; }
     /* 操作できる部分に取り消し線がかかると読みにくいので戻す */
@@ -3687,8 +3712,11 @@ import '../styles/kt-components.css';
       margin-left: 0.4rem;
       vertical-align: middle;
     }
-    /* 背景色は未割当・変更あり・キャンセルで使い切っているので、左の縦線で示す */
-    .ha-row--new td.ha-sticky { box-shadow: inset 4px 0 0 #0e7490; }
+    /* 新着の左の縦線は、状態が通常のときは上の「行の色の約束」で水色。
+       状態を変えた新着は、状態の色の縦線の内側にもう一本、青緑の線を足して「新着」だと分かるようにする */
+    .ha-row--new.ha-row--changed td:first-child { box-shadow: inset 6px 0 0 #0e7490, inset 12px 0 0 #d97706; }
+    .ha-row--new.ha-row--charter td:first-child { box-shadow: inset 6px 0 0 #0e7490, inset 12px 0 0 #db2777; }
+    .ha-row--new.ha-row--cancelled td:first-child { box-shadow: inset 6px 0 0 #0e7490, inset 12px 0 0 #9ca3af; }
 
     /* 状態セレクトも同じ配色にして、表を見渡したときに色で判別できるようにする。
        .ha-select が後ろで定義されているため、クラス2つ分の詳細度で上書きする */
@@ -3871,12 +3899,19 @@ import '../styles/kt-components.css';
       z-index: 2;
       background: #fff;
     }
-    .ha-all-card--unassigned td { background: #fffaf0; }
-    .ha-all-card--changed td { background: #fffbeb; }
-    .ha-all-card--charter td { background: #fdf2f8; }
-    .ha-all-card--cancelled td { background: #f4f4f5; color: #9ca3af; text-decoration: line-through; }
+    /* 行の色の約束は日別ボードの「行の色の約束」と共通（状態で行全体の色、左端に濃い縦線、未割当は担当者セルだけ） */
+    .ha-all-card--new:not(.ha-all-card--changed):not(.ha-all-card--charter):not(.ha-all-card--cancelled) td { background: #ecfeff; }
+    .ha-all-card--new:not(.ha-all-card--changed):not(.ha-all-card--charter):not(.ha-all-card--cancelled) td:first-child { box-shadow: inset 6px 0 0 #0e7490; }
+    .ha-all-card--changed td { background: #fef3c7; }
+    .ha-all-card--changed td:first-child { box-shadow: inset 6px 0 0 #d97706; }
+    .ha-all-card--charter td { background: #fce7f3; }
+    .ha-all-card--charter td:first-child { box-shadow: inset 6px 0 0 #db2777; }
+    .ha-all-card--cancelled td { background: #eeeeee; color: #9ca3af; text-decoration: line-through; }
+    .ha-all-card--cancelled td:first-child { box-shadow: inset 6px 0 0 #9ca3af; }
     .ha-all-card--cancelled .ha-select, .ha-all-card--cancelled .ha-check { text-decoration: none; }
-    .ha-all-card--new td:first-child { box-shadow: inset 4px 0 0 #0e7490; }
+    .ha-all-card--new.ha-all-card--changed td:first-child { box-shadow: inset 6px 0 0 #0e7490, inset 12px 0 0 #d97706; }
+    .ha-all-card--new.ha-all-card--charter td:first-child { box-shadow: inset 6px 0 0 #0e7490, inset 12px 0 0 #db2777; }
+    .ha-all-card--new.ha-all-card--cancelled td:first-child { box-shadow: inset 6px 0 0 #0e7490, inset 12px 0 0 #9ca3af; }
     .ha-all-rownum { color: #999; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
     .ha-all-time { font-weight: 700; white-space: nowrap; }
     .ha-all-name { font-weight: 700; white-space: nowrap; }
@@ -3996,6 +4031,13 @@ import '../styles/kt-components.css';
       .ha-grid td:not([data-label]) { justify-content: flex-end; }
       .ha-grid td.ha-sticky { position: static; background: none; }
       .ha-grid td:nth-child(8) { position: static; background: none; }
+      /* カード表示では、行の左端の縦線をカード（tr）に付け替える。
+         セル単位の背景色はカード全体の色（trの背景）に任せ、担当者セルのオレンジだけ残す */
+      .ha-grid tr td:first-child { box-shadow: none !important; }
+      .ha-grid tr.ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--cancelled) { box-shadow: inset 6px 0 0 #0e7490; }
+      .ha-grid tr.ha-row--changed { box-shadow: inset 6px 0 0 #d97706; }
+      .ha-grid tr.ha-row--charter { box-shadow: inset 6px 0 0 #db2777; }
+      .ha-grid tr.ha-row--cancelled { box-shadow: inset 6px 0 0 #9ca3af; }
       .ha-time { font-size: 1.05rem; }
       .ha-select { max-width: 65%; }
 

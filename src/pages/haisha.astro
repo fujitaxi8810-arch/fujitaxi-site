@@ -3629,14 +3629,22 @@ import '../styles/kt-components.css';
       padding: 0.1rem 1rem;
     }
     .ha-import-log__time--stale { border-color: #b91c1c; color: #7f1d1d; -webkit-text-stroke-color: #7f1d1d; background: #fef2f2; }
+    /*
+     * 「◯時間◯分前」。白抜き文字＋縁取り＋光彩は、暗い背景でにじんで読みにくかった（ユーザー指摘）。
+     * 日時と同じ「白地のバッジ＋濃い文字」にして、くっきり読めるようにする（縁取り・影は付けない）
+     */
     .ha-import-log__ago {
-      color: #fff;
-      font-size: 1.6rem;
+      background: #fff;
+      border: 4px solid #0e7490;
+      border-radius: var(--radius-md);
+      color: #083344;
+      font-size: 2rem;
       font-weight: 900;
-      -webkit-text-stroke: 0.6px #0e7490;
-      text-shadow: 0 0 4px #0e7490, 0 0 2px #0e7490;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.15;
+      padding: 0.1rem 0.9rem;
     }
-    .ha-import-log__ago--stale { -webkit-text-stroke-color: #b91c1c; text-shadow: 0 0 4px #b91c1c, 0 0 2px #b91c1c; }
+    .ha-import-log__ago--stale { border-color: #b91c1c; color: #7f1d1d; background: #fef2f2; }
     .ha-import-log__detail { color: rgba(255,255,255,0.8); font-size: 0.9rem; }
 
     /* ── 絞り込み ── */

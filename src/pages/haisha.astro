@@ -1117,7 +1117,8 @@ import '../styles/kt-components.css';
      * 無いので、何も付けない。
      */
     function buildSupersededNote(r: any) {
-      if (r.status !== 'changed' || !r.supersededByRaw) return null;
+      // 元の予約（時刻変更で「キャンセル」になったもの）に、変更後への行き先リンクを出す
+      if ((r.status !== 'changed' && r.status !== 'cancelled') || !r.supersededByRaw) return null;
       const wrap = document.createElement('span');
       wrap.className = 'ha-superseded-wrap';
 
@@ -2912,7 +2913,9 @@ import '../styles/kt-components.css';
 
       line(box, `対象期間：${importPlan.dateFrom} 〜 ${importPlan.dateTo}`);
       line(box, `新規に追加：${importPlan.inserts.length}件`, 'ha-preview__ok');
+      const toChanged = importPlan.updates.filter((u: any) => u.status === 'normal').length;
       line(box, `内容が変わった予約を更新：${importPlan.updates.length}件`
+        + (toChanged > 0 ? `（うち${toChanged}件は「変更あり」にします）` : '')
         + (keepStaff > 0 ? `（うち${keepStaff}件は担当者が割り当て済み。担当者はそのまま残します）` : ''), 'ha-preview__ok');
       /*
        * DSのCSVは毎回すべての予約が出てくるため、通常はここが件数の大半になる。
@@ -2922,7 +2925,7 @@ import '../styles/kt-components.css';
         line(box, `変更なし：${importPlan.unchanged}件（内容が同じなので何もしません）`, 'ha-preview__muted');
       }
       if (changedCount > 0) {
-        line(box, `変更ありに設定：${changedCount}件（予約時刻が変わり、同じ電話番号の新規予約が見つかったもの）`, 'ha-preview__warn');
+        line(box, `時刻の変更：${changedCount}件（元の予約を「キャンセル」にし、変更後の新しい予約を「変更あり」にします）`, 'ha-preview__warn');
       }
       if (cancelledCount > 0) {
         // 「1時間以上先の予約が消えたときだけ」が実際の挙動なので、そう書く。

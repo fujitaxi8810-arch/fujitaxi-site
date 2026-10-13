@@ -659,7 +659,7 @@ export type MissingReservation = {
 
 export type ImportPlan = {
   inserts: (NormalizedRow & { tempId: string })[];
-  updates: { id: string; row: NormalizedRow; hasStaff: boolean }[];
+  updates: { id: string; row: NormalizedRow; hasStaff: boolean; status: ReservationStatus }[];
   missing: MissingReservation[];
   /** ファイル内で重複していて後勝ちで捨てた件数 */
   duplicatesInFile: number;
@@ -855,7 +855,7 @@ export async function buildImportPlan(rows: NormalizedRow[]): Promise<ImportPlan
       if (isSameDsContent(hit, row)) {
         unchanged++;
       } else {
-        updates.push({ id: hit.id, row, hasStaff: hit.staffId !== null });
+        updates.push({ id: hit.id, row, hasStaff: hit.staffId !== null, status: hit.status });
       }
     } else {
       inserts.push({ ...row, tempId: `tmp-${inserts.length}` });
@@ -950,10 +950,18 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
   const insertedIdByTempId = new Map<string, string>();
 
   if (plan.inserts.length > 0) {
+    /*
+     * 時刻変更で「元の予約」と結び付いた新しい予約は、**変更あり**として入れる
+     * （ユーザー指摘「変更されているものが変更ありになっていない」。以前は元の予約を変更ありにしていたが、
+     * 現場ですぐキャンセルに手で変えており、変更後の予約は通常表示のままだった）。
+     * 元の予約は下で「キャンセル」にする。
+     */
+    const changedTempIds = new Set(plan.missing.filter((m) => m.matchedInsertId !== null).map((m) => m.matchedInsertId as string));
     const payload = plan.inserts.map((r) => ({
       ...dsFields(r),
       reserved_date: jstDateKey(r.reservedAt), // NOT NULL制約のため。値はトリガーが上書きする
       source: 'csv',
+      status: changedTempIds.has(r.tempId) ? 'changed' : 'normal',
     }));
     /*
      * 「変更あり」の予約から新しい予約へ矢印（superseded_by）を張るには、
@@ -979,7 +987,10 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
   for (let i = 0; i < plan.updates.length; i += CONCURRENCY) {
     const chunk = plan.updates.slice(i, i + CONCURRENCY);
     const results = await Promise.all(
-      chunk.map((u) => supabase.from(TABLE).update(dsFields(u.row)).eq('id', u.id))
+      chunk.map((u) => supabase.from(TABLE)
+        // 内容が変わった予約は、通常のものに限って「変更あり」にする（人が付けたキャンセル・貸切等は上書きしない）
+        .update(u.status === 'normal' ? { ...dsFields(u.row), status: 'changed' } : dsFields(u.row))
+        .eq('id', u.id))
     );
     const failed = results.find((r) => r.error);
     if (failed?.error) throw failed.error;
@@ -1004,7 +1015,7 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
       const chunk = changed.slice(i, i + CONCURRENCY);
       const results = await Promise.all(
         chunk.map((m) => supabase.from(TABLE)
-          .update({ status: 'changed', superseded_by: insertedIdByTempId.get(m.matchedInsertId!) ?? null })
+          .update({ status: 'cancelled', superseded_by: insertedIdByTempId.get(m.matchedInsertId!) ?? null })
           .eq('id', m.id))
       );
       const failed = results.find((r) => r.error);
@@ -1026,8 +1037,9 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
   return {
     inserted: plan.inserts.length,
     updated: plan.updates.length,
-    changed: changed.length,
-    cancelled: cancelledIds.length,
+    // 変更あり＝時刻変更後の新しい予約＋内容が変わった予約。キャンセル＝消えた予約＋時刻変更前の元の予約
+    changed: changed.length + plan.updates.filter((u) => u.status === 'normal').length,
+    cancelled: cancelledIds.length + changed.length,
   };
 }
 

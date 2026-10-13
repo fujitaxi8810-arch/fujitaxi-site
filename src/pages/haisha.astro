@@ -486,24 +486,38 @@ import '../styles/kt-components.css';
      * 併せてください」。実際に荒さんがオレンジで、未割当と見間違える状態だった）。
      * 未割当のオレンジは、担当者の誰の色とも重ならない専用色にする
      */
+    /*
+     * 並びは「似た色が乗務員の中で近い番号にならない」ように散らしてある（ユーザー要望：
+     * 「色に違いがあったほうがいい」）。乗務員（13人）は先頭から順に配るので、似た灰・青緑系は後ろに置く
+     */
     const STAFF_COLORS = [
       // 2番目は茶色。赤だと乗務割の「出勤打刻がまだ（赤）」と紛らわしかった（堀内さん。ユーザー選択）
-      { bg: '#eff6ff', fg: '#1d4ed8' }, { bg: '#f3eadf', fg: '#6b4423' },
-      { bg: '#f0fdf4', fg: '#15803d' }, { bg: '#e0f2fe', fg: '#0369a1' },
-      { bg: '#f5f3ff', fg: '#6d28d9' }, { bg: '#ecfeff', fg: '#0e7490' },
-      { bg: '#fdf2f8', fg: '#be185d' }, { bg: '#f7fee7', fg: '#4d7c0f' },
-      { bg: '#eef2ff', fg: '#4338ca' }, { bg: '#f5f5f4', fg: '#57534e' },
-      { bg: '#f0fdfa', fg: '#115e59' }, { bg: '#d1fae5', fg: '#047857' },
-      { bg: '#faf5ff', fg: '#a21caf' }, { bg: '#f1f5f9', fg: '#334155' },
-      { bg: '#eceff1', fg: '#37474f' },
+      { bg: '#eff6ff', fg: '#1d4ed8' }, // 青
+      { bg: '#f3eadf', fg: '#6b4423' }, // 茶
+      { bg: '#f0fdf4', fg: '#15803d' }, // 緑
+      { bg: '#f5f3ff', fg: '#6d28d9' }, // 紫
+      { bg: '#fdf2f8', fg: '#be185d' }, // ピンク
+      { bg: '#ecfeff', fg: '#0e7490' }, // 青緑
+      { bg: '#f7fee7', fg: '#4d7c0f' }, // 黄緑
+      { bg: '#faf5ff', fg: '#a21caf' }, // 赤紫
+      { bg: '#f5f5f4', fg: '#57534e' }, // 灰（暖色）
+      { bg: '#e0f2fe', fg: '#0369a1' }, // 空色
+      { bg: '#eef2ff', fg: '#4338ca' }, // 藍
+      { bg: '#d1fae5', fg: '#047857' }, // 翡翠
+      { bg: '#f0fdfa', fg: '#115e59' }, // 深緑青
+      { bg: '#f1f5f9', fg: '#334155' }, // 灰（寒色）
+      { bg: '#eceff1', fg: '#37474f' }, // 青灰
     ];
 
     let staffColorMap = new Map();
 
     /** 表示順で色を配る。隣り合う人が必ず別の色になるようにするため、ハッシュではなく順番で決める */
     function rebuildStaffColors() {
+      // 配車に出る乗務員（shiftGroup=null）を先に並べて色を配る。事務・ジャンボ受付・整備は配車に
+      // 出ないのに番号を使い、乗務員の色が一周して同じ色になっていた（菊地さんと渡部さんが同じ青）
+      const order = (x: any) => x.shiftDisplayOrder ?? x.displayOrder;
       const sorted = [...staff].sort((a, b) =>
-        (a.shiftDisplayOrder ?? a.displayOrder) - (b.shiftDisplayOrder ?? b.displayOrder));
+        (a.shiftGroup ? 1 : 0) - (b.shiftGroup ? 1 : 0) || order(a) - order(b));
       staffColorMap = new Map(sorted.map((s, i) => [s.id, STAFF_COLORS[i % STAFF_COLORS.length]]));
     }
 

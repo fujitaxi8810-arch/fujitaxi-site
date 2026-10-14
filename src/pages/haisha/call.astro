@@ -78,6 +78,27 @@ import '../../styles/kt-components.css';
         </p>
       </div>
 
+      <!-- ── 聞き間違いの辞書（全端末共通。抜き出しの前に置き換える） ── -->
+      <details class="kt-panel cd-details" id="dictPanel">
+        <summary class="kt-title cd-summary">聞き間違いの辞書（<span id="dictCount">0</span>件）</summary>
+        <p class="cd-note">
+          音声認識がよく間違える言葉を登録すると、次の通話から正しい言葉に置き換えて読み取ります。
+          下の「直近の文字起こし」で間違った部分をなぞって選び、「選んだ文字を入れる」を押すと簡単に登録できます。
+        </p>
+        <p class="cd-alert cd-alert--setup" id="dictSetup" hidden>
+          辞書の保存先がまだ作られていません（SupabaseでSQLの実行が必要です）。
+        </p>
+        <div class="cd-dictform">
+          <input type="text" class="kt-input" id="dictWrong" placeholder="聞き間違い（例：腹の町）" />
+          <span class="cd-arrow">→</span>
+          <input type="text" class="kt-input" id="dictRight" placeholder="正しい言葉（例：原ノ町）" />
+          <button type="button" class="kt-btn kt-btn--ghost" id="dictPickBtn">選んだ文字を入れる</button>
+          <button type="button" class="kt-btn" id="dictAddBtn">登録</button>
+        </div>
+        <p class="cd-formerr" id="dictErr" hidden></p>
+        <ul class="cd-dictlist" id="dictList"></ul>
+      </details>
+
       <!-- ── 試験用の補助（聞き取りの精度確認・電話無しでの動作確認） ── -->
       <details class="kt-panel cd-details">
         <summary class="kt-title cd-summary">試験用：直近の文字起こし（保存されません）</summary>
@@ -99,6 +120,7 @@ import '../../styles/kt-components.css';
     import {
       fetchDraftsSince, insertDraft, setDraftStatus, deleteDraft, purgeOldDrafts,
       extractDraft, primaryDateTime, judgeDrafts, type CallDraft, type DraftInput, type DraftJudgement,
+      fetchDict, addDictEntry, deleteDictEntry, applyDict, type DictEntry,
     } from '../../lib/call-draft';
 
     const $ = (id: string) => document.getElementById(id) as HTMLElement;
@@ -116,8 +138,9 @@ import '../../styles/kt-components.css';
     let drafts: CallDraft[] = [];
     let reservations: Reservation[] = [];
     let lastImport: ImportLogEntry | null = null;
-    /** 直近の文字起こし（画面を閉じれば消える。精度確認用） */
-    const recent: { at: string; text: string; saved: boolean }[] = [];
+    let dict: DictEntry[] = [];
+    /** 直近の文字起こし（画面を閉じれば消える。精度確認用）。text は辞書で置き換える前の聞き取ったまま */
+    const recent: { at: string; text: string; fixed: string; applied: number; saved: boolean }[] = [];
 
     function readJson<T>(key: string, fallback: T): T {
       try {
@@ -144,8 +167,9 @@ import '../../styles/kt-components.css';
     async function handleSegment(seg: Segment) {
       const text = seg.transcript.trim();
       if (!text) return;
-      const d = extractDraft(text, seg.startedAt, seg.endedAt);
-      recent.unshift({ at: seg.startedAt, text, saved: !!d });
+      const fixed = applyDict(text, dict);
+      const d = extractDraft(fixed.text, seg.startedAt, seg.endedAt);
+      recent.unshift({ at: seg.startedAt, text, fixed: fixed.text, applied: fixed.applied.length, saved: !!d });
       recent.splice(10);
       renderRecent();
       if (!d) return; // 日時が無い＝予約の電話ではない
@@ -377,7 +401,7 @@ import '../../styles/kt-components.css';
       const pending: CallDraft[] = readJson<DraftInput[]>(PENDING_KEY, []).map((d) => ({ ...d, id: '', status: 'open' as const }));
       const all = [...pending, ...drafts].sort((a, b) => b.calledAt.localeCompare(a.calledAt));
       const judged = judgeDrafts(all, reservations, lastImport?.importedAt ?? null);
-      $('draftRows').innerHTML = judged.map(rowHtml).join('');
+      $('draftRows').innerHTML = judged.map((j) => rowHtml(j)).join('');
       $('draftEmpty').hidden = judged.length > 0;
 
       const open = judged.filter((j) => j.draft.status === 'open');
@@ -396,11 +420,91 @@ import '../../styles/kt-components.css';
     }
 
     function renderRecent() {
+      // 辞書の登録に使うので、聞き取ったまま（置き換え前）を出す。置き換えがあれば置き換え後も並べる
       $('recentList').innerHTML = recent
-        .map((r) => `<li><span class="cd-sub">${jstTimeLabel(r.at)}　${r.saved ? '仮予約を作成' : '予約ではないと判断（保存なし）'}</span><br />${esc(r.text)}</li>`)
+        .map(
+          (r) => `<li><span class="cd-sub">${jstTimeLabel(r.at)}　${r.saved ? '仮予約を作成' : '予約ではないと判断（保存なし）'}</span><br />${esc(r.text)}${
+            r.applied ? `<div class="cd-fixed">辞書で${r.applied}か所置き換え → ${esc(r.fixed)}</div>` : ''
+          }</li>`,
+        )
         .join('');
       $('recentEmpty').hidden = recent.length > 0;
     }
+
+    // ── 辞書 ──
+
+    function renderDict() {
+      $('dictCount').textContent = String(dict.length);
+      $('dictList').innerHTML = dict
+        .map((e) => `<li><span>${esc(e.wrong)}</span><span class="cd-arrow">→</span><strong>${esc(e.right)}</strong>
+          <button type="button" class="cd-linkbtn cd-linkbtn--danger" data-dict-del="${e.id}">削除</button></li>`)
+        .join('');
+    }
+
+    async function loadDict() {
+      try {
+        dict = await fetchDict();
+        $('dictSetup').hidden = true;
+      } catch (e) {
+        if (!isTableMissing(e)) throw e;
+        dict = [];
+        $('dictSetup').hidden = false;
+      }
+      renderDict();
+    }
+
+    function dictError(msg: string) {
+      const el = $('dictErr');
+      el.textContent = msg;
+      el.hidden = !msg;
+    }
+
+    // 直近の文字起こしで選んだ部分を「聞き間違い」欄に入れる（選択はボタンを押すと消えるため、選んだ時点で覚えておく）
+    let lastSelection = '';
+    document.addEventListener('selectionchange', () => {
+      const s = window.getSelection()?.toString().trim() ?? '';
+      if (s) lastSelection = s;
+    });
+    $('dictPickBtn').addEventListener('click', () => {
+      if (!lastSelection) {
+        dictError('先に「直近の文字起こし」の中で、間違っている部分をなぞって選んでください');
+        return;
+      }
+      ($('dictWrong') as HTMLInputElement).value = lastSelection;
+      dictError('');
+      ($('dictRight') as HTMLInputElement).focus();
+    });
+
+    $('dictAddBtn').addEventListener('click', async () => {
+      const wrong = ($('dictWrong') as HTMLInputElement).value.trim();
+      const right = ($('dictRight') as HTMLInputElement).value.trim();
+      if (!wrong || !right) return dictError('「聞き間違い」と「正しい言葉」の両方を入れてください');
+      if (wrong === right) return dictError('同じ言葉どうしは登録できません');
+      if (dict.some((e) => e.wrong === wrong)) return dictError(`「${wrong}」はすでに登録されています`);
+      try {
+        await addDictEntry(wrong, right);
+        ($('dictWrong') as HTMLInputElement).value = '';
+        ($('dictRight') as HTMLInputElement).value = '';
+        dictError('');
+        await loadDict();
+      } catch (e: any) {
+        dictError(isTableMissing(e) ? '辞書の保存先がまだ作られていません' : `登録できませんでした（${e?.message ?? e}）`);
+      }
+    });
+    ['dictWrong', 'dictRight'].forEach((id) => $(id).addEventListener('input', () => dictError('')));
+
+    $('dictList').addEventListener('click', async (ev) => {
+      const btn = (ev.target as HTMLElement).closest('button[data-dict-del]') as HTMLButtonElement | null;
+      if (!btn) return;
+      const e = dict.find((x) => x.id === btn.dataset.dictDel);
+      if (!e || !confirm(`「${e.wrong} → ${e.right}」を辞書から削除しますか？`)) return;
+      try {
+        await deleteDictEntry(e.id);
+        await loadDict();
+      } catch (err: any) {
+        dictError(`削除できませんでした（${err?.message ?? err}）`);
+      }
+    });
 
     $('reloadBtn').addEventListener('click', () => refresh());
 
@@ -426,16 +530,17 @@ import '../../styles/kt-components.css';
     });
 
     $('tryBtn').addEventListener('click', () => {
-      const text = ($('tryInput') as HTMLTextAreaElement).value;
+      const fixed = applyDict(($('tryInput') as HTMLTextAreaElement).value, dict);
       const now = new Date().toISOString();
-      const d = extractDraft(text, now, now);
+      const d = extractDraft(fixed.text, now, now);
       const box = $('tryResult');
+      const note = fixed.applied.length ? `<p class="cd-note">辞書で置き換え → ${esc(fixed.text)}</p>` : '';
       if (!d) {
-        box.innerHTML = '<p class="cd-note">日時が読み取れないため、予約ではないと判断します（保存しない対象）。</p>';
+        box.innerHTML = `${note}<p class="cd-note">日時が読み取れないため、予約ではないと判断します（保存しない対象）。</p>`;
         return;
       }
       const j = judgeDrafts([{ ...d, id: '', status: 'open' }], reservations, lastImport?.importedAt ?? null)[0];
-      box.innerHTML = `<div class="cd-tablewrap"><table class="cd-table"><tbody>${rowHtml(j, true)}</tbody></table></div>`;
+      box.innerHTML = `${note}<div class="cd-tablewrap"><table class="cd-table"><tbody>${rowHtml(j, true)}</tbody></table></div>`;
     });
 
     // ── 読み込み ──
@@ -455,6 +560,8 @@ import '../../styles/kt-components.css';
         ]);
         reservations = rs;
         lastImport = imp;
+        // 別の端末で登録された辞書も反映する
+        await loadDict();
         try {
           await flushPending();
           drafts = await fetchDraftsSince(new Date(yesterdayJst() + 'T00:00:00+09:00').toISOString());
@@ -543,6 +650,14 @@ import '../../styles/kt-components.css';
     .cd-recent { list-style: none; margin: 0.6rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; color: #fff; }
     .cd-recent li { background: #0f0f0f; border-radius: var(--radius-md); padding: 0.5rem 0.75rem; line-height: 1.6; }
     .cd-recent .cd-sub { color: rgba(255,255,255,0.6); }
+    .cd-fixed { color: #9fdcb0; font-size: 0.9rem; margin-top: 0.2rem; }
+    .cd-dictform { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.6rem; }
+    .cd-dictform .kt-input { flex: 1 1 12rem; min-width: 0; }
+    .cd-arrow { color: rgba(255,255,255,0.6); }
+    .cd-formerr { color: #ff9a9a; font-size: 0.9rem; margin: 0.4rem 0 0; }
+    .cd-dictlist { list-style: none; margin: 0.6rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; color: #fff; }
+    .cd-dictlist li { display: flex; align-items: center; gap: 0.6rem; background: #0f0f0f; border-radius: var(--radius-md); padding: 0.35rem 0.75rem; }
+    .cd-dictlist li button { margin-left: auto; }
     .cd-tryinput { width: 100%; margin: 0.6rem 0; box-sizing: border-box; }
     #tryResult { margin-top: 0.6rem; }
   </style>

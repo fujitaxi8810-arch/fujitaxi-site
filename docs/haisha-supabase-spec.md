@@ -1541,6 +1541,37 @@ create policy dispatch_call_drafts_delete on dispatch_call_drafts
   for delete to authenticated using (true);
 ```
 
+### 聞き間違いの辞書（2026-10-14追加）
+
+音声認識の間違い方は地名・お名前ごとにだいたい決まっている（「原ノ町」→「腹の町」など）ため、
+**抜き出しの前に正しい言葉へ置き換える**辞書を持つ（`applyDict`）。
+
+- 電話を受けるPCを含む全端末で共通にするためDBに置く。画面（/haisha/call の「聞き間違いの辞書」）から誰でも追加・削除できる
+  （直すたびにプログラムを更新しなくて済むように）
+- 長い言葉から先に置き換える。音声認識は言葉の途中に空白を入れることがあるため、文字の間の空白は無視して照合する
+- 「直近の文字起こし」は置き換え**前**（聞き取ったまま）を出す。間違った部分をなぞって「選んだ文字を入れる」で登録できる
+- 文字起こしは保存しないので、登録した辞書は**次の通話から**効く（過去の仮予約は読み直さない）
+
+**⚠️ ユーザーがSQL Editorで実行する必要あり：**
+
+```sql
+create table dispatch_call_dict (
+  id uuid primary key default gen_random_uuid(),
+  wrong_text text not null unique,   -- 聞き間違い（例：腹の町）
+  right_text text not null,          -- 正しい言葉（例：原ノ町）
+  created_at timestamptz not null default now()
+);
+
+alter table dispatch_call_dict enable row level security;
+
+create policy dispatch_call_dict_select on dispatch_call_dict
+  for select to authenticated using (true);
+create policy dispatch_call_dict_insert on dispatch_call_dict
+  for insert to authenticated with check (true);
+create policy dispatch_call_dict_delete on dispatch_call_dict
+  for delete to authenticated using (true);
+```
+
 ## 6. 想定していないこと（将来の課題）
 
 - **DSコネクトによるAPI直結**。実現すればCSVの手作業が消える。電脳交通への問い合わせが前提

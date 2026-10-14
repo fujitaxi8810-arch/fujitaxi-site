@@ -101,6 +101,50 @@ export async function deleteDraft(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── 聞き間違いの辞書 ──
+// 音声認識の間違い方は地名・お名前ごとにだいたい決まっている（「原ノ町」→「腹の町」など）ため、
+// 抜き出しの前に正しい言葉へ置き換える。電話を受けるPCを含む全端末で共通にするためDBに置く。
+
+const DICT_TABLE = 'dispatch_call_dict';
+
+export type DictEntry = { id: string; wrong: string; right: string };
+
+export async function fetchDict(): Promise<DictEntry[]> {
+  const { data, error } = await supabase.from(DICT_TABLE).select('*').order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data || []).map((r: any) => ({ id: r.id, wrong: r.wrong_text, right: r.right_text }));
+}
+
+export async function addDictEntry(wrong: string, right: string): Promise<void> {
+  const { error } = await supabase.from(DICT_TABLE).insert({ wrong_text: wrong, right_text: right });
+  if (error) throw error;
+}
+
+export async function deleteDictEntry(id: string): Promise<void> {
+  const { error } = await supabase.from(DICT_TABLE).delete().eq('id', id);
+  if (error) throw error;
+}
+
+/**
+ * 辞書で置き換える。長い言葉から先に置き換える（「腹の町駅」と「腹の町」の両方があるとき、長い方を優先）。
+ * 音声認識は言葉の途中に空白を入れることがあるため、文字の間の空白は無視して照合する。
+ */
+export function applyDict(text: string, entries: DictEntry[]): { text: string; applied: DictEntry[] } {
+  const applied: DictEntry[] = [];
+  let out = text;
+  for (const e of [...entries].sort((a, b) => b.wrong.length - a.wrong.length)) {
+    const chars = [...e.wrong.replace(/\s/g, '')];
+    if (chars.length === 0) continue;
+    const re = new RegExp(chars.map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s*'), 'g');
+    const next = out.replace(re, e.right);
+    if (next !== out) {
+      applied.push(e);
+      out = next;
+    }
+  }
+  return { text: out, applied };
+}
+
 /** 保存期間を過ぎた仮予約を消す。失敗しても画面の動作には影響させない */
 export async function purgeOldDrafts(): Promise<void> {
   const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();

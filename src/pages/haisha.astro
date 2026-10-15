@@ -302,6 +302,22 @@ import '../styles/kt-components.css';
     </div>
   </div>
 
+  <!-- ── 「全て確認済み」の確認者を選ぶ（遅番対応者のみ。chooseConfirmer 参照） ── -->
+  <div class="kt-modal-overlay" id="confirmModal" hidden>
+    <div class="kt-modal ha-modal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+      <h2 class="kt-title" id="confirmModalTitle">全て確認済み</h2>
+      <p class="ha-note" id="confirmModalNote"></p>
+      <div class="ha-field ha-field--full">
+        <span>確認した人</span>
+        <select id="confirmBy" class="kt-input"></select>
+      </div>
+      <div class="kt-modal__actions">
+        <button type="button" class="kt-btn" id="confirmOkBtn">確定する</button>
+        <button type="button" class="kt-btn kt-btn--ghost" id="confirmCancelBtn">やめる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── 引き継ぎモーダル ── -->
   <div class="kt-modal-overlay" id="handoverModal" hidden>
     <div class="kt-modal ha-modal" role="dialog" aria-modal="true" aria-labelledby="handoverTitle">
@@ -1888,16 +1904,75 @@ import '../styles/kt-components.css';
       return !r.checked && r.status !== 'cancelled' && jstDateKey(r.reservedAt) <= todayJst();
     }
 
+    /*
+     * 確認者の候補は「遅番対応者のみ」（ユーザー要望：「名前は乗務員の名前から選択できるように。遅番対応者のみ」）。
+     * 0時以降の確認は、営業を終えた**前の日の遅番**が行うので、確認する日の前日の遅番（乗務割の「遅番」と
+     * 同じ判定＝シフトの③＋その日だけ追加した人−その日だけ外した人）を候補にする。
+     * 前日の遅番が登録されていないときは、全員を選べなくならないよう配車に出る乗務員全員を出す。
+     */
+    async function lateShiftCandidates(targetDate: string) {
+      const prev = shiftDate(targetDate, -1);
+      const [shifts, daily, excluded] = await Promise.all([
+        fetchShiftsByDate(prev), fetchDailyDuties(prev), fetchDutyExclusionsSafe(prev),
+      ]);
+      const ids = new Set<string>(shifts.filter((x: any) => x.code === '③').map((x: any) => x.staffId));
+      for (const d of daily) if (d.category === 'late') ids.add(d.staffId);
+      for (const e of excluded) if (e.category === 'late') ids.delete(e.staffId);
+      const order = (x: any) => x.shiftDisplayOrder ?? x.displayOrder;
+      const pick = (list: any[]) => [...list].sort((a, b) => order(a) - order(b)).map((x) => x.name);
+      const late = pick(staff.filter((x: any) => ids.has(x.id)));
+      if (late.length > 0) return { names: late, note: `${prev.slice(5).replace('-', '/')}の遅番の人から選んでください。`, fallback: false };
+      const all = pick(staff.filter((x: any) => !x.shiftGroup && x.haishaAssignable !== false));
+      return { names: all, note: `${prev.slice(5).replace('-', '/')}の遅番が登録されていないため、乗務員全員から選べるようにしています。`, fallback: true };
+    }
+
+    // 確認者を選ぶ小さなモーダル。選んで確定した名前（やめたら null）を返す
+    async function chooseConfirmer(targetDate: string): Promise<string | null> {
+      let cand: { names: string[]; note: string };
+      try {
+        cand = await lateShiftCandidates(targetDate);
+      } catch (e) {
+        alert(failMsg(e, '遅番の人の読み込み'));
+        return null;
+      }
+      const sel = $('confirmBy') as HTMLSelectElement;
+      sel.innerHTML = '';
+      const ph = document.createElement('option');
+      ph.value = ''; ph.textContent = '— 選んでください —';
+      sel.appendChild(ph);
+      for (const n of cand.names) {
+        const o = document.createElement('option');
+        o.value = n; o.textContent = n;
+        sel.appendChild(o);
+      }
+      const saved = localStorage.getItem(CONFIRMER_KEY) || '';
+      sel.value = cand.names.includes(saved) ? saved : '';
+      $('confirmModalNote').textContent = cand.note;
+      $('confirmModal').hidden = false;
+      return new Promise((resolve) => {
+        const done = (v: string | null) => {
+          $('confirmModal').hidden = true;
+          $('confirmOkBtn').onclick = null;
+          $('confirmCancelBtn').onclick = null;
+          resolve(v);
+        };
+        $('confirmOkBtn').onclick = () => {
+          if (!sel.value) { alert('確認した人を選んでください。'); return; }
+          done(sel.value);
+        };
+        $('confirmCancelBtn').onclick = () => done(null);
+      });
+    }
+
     async function onConfirmToggle(box: HTMLInputElement) {
       const key = checkDayKey;
       box.disabled = true;
       try {
         if (box.checked) {
-          const saved = localStorage.getItem(CONFIRMER_KEY) || '';
-          const name = prompt('確認した人のお名前を入力してください。', saved);
-          if (name === null || !name.trim()) { box.checked = false; return; }
-          localStorage.setItem(CONFIRMER_KEY, name.trim());
-          await setConfirmation(key, name.trim());
+          const name = await chooseConfirmer(key);
+          if (!name) { box.checked = false; return; }
+          localStorage.setItem(CONFIRMER_KEY, name);
+          await setConfirmation(key, name);
         } else {
           if (!confirm('「全て確認済み」を取り消します。よろしいですか？')) { box.checked = true; return; }
           await clearConfirmation(key);

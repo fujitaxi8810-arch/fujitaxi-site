@@ -1842,7 +1842,7 @@ import '../styles/kt-components.css';
      * 最後にページ最上部の「全て確認済み」にチェックを入れる（誰が・いつ、をDBに記録）。
      *  ・未チェックがある間／全て確認済みが未記録の間は、ページ最上部に警告を出し続ける
      *    （全タブ共通。ブラウザのタブ名にも ⚠ を出す）
-     *  ・朝6時（日本時間）を過ぎても終わっていなければ、「再チェックしてください」の強い警告に変わる
+     *  ・朝7時（日本時間。当初は6時、ユーザー指示「朝7時の間に確認する」で7時に変更）を過ぎても終わっていなければ、「再チェックしてください」の強い警告に変わる
      *  ・「全て確認済み」の記録後に、新しい予約が入る等で未チェックが出たら、記録は無効（赤に戻る）
      *  ・予約は時刻から1時間たつとボードから自動で隠れるため、隠れた分も数え、
      *    「未チェックを確認する」ボタンで隠れている分も表示して開く
@@ -1852,7 +1852,7 @@ import '../styles/kt-components.css';
      */
     const BASE_TITLE = document.title;
     const CONFIRMER_KEY = 'fuji-haisha-confirmer';
-    const CHECK_DEADLINE_HOUR = 6; // 朝6時（JST）までに終わっていなければ強い警告
+    const CHECK_DEADLINE_HOUR = 7; // 朝7時（JST）までに終わっていなければ強い警告
     let checkDayKey = '';
     let checkDayRows: any[] = [];
     let checkConfirm: any = null;           // その日の「全て確認済み」の記録（無ければ null）
@@ -3414,7 +3414,7 @@ import '../styles/kt-components.css';
     .ha-checkbanner__list { font-size: 0.95rem; font-weight: 700; flex-basis: 100%; }
     .ha-checkbanner--ok { background: #ecfdf5; border-color: #047857; color: #065f46; }
     .ha-checkbanner--warn { background: #fef2f2; border-color: #b91c1c; color: #7f1d1d; }
-    /* 朝6時を過ぎても未完了：さらに強く（太い枠・濃い地色・大きい文字） */
+    /* 朝7時を過ぎても未完了：さらに強く（太い枠・濃い地色・大きい文字） */
     .ha-checkbanner--urgent { background: #fee2e2; border-color: #7f1d1d; border-width: 5px; color: #7f1d1d; }
     .ha-checkbanner--urgent .ha-checkbanner__head { font-size: 1.6rem; }
     /* 「全て確認済み」のチェック欄 */

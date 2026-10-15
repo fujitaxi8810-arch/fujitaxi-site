@@ -4141,9 +4141,25 @@ import '../styles/kt-components.css';
 
     /* 「変更あり」の予約から、変更後の新しい予約の時刻へのリンク（またはその逆）。
        押せることが分かるよう下線＋ポインタ、状態選択の下に小さく置く */
-    .ha-superseded-wrap { display: block; }
+    /*
+     * ユーザー指摘「変更ありの部分が横長になりすぎると全体が見えにくくなる。折り返して、なるべく
+     * 横長にならないように」。変更点の文（場所メモ：… → … など）は長くなりやすく、折り返さないと
+     * 状態の列がどんどん広がって表全体が横に伸びる（全体ボードの状態セルは nowrap だった）。
+     * この枠だけ幅を抑えて折り返す（長い住所・メモも文字単位で折り返す）。
+     */
+    .ha-superseded-wrap {
+      display: block;
+      max-width: 12rem;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    /* 変更点の文があるときは、細長く折り返して縦に伸びすぎないよう、ある程度の幅を確保する */
+    .ha-superseded-wrap:has(.ha-superseded-diff) { min-width: 9rem; }
     .ha-superseded-note {
       display: block;
+      white-space: normal;
+      text-align: left;
+      overflow-wrap: anywhere;
       margin-top: 0.25rem;
       padding: 0;
       background: none;
@@ -4164,6 +4180,8 @@ import '../styles/kt-components.css';
       line-height: 1.4;
       color: #92400e;
       list-style: disc;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     /* ── 表の中の入力 ── */

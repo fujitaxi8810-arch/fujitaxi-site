@@ -1484,6 +1484,55 @@ outline-offset: 3px; }`、`global.css`）は通常サイズの入力欄向けで
 にじんで読みにくかった。日時と同じ「白地・太い枠・濃い文字」のバッジ（約32px）に変え、縁取り・影は付けない。
 8時間以上で赤系になるのは従来どおり。
 
+## 5.72 毎日の予約チェックと「全て確認済み」（2026-10-15追加）
+
+ユーザー要望：「チェックが全てされてないとアラートが出るようにしたい／チェックを全てして最後に上に
+『全て確認済み』のチェックを設ける／例えば本日なら夜0時に営業が完了して明日の予約を全て確認する作業として
+やりたい。その確認がついていないと、次の日朝6時に完了してない場合は再チェックするようになる流れ／
+いったんプッシュはしない」。§5.67・§5.68で作っては取り消した警告バナーを、この運用に合わせて作り直した
+（コミット 4d52b8c を土台に、記録と6時の段階を追加）。
+
+**運用**：0時になったら、その日（0時から始まる日）の全予約（キャンセルを除く）の「済」にチェックを入れ、
+最後にページ最上部の「全て確認済み」にチェックを入れる。誰が・いつ記録したかはDBに残る。
+
+ページ最上部（警告バナーの下）の `#checkBanner`（`renderCheckBanner`/`refreshCheckDay`）。全タブ共通。
+画面で開いている日付には依存せず、当日の予約を別に取得して数える（2分ごと・チェック操作のたび）。
+隠れた予約（1時間たって自動で隠れたもの）も数える：
+- 全件チェック済み＋「全て確認済み」記録あり → **緑**「✓ 本日(M/D)の予約は全て確認済み　確認：名前（HH:MM）」
+- 未チェックあり、朝6時前 → **赤**「⚠ 本日の予約確認が終わっていません　未チェック N件」＋該当の時刻・お客様名
+- 未チェックあり、**朝6時（JST）以降** → **濃い赤・太枠・大きい文字**「🚨 朝6時を過ぎても…終わっていません　再チェックしてください」
+- 全件チェック済みだが記録がない → 「最後に『全て確認済み』にチェックを入れてください」（6時以降は🚨に格上げ）
+- 記録の後に新しい予約が入るなどで未チェックが出た → 記録は無効になり赤に戻る
+- 「全て確認済み」のチェック欄は、全件チェックが済むまで押せない（グレー）。押すと確認者の名前を聞く
+  （端末に覚えておく）。外すと確認のうえ記録を削除する
+- ブラウザのタブ名に「⚠未確認」を付ける。0時で対象が新しい日に切り替わり、未チェックから始まる
+  （実機で時計を進め、10/15→10/16 0時台で切り替わることを確認）。印刷には出さない。プッシュ通知はしない
+- 「未チェックを確認する」ボタンで今日の日別ボードを開き、隠れた予約も表示する
+- ボードでは、今日以前の未チェック行の済セルを赤く塗る
+
+**DB（要マイグレーション）**：記録テーブルを新設する。未作成でも画面は動く（その場合は「全て確認済み」の
+チェック欄を出さず、全件チェックで緑にする）。
+```sql
+create table dispatch_confirmations (
+  work_date date primary key,
+  confirmed_by text,
+  confirmed_at timestamptz not null default now()
+);
+
+alter table dispatch_confirmations enable row level security;
+
+create policy dispatch_confirmations_select on dispatch_confirmations
+  for select to authenticated using (true);
+create policy dispatch_confirmations_insert on dispatch_confirmations
+  for insert to authenticated with check (true);
+create policy dispatch_confirmations_update on dispatch_confirmations
+  for update to authenticated using (true) with check (true);
+create policy dispatch_confirmations_delete on dispatch_confirmations
+  for delete to authenticated using (true);
+```
+- 検証：記録の保存（upsert）・取り消し（delete）・全件チェック時の表示切替は、通信を差し替えた状態で確認した。
+  本番のテーブルが無い状態で、記録欄なしの表示になることも確認した
+
 ## 6. 想定していないこと（将来の課題）
 
 - **DSコネクトによるAPI直結**。実現すればCSVの手作業が消える。電脳交通への問い合わせが前提

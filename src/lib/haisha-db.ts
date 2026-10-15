@@ -636,6 +636,34 @@ export async function removeDutyExclusion(dateKey: string, category: DutyCategor
   if (error) throw error;
 }
 
+// ── 予約チェックの完了記録（「全て確認済み」） ──
+// 日ごとに1件。誰が・いつ「その日の予約を全て確認した」と記録したか（docs §5.71）。
+
+export type Confirmation = { workDate: string; confirmedBy: string | null; confirmedAt: string };
+
+export async function fetchConfirmation(dateKey: string): Promise<Confirmation | null> {
+  const { data, error } = await supabase
+    .from('dispatch_confirmations')
+    .select('work_date, confirmed_by, confirmed_at')
+    .eq('work_date', dateKey)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { workDate: data.work_date, confirmedBy: data.confirmed_by, confirmedAt: data.confirmed_at } : null;
+}
+
+/** 「全て確認済み」を記録する（すでにあれば確認者・時刻を上書き） */
+export async function setConfirmation(dateKey: string, confirmedBy: string): Promise<void> {
+  const { error } = await supabase
+    .from('dispatch_confirmations')
+    .upsert({ work_date: dateKey, confirmed_by: confirmedBy, confirmed_at: new Date().toISOString() }, { onConflict: 'work_date' });
+  if (error) throw error;
+}
+
+export async function clearConfirmation(dateKey: string): Promise<void> {
+  const { error } = await supabase.from('dispatch_confirmations').delete().eq('work_date', dateKey);
+  if (error) throw error;
+}
+
 // ── CSV取り込み ──
 
 /**

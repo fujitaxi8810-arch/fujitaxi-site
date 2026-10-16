@@ -1557,6 +1557,97 @@ create policy dispatch_confirmations_delete on dispatch_confirmations
 - 検証：実データの全体・日別ボードで、状態の列は約163pxにおさまり、極端に長い変更点（住所入り）を差し込んでも
   表全体の幅は変わらず、枠の中で折り返すことを確認
 
+## 5.71 電話の仮予約 `/haisha/call`（2026-10-14 試験用に追加）
+
+目的：**お客様からの電話の漏れをなくす**。DSへは自動で入れられない（API無し）ため、通話から「仮予約」を作り、
+DSのCSV取り込み後に照合して、DSに入っていない予約を見つける。
+
+**利用形態**：電話はDS（PC）に着信し、PCで受話、**Bluetoothイヤホンで運転中にハンズフリー**で対応する。
+画面は触れない前提なので、**通話ごとの操作はゼロ**にしている。
+
+- ページを開くと自動で聞き取りを開始（Chrome標準の音声認識、無料）。Chromeが止めても自動で再開。30秒無音で1件の通話として区切る
+- 聞こえるのは**イヤホンのマイク＝自分の声だけ**。予約内容は復唱する運用が前提
+- **文字起こしの全文は保存しない**。残すのは6項目（日時・お名前・迎車場所・お迎え先住所・目的地・台数）だけ。
+  日時が読み取れない通話（問い合わせ等）は保存しない（「余計なメモは残したくない」というユーザー要望）
+- **電話番号は聞かない運用**（DS登録済みのお客様が多い）ので、照合は
+  「予約日時±10分」＋「DSの`registered_at`が通話開始の5分前〜24時間後」。お名前・迎車場所・住所は候補の順位付けにだけ使う
+- 台数：DSは複数台を別行で出すため、N台ならN行そろって「DS入力済み」。足りなければ「あと◯台 未入力」
+- 迷ったら消さない（「要確認（候補が複数）」）。誤って一致扱いにすると漏れを見逃すため。1つのCSV予約を2件の仮予約に使わない
+- 通話後にまだCSVを取り込んでいなければ「DS未入力（CSV取込待ち）」
+- 本物の予約（`dispatch_reservations`）は**読むだけ**。書き込み・削除は一切しない
+- **試験中は本番の配車ボードに一切出さない**（運行への支障を避けるため、ユーザー指定）。/haisha からもリンクしない。
+  本番の配車ボードに出すかどうかは、試験の結果を見てユーザーが判断する
+- **2026-10-16 試験用画面のまま本番サイトに反映**（https://fujitaxi-minamisoma.com/haisha/call）。
+  Vercelのお試しURLはデプロイ保護でログインが必要で、共有リンクでも別のPCから入れなかったため（ユーザー判断）。
+  配車ボード・予約一覧・CSV取り込みには変更なし、/haisha からのリンクも無し
+- 仮予約は7日で自動削除（画面を開いたときに古いものを消す）
+- 画面下部に試験用の補助：直近の文字起こし（保存しない、精度確認用）／文字を入力して試す（保存しない）
+
+**⚠️ ユーザーがSQL Editorで実行する必要あり：**
+
+```sql
+create table dispatch_call_drafts (
+  id uuid primary key default gen_random_uuid(),
+  called_at timestamptz not null,
+  ended_at timestamptz not null,
+  dates text[] not null default '{}',   -- 候補の日付 'YYYY-MM-DD'
+  times text[] not null default '{}',   -- 候補の時刻 'HH:MM'（午前/午後が不明なら両方）
+  customer_name text,
+  pickup_place text,
+  pickup_address text,
+  destination text,
+  car_count int not null default 1,
+  status text not null default 'open' check (status in ('open', 'confirmed')),
+  is_test boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create index dispatch_call_drafts_called_idx on dispatch_call_drafts (called_at desc);
+
+alter table dispatch_call_drafts enable row level security;
+
+create policy dispatch_call_drafts_select on dispatch_call_drafts
+  for select to authenticated using (true);
+create policy dispatch_call_drafts_insert on dispatch_call_drafts
+  for insert to authenticated with check (true);
+create policy dispatch_call_drafts_update on dispatch_call_drafts
+  for update to authenticated using (true) with check (true);
+-- 誤認識の削除と、7日経過分の自動削除を電話を受けるPC（kiosk）で行うため
+create policy dispatch_call_drafts_delete on dispatch_call_drafts
+  for delete to authenticated using (true);
+```
+
+### 聞き間違いの辞書（2026-10-14追加）
+
+音声認識の間違い方は地名・お名前ごとにだいたい決まっている（「原ノ町」→「腹の町」など）ため、
+**抜き出しの前に正しい言葉へ置き換える**辞書を持つ（`applyDict`）。
+
+- 電話を受けるPCを含む全端末で共通にするためDBに置く。画面（/haisha/call の「聞き間違いの辞書」）から誰でも追加・削除できる
+  （直すたびにプログラムを更新しなくて済むように）
+- 長い言葉から先に置き換える。音声認識は言葉の途中に空白を入れることがあるため、文字の間の空白は無視して照合する
+- 「直近の文字起こし」は置き換え**前**（聞き取ったまま）を出す。間違った部分をなぞって「選んだ文字を入れる」で登録できる
+- 文字起こしは保存しないので、登録した辞書は**次の通話から**効く（過去の仮予約は読み直さない）
+
+**⚠️ ユーザーがSQL Editorで実行する必要あり：**
+
+```sql
+create table dispatch_call_dict (
+  id uuid primary key default gen_random_uuid(),
+  wrong_text text not null unique,   -- 聞き間違い（例：腹の町）
+  right_text text not null,          -- 正しい言葉（例：原ノ町）
+  created_at timestamptz not null default now()
+);
+
+alter table dispatch_call_dict enable row level security;
+
+create policy dispatch_call_dict_select on dispatch_call_dict
+  for select to authenticated using (true);
+create policy dispatch_call_dict_insert on dispatch_call_dict
+  for insert to authenticated with check (true);
+create policy dispatch_call_dict_delete on dispatch_call_dict
+  for delete to authenticated using (true);
+```
+
 ## 6. 想定していないこと（将来の課題）
 
 - **DSコネクトによるAPI直結**。実現すればCSVの手作業が消える。電脳交通への問い合わせが前提

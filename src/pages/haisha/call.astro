@@ -1,0 +1,664 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import '../../styles/kt-components.css';
+---
+
+<!--
+  電話の仮予約（試験用画面）。
+  電話を受けるPCのChromeで開いたままにしておくと、イヤホンのマイクの声を自動で聞き取り、
+  通話ごとに予約の6項目を抜き出して「仮予約」として保存する。DSのCSV取り込み後に照合し、
+  DSに入っていない予約を赤で示す。
+  試験中は本番の配車ボード（/haisha）には一切出さない（どこからもリンクしていない）。
+-->
+<Layout
+  title="電話の仮予約（試験中） – 富士タクシー（社内用）"
+  description="富士タクシー社内用。電話の内容から仮予約を作り、DSの予約と照合して入力漏れを見つけます（試験中）。"
+  noindex
+  hideFloatCta
+  hideNav
+  appIcon={{ key: 'haisha', name: '電話の仮予約' }}
+>
+  <section class="section bg-black" style="padding-top: 1rem;">
+    <div class="container kintai-wrap cd-wrap">
+
+      <div class="cd-head">
+        <h1 class="cd-title">電話の<span class="text-yellow">仮予約</span></h1>
+        <span class="cd-testbadge">試験中・配車ボードには表示されません</span>
+      </div>
+
+      <div class="cd-alert cd-alert--error" id="errorBanner" role="alert" hidden></div>
+      <div class="cd-alert cd-alert--setup" id="setupBanner" hidden>
+        仮予約の保存先がまだ作られていません（SupabaseでSQLの実行が必要です）。
+        それまでの仮予約はこの端末に一時保存され、作成後に自動で保存されます。
+      </div>
+
+      <!-- ── 聞き取り（開いたら自動で開始。通話ごとの操作は無し） ── -->
+      <div class="kt-panel">
+        <div class="cd-listen">
+          <span class="cd-state" id="listenState">準備中</span>
+          <span class="cd-mic" id="micLabel"></span>
+          <span class="cd-listen__tools">
+            <button type="button" class="kt-btn" id="splitBtn" hidden>ここで区切る</button>
+            <button type="button" class="kt-btn" id="startBtn" hidden>聞き取りを開始</button>
+          </span>
+        </div>
+        <div class="cd-live" id="liveBox">
+          <span id="liveFinal"></span><span class="cd-live__interim" id="liveInterim"></span>
+          <span class="cd-live__placeholder" id="livePlaceholder">通話が始まると、ここに文字が出ます（保存はされません）。</span>
+        </div>
+        <p class="cd-note" id="micWarn" hidden></p>
+      </div>
+
+      <div class="cd-alert cd-alert--warn" id="summaryBanner" role="alert" hidden></div>
+
+      <!-- ── 仮予約の一覧 ── -->
+      <div class="kt-panel">
+        <div class="kt-panel__head">
+          <h2 class="kt-title">仮予約</h2>
+          <div class="kt-panel__tools">
+            <span class="cd-importinfo" id="importInfo"></span>
+            <button type="button" class="kt-btn kt-btn--ghost" id="reloadBtn">再照合</button>
+          </div>
+        </div>
+        <div class="cd-tablewrap">
+          <table class="cd-table">
+            <thead>
+              <tr>
+                <th>受電</th><th>予約日時</th><th>状態</th><th>お名前</th>
+                <th>迎車場所・住所</th><th>目的地</th><th>台数</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="draftRows"></tbody>
+          </table>
+        </div>
+        <p class="kt-empty" id="draftEmpty" hidden>まだ仮予約はありません。</p>
+        <p class="cd-note">
+          昨日と今日の受電分を表示しています。日時が聞き取れなかった通話（問い合わせ等）は保存しません。
+          仮予約は7日で自動削除します。
+        </p>
+      </div>
+
+      <!-- ── 聞き間違いの辞書（全端末共通。抜き出しの前に置き換える） ── -->
+      <details class="kt-panel cd-details" id="dictPanel">
+        <summary class="kt-title cd-summary">聞き間違いの辞書（<span id="dictCount">0</span>件）</summary>
+        <p class="cd-note">
+          音声認識がよく間違える言葉を登録すると、次の通話から正しい言葉に置き換えて読み取ります。
+          下の「直近の文字起こし」で間違った部分をなぞって選び、「選んだ文字を入れる」を押すと簡単に登録できます。
+        </p>
+        <p class="cd-alert cd-alert--setup" id="dictSetup" hidden>
+          辞書の保存先がまだ作られていません（SupabaseでSQLの実行が必要です）。
+        </p>
+        <div class="cd-dictform">
+          <input type="text" class="kt-input" id="dictWrong" placeholder="聞き間違い（例：腹の町）" />
+          <span class="cd-arrow">→</span>
+          <input type="text" class="kt-input" id="dictRight" placeholder="正しい言葉（例：原ノ町）" />
+          <button type="button" class="kt-btn kt-btn--ghost" id="dictPickBtn">選んだ文字を入れる</button>
+          <button type="button" class="kt-btn" id="dictAddBtn">登録</button>
+        </div>
+        <p class="cd-formerr" id="dictErr" hidden></p>
+        <ul class="cd-dictlist" id="dictList"></ul>
+      </details>
+
+      <!-- ── 試験用の補助（聞き取りの精度確認・電話無しでの動作確認） ── -->
+      <details class="kt-panel cd-details">
+        <summary class="kt-title cd-summary">試験用：直近の文字起こし（保存されません）</summary>
+        <ul class="cd-recent" id="recentList"></ul>
+        <p class="kt-empty" id="recentEmpty">このページを開いてからの通話はまだありません。</p>
+      </details>
+
+      <details class="kt-panel cd-details">
+        <summary class="kt-title cd-summary">試験用：文字を入力して試す（保存されません）</summary>
+        <textarea class="kt-input cd-tryinput" id="tryInput" rows="3" placeholder="明日の7時50分 サイトウ様 仲町団地から原ノ町駅までですね"></textarea>
+        <div><button type="button" class="kt-btn" id="tryBtn">抜き出してみる</button></div>
+        <div id="tryResult"></div>
+      </details>
+    </div>
+  </section>
+
+  <script>
+    import { initAuth, fetchReservationsRange, fetchLatestImportLog, jstTimeLabel, todayJst, yesterdayJst, isAuthError, type Reservation, type ImportLogEntry } from '../../lib/haisha-db';
+    import {
+      fetchDraftsSince, insertDraft, setDraftStatus, deleteDraft, purgeOldDrafts,
+      extractDraft, primaryDateTime, judgeDrafts, type CallDraft, type DraftInput, type DraftJudgement,
+      fetchDict, addDictEntry, deleteDictEntry, applyDict, type DictEntry,
+    } from '../../lib/call-draft';
+
+    const $ = (id: string) => document.getElementById(id) as HTMLElement;
+
+    /** この秒数だけ声が無ければ、1件の通話が終わったとみなす */
+    const SILENCE_SPLIT_SEC = 30;
+    const REFRESH_MS = 60 * 1000;
+    /** 区切る前の文字起こしの退避先（ブラウザが落ちても通話を失わないため。区切ったら消す） */
+    const SEGMENT_KEY = 'callDraft.segment';
+    /** 保存できなかった仮予約の退避先（次の更新で再送する） */
+    const PENDING_KEY = 'callDraft.pending';
+
+    type Segment = { startedAt: string; endedAt: string; transcript: string };
+
+    let drafts: CallDraft[] = [];
+    let reservations: Reservation[] = [];
+    let lastImport: ImportLogEntry | null = null;
+    let dict: DictEntry[] = [];
+    /** 直近の文字起こし（画面を閉じれば消える。精度確認用）。text は辞書で置き換える前の聞き取ったまま */
+    const recent: { at: string; text: string; fixed: string; applied: number; saved: boolean }[] = [];
+
+    function readJson<T>(key: string, fallback: T): T {
+      try {
+        const v = localStorage.getItem(key);
+        return v ? (JSON.parse(v) as T) : fallback;
+      } catch {
+        return fallback;
+      }
+    }
+    function writeJson(key: string, v: unknown) {
+      try {
+        if (v === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, JSON.stringify(v));
+      } catch { /* 保存できない環境でも動作は続ける */ }
+    }
+
+    /** 保存先の表が未作成（SQL未実行）のときのエラー */
+    function isTableMissing(e: any): boolean {
+      return e?.code === 'PGRST205' || e?.code === '42P01';
+    }
+
+    // ── 通話1件の処理 ──
+
+    async function handleSegment(seg: Segment) {
+      const text = seg.transcript.trim();
+      if (!text) return;
+      const fixed = applyDict(text, dict);
+      const d = extractDraft(fixed.text, seg.startedAt, seg.endedAt);
+      recent.unshift({ at: seg.startedAt, text, fixed: fixed.text, applied: fixed.applied.length, saved: !!d });
+      recent.splice(10);
+      renderRecent();
+      if (!d) return; // 日時が無い＝予約の電話ではない
+      try {
+        drafts.unshift(await insertDraft(d));
+      } catch (e) {
+        writeJson(PENDING_KEY, [...readJson<DraftInput[]>(PENDING_KEY, []), d]);
+        if (!isTableMissing(e)) showError(e, '仮予約を保存できませんでした。この端末に一時保存し、次の更新時に再送します');
+      }
+      render();
+    }
+
+    async function flushPending() {
+      const pending = readJson<DraftInput[]>(PENDING_KEY, []);
+      if (pending.length === 0) return;
+      const rest: DraftInput[] = [];
+      for (let i = 0; i < pending.length; i++) {
+        try {
+          await insertDraft(pending[i]);
+        } catch (e) {
+          // 表が無いなら残りも全部失敗するので、まとめて残して呼び出し元にエラーを伝える
+          if (isTableMissing(e)) {
+            writeJson(PENDING_KEY, [...rest, ...pending.slice(i)]);
+            throw e;
+          }
+          rest.push(pending[i]);
+        }
+      }
+      writeJson(PENDING_KEY, rest.length ? rest : null);
+    }
+
+    // ── 音声認識（開いたら自動で開始し、止まっても自動で再開する） ──
+
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    let recognition: any = null;
+    let wantListening = false;
+    let segFinal = '';
+    let segStartedAt: string | null = null;
+    let lastSpeechAt = 0;
+    let restartDelay = 300;
+
+    function setLive(interim: string) {
+      $('liveFinal').textContent = segFinal;
+      $('liveInterim').textContent = interim;
+      $('livePlaceholder').hidden = !!(segFinal || interim);
+      const box = $('liveBox');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function setState(kind: 'on' | 'off' | 'warn', msg: string) {
+      const st = $('listenState');
+      st.textContent = msg;
+      st.className = `cd-state cd-state--${kind}`;
+      $('startBtn').hidden = wantListening;
+      $('splitBtn').hidden = !wantListening;
+    }
+
+    function finishSegment() {
+      if (!segStartedAt) return;
+      const seg: Segment = {
+        startedAt: segStartedAt,
+        endedAt: new Date(lastSpeechAt || Date.now()).toISOString(),
+        transcript: segFinal,
+      };
+      segFinal = '';
+      segStartedAt = null;
+      writeJson(SEGMENT_KEY, null);
+      setLive('');
+      handleSegment(seg);
+    }
+
+    function startListening() {
+      if (!SR) {
+        setState('off', '使用できません');
+        showErrorText('このブラウザは音声認識に対応していません。パソコンのGoogle Chromeで開いてください。');
+        return;
+      }
+      if (!recognition) {
+        recognition = new SR();
+        recognition.lang = 'ja-JP';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onstart = () => {
+          restartDelay = 300;
+          setState('on', '聞き取り中');
+          updateMicLabel();
+        };
+
+        recognition.onresult = (ev: any) => {
+          let interim = '';
+          for (let i = ev.resultIndex; i < ev.results.length; i++) {
+            const r = ev.results[i];
+            if (r.isFinal) segFinal += r[0].transcript + ' ';
+            else interim += r[0].transcript;
+          }
+          lastSpeechAt = Date.now();
+          if (!segStartedAt) segStartedAt = new Date().toISOString();
+          writeJson(SEGMENT_KEY, { startedAt: segStartedAt, endedAt: new Date().toISOString(), transcript: segFinal });
+          setLive(interim);
+        };
+
+        recognition.onerror = (ev: any) => {
+          // no-speech（無音）・aborted（再起動時）は正常系
+          if (ev.error === 'no-speech' || ev.error === 'aborted') return;
+          if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+            wantListening = false;
+            setState('off', '停止中');
+            showErrorText('マイクの使用が許可されていません。アドレスバー左のアイコンから「マイク」を「許可」にして、「聞き取りを開始」を押してください。');
+            return;
+          }
+          if (ev.error === 'audio-capture') {
+            setState('warn', 'マイクが見つかりません');
+            restartDelay = 5000;
+            return;
+          }
+          // 通信エラー等は少し待ってから再開する（短い間隔で再開を繰り返さないため）
+          setState('warn', ev.error === 'network' ? '通信エラー・再接続中' : `再接続中（${ev.error}）`);
+          restartDelay = 5000;
+        };
+
+        // Chromeは無音が続いたり一定時間たつと自分で止まるため、聞き取り中は自動で再開する
+        recognition.onend = () => {
+          if (!wantListening) return;
+          setTimeout(() => {
+            if (!wantListening) return;
+            try { recognition.start(); } catch { /* すでに開始済み */ }
+          }, restartDelay);
+        };
+      }
+      wantListening = true;
+      hideError();
+      setState('warn', '開始中…');
+      try { recognition.start(); } catch { /* すでに開始済み */ }
+    }
+
+    $('startBtn').addEventListener('click', startListening);
+    $('splitBtn').addEventListener('click', finishSegment);
+
+    // 無音が続いたら1件の通話として区切る
+    setInterval(() => {
+      if (segStartedAt && Date.now() - lastSpeechAt > SILENCE_SPLIT_SEC * 1000) finishSegment();
+    }, 1000);
+
+    /** 使用中のマイク（Windowsの既定のマイク）を表示する。イヤホンの接続が切れると本体のマイクに変わるため */
+    async function updateMicLabel() {
+      try {
+        const devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
+        const def = devs.find((d) => d.deviceId === 'default') ?? devs[0];
+        const label = (def?.label || '').replace(/^既定\s*-\s*|^Default\s*-\s*/i, '');
+        $('micLabel').textContent = label ? `マイク：${label}` : '';
+        const builtIn = /マイク配列|microphone array|内蔵|internal|realtek/i.test(label);
+        const warn = $('micWarn');
+        warn.hidden = !builtIn;
+        warn.textContent = builtIn ? 'PC本体のマイクを使っている可能性があります。Bluetoothイヤホンが接続されているか確認してください。' : '';
+      } catch { /* 取得できない環境では表示しない */ }
+    }
+    navigator.mediaDevices?.addEventListener?.('devicechange', updateMicLabel);
+
+    // ── 表示 ──
+
+    function showError(e: any, fallback: string) {
+      showErrorText(isAuthError(e) ? 'ログインが切れています。ページを再読み込みしてください。' : `${fallback}（${e?.message ?? e}）`);
+    }
+    function showErrorText(msg: string) {
+      const b = $('errorBanner');
+      b.textContent = msg;
+      b.hidden = false;
+    }
+    function hideError() {
+      $('errorBanner').hidden = true;
+    }
+
+    function esc(s: string | null | undefined): string {
+      return (s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+    }
+
+    function jstDateOf(iso: string): string {
+      return new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
+
+    function shortDate(key: string): string {
+      const [, m, d] = key.split('-').map(Number);
+      const dow = '日月火水木金土'[new Date(key + 'T00:00:00Z').getUTCDay()];
+      return `${m}/${d}(${dow})`;
+    }
+
+    function levelCell(j: DraftJudgement): { cls: string; label: string } {
+      if (j.draft.status === 'confirmed') return { cls: 'done', label: '確認済み' };
+      switch (j.level) {
+        case 'matched': return { cls: 'ok', label: '✓ DS入力済み' };
+        case 'partial': return { cls: 'warn', label: `あと${j.draft.carCount - j.reservations.length}台 未入力` };
+        case 'ambiguous': return { cls: 'warn', label: '要確認（候補が複数）' };
+        case 'missing': return { cls: 'ng', label: 'DS未入力' };
+        case 'waiting': return { cls: 'ng', label: 'DS未入力（CSV取込待ち）' };
+      }
+    }
+
+    function rowHtml(j: DraftJudgement, preview = false): string {
+      const d = j.draft;
+      const p = primaryDateTime(d);
+      const { cls, label } = levelCell(j);
+      const ds = j.reservations.length
+        ? `<div class="cd-dsrows">${j.reservations
+            .map((r) => `DS: ${jstTimeLabel(r.reservedAt)} ${esc(r.customerName)}`)
+            .join('<br />')}</div>`
+        : '';
+      const actions = preview
+        ? `<span class="cd-sub">試しのため保存しません</span>`
+        : !d.id
+        ? `<span class="cd-sub">端末に一時保存中</span>`
+        : d.status === 'confirmed'
+        ? `<button type="button" class="cd-linkbtn" data-act="open" data-id="${d.id}">戻す</button>`
+        : `<button type="button" class="cd-linkbtn" data-act="confirmed" data-id="${d.id}">確認済みにする</button>
+           <button type="button" class="cd-linkbtn cd-linkbtn--danger" data-act="delete" data-id="${d.id}">削除</button>`;
+      return `<tr class="cd-row cd-row--${cls}">
+        <td class="cd-sub">${jstTimeLabel(d.calledAt)}</td>
+        <td class="cd-when">${p ? `${shortDate(p.date)} ${p.time}` : '—'}</td>
+        <td><span class="cd-pill cd-pill--${cls}">${label}</span>${ds}</td>
+        <td>${esc(d.customerName) || '<span class="cd-sub">—</span>'}${d.customerName ? '様' : ''}</td>
+        <td>${esc(d.pickupPlace) || ''}${d.pickupAddress ? `<div class="cd-sub">${esc(d.pickupAddress)}</div>` : ''}${!d.pickupPlace && !d.pickupAddress ? '<span class="cd-sub">—</span>' : ''}</td>
+        <td>${esc(d.destination) || '<span class="cd-sub">—</span>'}</td>
+        <td>${d.carCount}台</td>
+        <td class="cd-actions">${actions}</td>
+      </tr>`;
+    }
+
+    function render() {
+      const pending: CallDraft[] = readJson<DraftInput[]>(PENDING_KEY, []).map((d) => ({ ...d, id: '', status: 'open' as const }));
+      const all = [...pending, ...drafts].sort((a, b) => b.calledAt.localeCompare(a.calledAt));
+      const judged = judgeDrafts(all, reservations, lastImport?.importedAt ?? null);
+      $('draftRows').innerHTML = judged.map((j) => rowHtml(j)).join('');
+      $('draftEmpty').hidden = judged.length > 0;
+
+      const open = judged.filter((j) => j.draft.status === 'open');
+      const red = open.filter((j) => j.level === 'missing' || j.level === 'waiting').length;
+      const yellow = open.filter((j) => j.level === 'partial' || j.level === 'ambiguous').length;
+      const banner = $('summaryBanner');
+      const parts: string[] = [];
+      if (red) parts.push(`DS未入力の可能性がある予約が<strong>${red}件</strong>あります。`);
+      if (yellow) parts.push(`台数不足・候補が複数で確認が必要なものが${yellow}件あります。`);
+      banner.innerHTML = parts.join('<br />');
+      banner.hidden = parts.length === 0;
+
+      $('importInfo').textContent = lastImport
+        ? `最終CSV取込 ${shortDate(jstDateOf(lastImport.importedAt))} ${jstTimeLabel(lastImport.importedAt)}`
+        : 'CSV取込の記録なし';
+    }
+
+    function renderRecent() {
+      // 辞書の登録に使うので、聞き取ったまま（置き換え前）を出す。置き換えがあれば置き換え後も並べる
+      $('recentList').innerHTML = recent
+        .map(
+          (r) => `<li><span class="cd-sub">${jstTimeLabel(r.at)}　${r.saved ? '仮予約を作成' : '予約ではないと判断（保存なし）'}</span><br />${esc(r.text)}${
+            r.applied ? `<div class="cd-fixed">辞書で${r.applied}か所置き換え → ${esc(r.fixed)}</div>` : ''
+          }</li>`,
+        )
+        .join('');
+      $('recentEmpty').hidden = recent.length > 0;
+    }
+
+    // ── 辞書 ──
+
+    function renderDict() {
+      $('dictCount').textContent = String(dict.length);
+      $('dictList').innerHTML = dict
+        .map((e) => `<li><span>${esc(e.wrong)}</span><span class="cd-arrow">→</span><strong>${esc(e.right)}</strong>
+          <button type="button" class="cd-linkbtn cd-linkbtn--danger" data-dict-del="${e.id}">削除</button></li>`)
+        .join('');
+    }
+
+    async function loadDict() {
+      try {
+        dict = await fetchDict();
+        $('dictSetup').hidden = true;
+      } catch (e) {
+        if (!isTableMissing(e)) throw e;
+        dict = [];
+        $('dictSetup').hidden = false;
+      }
+      renderDict();
+    }
+
+    function dictError(msg: string) {
+      const el = $('dictErr');
+      el.textContent = msg;
+      el.hidden = !msg;
+    }
+
+    // 直近の文字起こしで選んだ部分を「聞き間違い」欄に入れる（選択はボタンを押すと消えるため、選んだ時点で覚えておく）
+    let lastSelection = '';
+    document.addEventListener('selectionchange', () => {
+      const s = window.getSelection()?.toString().trim() ?? '';
+      if (s) lastSelection = s;
+    });
+    $('dictPickBtn').addEventListener('click', () => {
+      if (!lastSelection) {
+        dictError('先に「直近の文字起こし」の中で、間違っている部分をなぞって選んでください');
+        return;
+      }
+      ($('dictWrong') as HTMLInputElement).value = lastSelection;
+      dictError('');
+      ($('dictRight') as HTMLInputElement).focus();
+    });
+
+    $('dictAddBtn').addEventListener('click', async () => {
+      const wrong = ($('dictWrong') as HTMLInputElement).value.trim();
+      const right = ($('dictRight') as HTMLInputElement).value.trim();
+      if (!wrong || !right) return dictError('「聞き間違い」と「正しい言葉」の両方を入れてください');
+      if (wrong === right) return dictError('同じ言葉どうしは登録できません');
+      if (dict.some((e) => e.wrong === wrong)) return dictError(`「${wrong}」はすでに登録されています`);
+      try {
+        await addDictEntry(wrong, right);
+        ($('dictWrong') as HTMLInputElement).value = '';
+        ($('dictRight') as HTMLInputElement).value = '';
+        dictError('');
+        await loadDict();
+      } catch (e: any) {
+        dictError(isTableMissing(e) ? '辞書の保存先がまだ作られていません' : `登録できませんでした（${e?.message ?? e}）`);
+      }
+    });
+    ['dictWrong', 'dictRight'].forEach((id) => $(id).addEventListener('input', () => dictError('')));
+
+    $('dictList').addEventListener('click', async (ev) => {
+      const btn = (ev.target as HTMLElement).closest('button[data-dict-del]') as HTMLButtonElement | null;
+      if (!btn) return;
+      const e = dict.find((x) => x.id === btn.dataset.dictDel);
+      if (!e || !confirm(`「${e.wrong} → ${e.right}」を辞書から削除しますか？`)) return;
+      try {
+        await deleteDictEntry(e.id);
+        await loadDict();
+      } catch (err: any) {
+        dictError(`削除できませんでした（${err?.message ?? err}）`);
+      }
+    });
+
+    $('reloadBtn').addEventListener('click', () => refresh());
+
+    $('draftRows').addEventListener('click', async (ev) => {
+      const btn = (ev.target as HTMLElement).closest('button[data-act]') as HTMLButtonElement | null;
+      if (!btn) return;
+      const id = btn.dataset.id!;
+      try {
+        if (btn.dataset.act === 'delete') {
+          if (!confirm('この仮予約を削除しますか？（聞き間違い・誤認識のとき）')) return;
+          await deleteDraft(id);
+          drafts = drafts.filter((d) => d.id !== id);
+        } else {
+          const status = btn.dataset.act as 'open' | 'confirmed';
+          await setDraftStatus(id, status);
+          drafts = drafts.map((d) => (d.id === id ? { ...d, status } : d));
+        }
+        hideError();
+        render();
+      } catch (e) {
+        showError(e, '保存できませんでした');
+      }
+    });
+
+    $('tryBtn').addEventListener('click', () => {
+      const fixed = applyDict(($('tryInput') as HTMLTextAreaElement).value, dict);
+      const now = new Date().toISOString();
+      const d = extractDraft(fixed.text, now, now);
+      const box = $('tryResult');
+      const note = fixed.applied.length ? `<p class="cd-note">辞書で置き換え → ${esc(fixed.text)}</p>` : '';
+      if (!d) {
+        box.innerHTML = `${note}<p class="cd-note">日時が読み取れないため、予約ではないと判断します（保存しない対象）。</p>`;
+        return;
+      }
+      const j = judgeDrafts([{ ...d, id: '', status: 'open' }], reservations, lastImport?.importedAt ?? null)[0];
+      box.innerHTML = `${note}<div class="cd-tablewrap"><table class="cd-table"><tbody>${rowHtml(j, true)}</tbody></table></div>`;
+    });
+
+    // ── 読み込み ──
+
+    function plusDays(key: string, days: number): string {
+      const d = new Date(key + 'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+
+    async function refresh() {
+      try {
+        // 電話で受ける予約は先の日付もあるので、少し先まで読んでおく
+        const [rs, imp] = await Promise.all([
+          fetchReservationsRange(yesterdayJst(), plusDays(todayJst(), 45)),
+          fetchLatestImportLog(),
+        ]);
+        reservations = rs;
+        lastImport = imp;
+        // 別の端末で登録された辞書も反映する
+        await loadDict();
+        try {
+          await flushPending();
+          drafts = await fetchDraftsSince(new Date(yesterdayJst() + 'T00:00:00+09:00').toISOString());
+          $('setupBanner').hidden = true;
+        } catch (e) {
+          if (!isTableMissing(e)) throw e;
+          drafts = [];
+          $('setupBanner').hidden = false;
+        }
+        render();
+      } catch (e) {
+        showError(e, '読み込みに失敗しました');
+      }
+    }
+
+    (async () => {
+      setState('warn', '準備中');
+      const auth = await initAuth();
+      if (!auth.ok) {
+        showErrorText(`ログインできませんでした（${auth.error ?? ''}）。ページを再読み込みしてください。`);
+      }
+      // 前回、区切る前にページが閉じられた通話があれば処理する
+      const seg = readJson<Segment | null>(SEGMENT_KEY, null);
+      if (seg) {
+        writeJson(SEGMENT_KEY, null);
+        await handleSegment(seg);
+      }
+      purgeOldDrafts().catch(() => {});
+      await refresh();
+      setInterval(refresh, REFRESH_MS);
+      startListening();
+    })();
+  </script>
+
+  <style is:global>
+    .cd-wrap { max-width: 1180px; }
+    .cd-head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .cd-title { font-size: 1.8rem; font-weight: 900; color: #fff; margin: 0; }
+    .cd-testbadge { background: #fdecc8; color: #6b4500; font-weight: 700; font-size: 0.9rem; padding: 0.25rem 0.8rem; border-radius: 999px; }
+    .cd-note { color: rgba(255,255,255,0.7); font-size: 0.9rem; margin: 0.6rem 0 0; line-height: 1.6; }
+    .cd-sub { color: #666; font-size: 0.85rem; }
+
+    .cd-listen { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+    .cd-listen__tools { margin-left: auto; display: flex; gap: 0.5rem; }
+    .cd-state { font-size: 1.05rem; font-weight: 800; padding: 0.35rem 1rem; border-radius: 999px; }
+    .cd-state--on { background: #dcf3e2; color: #1d6b35; }
+    .cd-state--off { background: #fde2e2; color: #a31919; }
+    .cd-state--warn { background: #fdecc8; color: #6b4500; }
+    .cd-mic { color: rgba(255,255,255,0.75); font-size: 0.9rem; }
+
+    .cd-live {
+      background: #0f0f0f; border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius-md);
+      padding: 0.6rem 0.9rem; min-height: 3.5rem; max-height: 8rem; overflow-y: auto;
+      font-size: 1.05rem; line-height: 1.7; color: #fff; white-space: pre-wrap;
+    }
+    .cd-live__interim { color: rgba(255,255,255,0.5); }
+    .cd-live__placeholder { color: rgba(255,255,255,0.4); font-size: 0.95rem; }
+
+    .cd-alert { border-radius: var(--radius-lg); padding: 0.85rem 1.1rem; font-size: 1rem; line-height: 1.6; }
+    .cd-alert--error { background: #fde2e2; color: #7a1010; }
+    .cd-alert--warn { background: #fde2e2; color: #7a1010; }
+    .cd-alert--setup { background: #fdecc8; color: #6b4500; }
+    .cd-importinfo { color: rgba(255,255,255,0.75); font-size: 0.9rem; }
+
+    /* 行は淡い背景＋濃い文字（ソリッドな高彩度色は使わない） */
+    .cd-tablewrap { overflow-x: auto; }
+    .cd-table { width: 100%; border-collapse: collapse; font-size: 0.98rem; }
+    .cd-table th { text-align: left; color: rgba(255,255,255,0.75); font-weight: 700; font-size: 0.85rem; padding: 0.4rem 0.6rem; border-bottom: 1px solid rgba(255,255,255,0.3); white-space: nowrap; }
+    .cd-table td { padding: 0.55rem 0.6rem; vertical-align: top; border-bottom: 2px solid #111; color: #1a1a1a; line-height: 1.5; }
+    .cd-row--ok td, .cd-row--done td { background: #f4f4f4; }
+    .cd-row--warn td { background: #fdf1d6; color: #5a3c00; }
+    .cd-row--ng td { background: #fde4e4; color: #7a1010; }
+    .cd-when { font-weight: 800; white-space: nowrap; }
+    .cd-pill { display: inline-block; font-size: 0.82rem; font-weight: 700; padding: 0.1rem 0.6rem; border-radius: 999px; background: #fff; border: 1px solid currentColor; white-space: nowrap; }
+    .cd-pill--ok { color: #1d6b35; }
+    .cd-pill--done { color: #555; }
+    .cd-pill--warn { color: #7a4f00; }
+    .cd-pill--ng { color: #a31919; }
+    .cd-dsrows { font-size: 0.82rem; margin-top: 0.25rem; opacity: 0.85; }
+    .cd-actions { white-space: nowrap; }
+    .cd-linkbtn { background: #fff; border: 1px solid #bbb; border-radius: 6px; color: #333; font-size: 0.82rem; padding: 0.2rem 0.55rem; cursor: pointer; }
+    .cd-linkbtn--danger { color: #a31919; border-color: #e3a3a3; }
+
+    .cd-details { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+    .cd-summary { cursor: pointer; font-size: 1rem; }
+    .cd-recent { list-style: none; margin: 0.6rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; color: #fff; }
+    .cd-recent li { background: #0f0f0f; border-radius: var(--radius-md); padding: 0.5rem 0.75rem; line-height: 1.6; }
+    .cd-recent .cd-sub { color: rgba(255,255,255,0.6); }
+    .cd-fixed { color: #9fdcb0; font-size: 0.9rem; margin-top: 0.2rem; }
+    .cd-dictform { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.6rem; }
+    .cd-dictform .kt-input { flex: 1 1 12rem; min-width: 0; }
+    .cd-arrow { color: rgba(255,255,255,0.6); }
+    .cd-formerr { color: #ff9a9a; font-size: 0.9rem; margin: 0.4rem 0 0; }
+    .cd-dictlist { list-style: none; margin: 0.6rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; color: #fff; }
+    .cd-dictlist li { display: flex; align-items: center; gap: 0.6rem; background: #0f0f0f; border-radius: var(--radius-md); padding: 0.35rem 0.75rem; }
+    .cd-dictlist li button { margin-left: auto; }
+    .cd-tryinput { width: 100%; margin: 0.6rem 0; box-sizing: border-box; }
+    #tryResult { margin-top: 0.6rem; }
+  </style>
+</Layout>

@@ -72,7 +72,7 @@ export type Reservation = {
  *
  * 取り込みで自動判定はしない（誤ったCSVを1回貼っただけで大量に消える/書き換わるのを避けるため）。
  */
-export type ReservationStatus = 'normal' | 'changed' | 'cancelled' | 'charter';
+export type ReservationStatus = 'normal' | 'changed' | 'cancelled' | 'charter' | 'input_error';
 
 const TABLE = 'dispatch_reservations';
 

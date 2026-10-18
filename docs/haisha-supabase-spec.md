@@ -1648,6 +1648,28 @@ create policy dispatch_call_dict_delete on dispatch_call_dict
   for delete to authenticated using (true);
 ```
 
+## 5.73 状態「入力ミス」の追加（dispatch_reservations.status、2026-10-19追加）
+
+ユーザー要望：「状態の部分に入力ミスを追加」。DSへの入力間違いで実在しない予約を示す状態。
+既存の並びは変えず、末尾に追加（通常／変更あり／キャンセル／貸切／**入力ミス**）。
+
+`status` 列には既存のCHECK制約があるため、マイグレーションが必要（§5.62の貸切と同じ手順）：
+
+```sql
+alter table dispatch_reservations drop constraint dispatch_reservations_status_check;
+alter table dispatch_reservations add constraint dispatch_reservations_status_check
+  check (status in ('normal','changed','cancelled','charter','input_error'));
+```
+
+- 値は `input_error`、表示は「入力ミス」。**キャンセルと同じ「対応不要」の扱い**（`isVoidStatus`）：
+  要対応・未割当・確認済の母数から外し、「済」の確認（毎日の予約チェック・済セルの赤塗り）の対象にもしない
+- 見た目：行は薄い紫（#ede9fe）・左端に紫の縦線・取り消し線。キャンセル（灰）と区別する。状態セレクト・予約一覧の
+  バッジは紫。集計行に「入力ミス N件」を出す。未割当の担当者セレクトは、キャンセル行と同じく灰色
+- CSV取り込みは `status` を触らない（入力ミスの予約は「消えた予約」の自動キャンセル判定の対象外：
+  状態が通常のものだけが対象）。取り込みで入力ミスが書き換わることはない
+- 検証：状態の選択肢が5つ出ること、入力ミスの見た目（行の色・縦線・取り消し線・セレクト）を確認。
+  保存はDBの制約が通ってから（SQL実行前は保存に失敗する）
+
 ## 6. 想定していないこと（将来の課題）
 
 - **DSコネクトによるAPI直結**。実現すればCSVの手作業が消える。電脳交通への問い合わせが前提

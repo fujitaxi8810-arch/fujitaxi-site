@@ -1670,6 +1670,26 @@ alter table dispatch_reservations add constraint dispatch_reservations_status_ch
 - 検証：状態の選択肢が5つ出ること、入力ミスの見た目（行の色・縦線・取り消し線・セレクト）を確認。
   保存はDBの制約が通ってから（SQL実行前は保存に失敗する）
 
+## 5.74 状態「ジャンボ」の追加（dispatch_reservations.status、2026-10-20追加）
+
+ユーザー要望：「ジャンボを追加して」（状態セレクトの画像付き）。ジャンボタクシーの予約を示す状態。
+既存の並びは変えず末尾に追加（通常／変更あり／キャンセル／貸切／入力ミス／**ジャンボ**）。
+
+`status` 列のCHECK制約を広げるマイグレーションが必要（§5.62・§5.73と同じ手順）：
+
+```sql
+alter table dispatch_reservations drop constraint dispatch_reservations_status_check;
+alter table dispatch_reservations add constraint dispatch_reservations_status_check
+  check (status in ('normal','changed','cancelled','charter','input_error','jumbo'));
+```
+
+- 値は `jumbo`、表示は「ジャンボ」。**通常の予約と同じく対応が要るもの**として扱う（キャンセル・入力ミスのように
+  母数から外さない）。集計行に「ジャンボ N件」を出す（貸切と同じ扱い）
+- 見た目：行は薄い緑（#dcfce7）・左端に緑の縦線。状態セレクト・予約一覧のバッジも緑。他の状態の色
+  （新着=水色／変更あり=黄／貸切=ピンク／入力ミス=紫／キャンセル=灰／未割当=オレンジ）と重ならない
+- CSV取り込みは `status` を触らない（人が付けた状態を上書きしない）
+- 検証：状態の選択肢が6つ出ること、ジャンボの見た目（行の色・縦線・セレクト）を確認。保存はDBの制約が通ってから
+
 ## 6. 想定していないこと（将来の課題）
 
 - **DSコネクトによるAPI直結**。実現すればCSVの手作業が消える。電脳交通への問い合わせが前提

@@ -1874,6 +1874,7 @@ import '../styles/kt-components.css';
     const BASE_TITLE = document.title;
     const CONFIRMER_KEY = 'fuji-haisha-confirmer';
     const CHECK_DEADLINE_HOUR = 7; // 朝7時（JST）までに終わっていなければ強い警告
+    const CHECK_RESET_HOUR = 8;    // 朝8時（JST）に、完了の緑の表示を消す（リセット）
     let checkDayKey = '';
     let checkDayRows: any[] = [];
     let checkConfirm: any = null;           // その日の「全て確認済み」の記録（無ければ null）
@@ -2010,9 +2011,9 @@ import '../styles/kt-components.css';
       // 「全て確認済み」の記録があり、かつ未チェックが無いときだけ完了
       const signed = !!checkConfirm && missed.length === 0;
       const complete = missed.length === 0 && (!checkConfirmAvailable || signed);
-      // 完了（全て確認済み）の緑の表示は、朝7時（CHECK_DEADLINE_HOUR）を過ぎたら消す。確認は0時以降の1回きりなので、
-      // 日中まで緑が残ると「リセットされていない」ように見えるため（ユーザー指摘。docs §5.76）。0時で新しい日の分に切り替わる
-      if (complete && pastDeadline) { box.hidden = true; document.title = BASE_TITLE; return; }
+      // 完了（全て確認済み）の緑の表示は、朝8時（CHECK_RESET_HOUR）になったら消す。確認は0時以降の1回きりなので、
+      // 日中まで緑が残ると「リセットされていない」ように見えるため（ユーザー指摘・指定「確認した朝8時にリセット」。docs §5.76）。0時で新しい日の分に切り替わる
+      if (complete && jstHour >= CHECK_RESET_HOUR) { box.hidden = true; document.title = BASE_TITLE; return; }
 
       box.innerHTML = '';
       const head = document.createElement('p');

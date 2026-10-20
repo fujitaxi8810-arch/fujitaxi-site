@@ -1246,8 +1246,9 @@ import '../styles/kt-components.css';
     // アプリ側の列なのでCSVを取り込み直しても消えない。
     // 貸切はユーザー要望で追加（2026-10-01）。末尾に追加し、既存3つの並び順・
     // 選択位置は変えない（現場で慣れている位置を動かさないため）
-    const STATUS_KEYS = ['normal', 'changed', 'cancelled', 'charter', 'input_error', 'jumbo'];
-    const STATUS_LABELS = { normal: '通常', changed: '変更あり', cancelled: 'キャンセル', charter: '貸切', input_error: '入力ミス', jumbo: 'ジャンボ' };
+    const STATUS_KEYS = ['normal', 'changed', 'cancelled', 'charter', 'jumbo', 'input_error'];
+    const STATUS_LABELS = { normal: '通常', changed: '変更あり', cancelled: 'キャンセル', charter: '普通貸切', jumbo: 'ジャンボ貸切', input_error: '入力ミス' };
+    // 貸切は「普通貸切」「ジャンボ貸切」の2つに分けた（2026-10-20。DBの値は charter / jumbo のまま、表示名だけ）。
     // 入力ミス（DSへの入力間違いで実在しない予約）も、キャンセルと同じく対応不要の予約として扱う
     // （要対応・未割当・確認の対象から外す）。ユーザー要望「状態の部分に入力ミスを追加」（2026-10-19）
     const isVoidStatus = (st: string) => st === 'cancelled' || st === 'input_error';
@@ -2447,9 +2448,9 @@ import '../styles/kt-components.css';
 
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
       if (changed > 0) parts.push(`変更あり ${changed}件`);
-      if (charter > 0) parts.push(`貸切 ${charter}件`);
+      if (charter > 0) parts.push(`普通貸切 ${charter}件`);
       const jumbo = live.filter((r) => r.status === 'jumbo').length;
-      if (jumbo > 0) parts.push(`ジャンボ ${jumbo}件`);
+      if (jumbo > 0) parts.push(`ジャンボ貸切 ${jumbo}件`);
       if (cancelled > 0) parts.push(`キャンセル ${cancelled}件`);
       if (inputErr > 0) parts.push(`入力ミス ${inputErr}件`);
       if (fresh > 0) parts.push(`新着 ${fresh}件`);
@@ -2766,9 +2767,9 @@ import '../styles/kt-components.css';
       const inputErrCount = rows.filter((r) => r.status === 'input_error').length;
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
       if (changedCount > 0) parts.push(`変更あり ${changedCount}件`);
-      if (charterCount > 0) parts.push(`貸切 ${charterCount}件`);
+      if (charterCount > 0) parts.push(`普通貸切 ${charterCount}件`);
       const jumboCount = live.filter((r) => r.status === 'jumbo').length;
-      if (jumboCount > 0) parts.push(`ジャンボ ${jumboCount}件`);
+      if (jumboCount > 0) parts.push(`ジャンボ貸切 ${jumboCount}件`);
       if (cancelledCount > 0) parts.push(`キャンセル ${cancelledCount}件`);
       if (inputErrCount > 0) parts.push(`入力ミス ${inputErrCount}件`);
       if (hidden > 0) parts.push(`時間経過で非表示 ${hidden}件`);

@@ -1246,12 +1246,12 @@ import '../styles/kt-components.css';
     // アプリ側の列なのでCSVを取り込み直しても消えない。
     // 貸切はユーザー要望で追加（2026-10-01）。末尾に追加し、既存3つの並び順・
     // 選択位置は変えない（現場で慣れている位置を動かさないため）
-    const STATUS_KEYS = ['normal', 'changed', 'cancelled', 'charter', 'jumbo', 'input_error'];
-    const STATUS_LABELS = { normal: '通常', changed: '変更あり', cancelled: 'キャンセル', charter: '普通貸切', jumbo: 'ジャンボ貸切', input_error: '入力ミス' };
-    // 貸切は「普通貸切」「ジャンボ貸切」の2つに分けた（2026-10-20。DBの値は charter / jumbo のまま、表示名だけ）。
-    // 入力ミス（DSへの入力間違いで実在しない予約）も、キャンセルと同じく対応不要の予約として扱う
-    // （要対応・未割当・確認の対象から外す）。ユーザー要望「状態の部分に入力ミスを追加」（2026-10-19）
-    const isVoidStatus = (st: string) => st === 'cancelled' || st === 'input_error';
+    const STATUS_KEYS = ['normal', 'changed', 'cancelled', 'charter', 'jumbo'];
+    const STATUS_LABELS = { normal: '通常', changed: '変更あり', cancelled: 'キャンセル', charter: '貸切', jumbo: 'ジャンボ' };
+    // 状態は5つ：通常／変更あり／キャンセル／貸切／ジャンボ（2026-10-20）。
+    // 「入力ミス」は廃止（既存の入力ミスの予約はSQLでキャンセルに寄せる）。
+    // 対応不要の予約として扱う（要対応・未割当・確認の対象から外す）のはキャンセルだけ
+    const isVoidStatus = (st: string) => st === 'cancelled';
 
     /**
      * 状態のセレクト。
@@ -1281,7 +1281,6 @@ import '../styles/kt-components.css';
     /** 行の見た目を状態に合わせる。キャンセル済みは未割当扱いにしない */
     function applyRowStatus(tr: HTMLElement, r: any) {
       tr.classList.toggle('ha-row--cancelled', r.status === 'cancelled');
-      tr.classList.toggle('ha-row--inputerr', r.status === 'input_error');
       tr.classList.toggle('ha-row--changed', r.status === 'changed');
       tr.classList.toggle('ha-row--charter', r.status === 'charter');
       tr.classList.toggle('ha-row--jumbo', r.status === 'jumbo');
@@ -2315,7 +2314,7 @@ import '../styles/kt-components.css';
         syncNewMark();
 
         stSel.onchange = async () => {
-          const next = stSel.value as 'normal' | 'changed' | 'cancelled' | 'charter' | 'input_error' | 'jumbo';
+          const next = stSel.value as 'normal' | 'changed' | 'cancelled' | 'charter' | 'jumbo';
           const prev = r.status;
           stSel.disabled = true;
           try {
@@ -2442,17 +2441,15 @@ import '../styles/kt-components.css';
       const changed = live.filter((r) => r.status === 'changed').length;
       const charter = live.filter((r) => r.status === 'charter').length;
       const cancelled = shown.filter((r) => r.status === 'cancelled').length;
-      const inputErr = shown.filter((r) => r.status === 'input_error').length;
 
       const fresh = live.filter(isNewSinceHandover).length;
 
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
       if (changed > 0) parts.push(`変更あり ${changed}件`);
-      if (charter > 0) parts.push(`普通貸切 ${charter}件`);
+      if (charter > 0) parts.push(`貸切 ${charter}件`);
       const jumbo = live.filter((r) => r.status === 'jumbo').length;
-      if (jumbo > 0) parts.push(`ジャンボ貸切 ${jumbo}件`);
+      if (jumbo > 0) parts.push(`ジャンボ ${jumbo}件`);
       if (cancelled > 0) parts.push(`キャンセル ${cancelled}件`);
-      if (inputErr > 0) parts.push(`入力ミス ${inputErr}件`);
       if (fresh > 0) parts.push(`新着 ${fresh}件`);
       if (hidden > 0) parts.push(`時間経過で非表示 ${hidden}件`);
 
@@ -2724,7 +2721,6 @@ import '../styles/kt-components.css';
      * カードはtdを持たないdivなので、ここだけ専用クラスにする */
     function applyAllCardStatus(card: HTMLElement, r: any) {
       card.classList.toggle('ha-all-card--cancelled', r.status === 'cancelled');
-      card.classList.toggle('ha-all-card--inputerr', r.status === 'input_error');
       card.classList.toggle('ha-all-card--changed', r.status === 'changed');
       card.classList.toggle('ha-all-card--charter', r.status === 'charter');
       card.classList.toggle('ha-all-card--jumbo', r.status === 'jumbo');
@@ -2764,14 +2760,12 @@ import '../styles/kt-components.css';
       const changedCount = live.filter((r) => r.status === 'changed').length;
       const charterCount = live.filter((r) => r.status === 'charter').length;
       const cancelledCount = rows.filter((r) => r.status === 'cancelled').length;
-      const inputErrCount = rows.filter((r) => r.status === 'input_error').length;
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
       if (changedCount > 0) parts.push(`変更あり ${changedCount}件`);
-      if (charterCount > 0) parts.push(`普通貸切 ${charterCount}件`);
+      if (charterCount > 0) parts.push(`貸切 ${charterCount}件`);
       const jumboCount = live.filter((r) => r.status === 'jumbo').length;
-      if (jumboCount > 0) parts.push(`ジャンボ貸切 ${jumboCount}件`);
+      if (jumboCount > 0) parts.push(`ジャンボ ${jumboCount}件`);
       if (cancelledCount > 0) parts.push(`キャンセル ${cancelledCount}件`);
-      if (inputErrCount > 0) parts.push(`入力ミス ${inputErrCount}件`);
       if (hidden > 0) parts.push(`時間経過で非表示 ${hidden}件`);
       renderSummary($('allSummary'), parts, '');
 
@@ -2823,7 +2817,7 @@ import '../styles/kt-components.css';
         syncNewMark();
 
         stSel.onchange = async () => {
-          const next = stSel.value as 'normal' | 'changed' | 'cancelled' | 'charter' | 'input_error' | 'jumbo';
+          const next = stSel.value as 'normal' | 'changed' | 'cancelled' | 'charter' | 'jumbo';
           const prev = r.status;
           stSel.disabled = true;
           try {
@@ -4050,10 +4044,10 @@ import '../styles/kt-components.css';
     .ha-row--click { cursor: pointer; }
 
     /* 新着：状態が通常のままのときだけ水色（状態を変えたら、その状態の色が優先） */
-    .ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--jumbo):not(.ha-row--cancelled):not(.ha-row--inputerr) td.ha-sticky,
-    .ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--jumbo):not(.ha-row--cancelled):not(.ha-row--inputerr) td:nth-child(8),
-    .ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--jumbo):not(.ha-row--cancelled):not(.ha-row--inputerr) { background: #ecfeff; }
-    .ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--jumbo):not(.ha-row--cancelled):not(.ha-row--inputerr) td:first-child { box-shadow: inset 6px 0 0 #0e7490; }
+    .ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--jumbo):not(.ha-row--cancelled) td.ha-sticky,
+    .ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--jumbo):not(.ha-row--cancelled) td:nth-child(8),
+    .ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--jumbo):not(.ha-row--cancelled) { background: #ecfeff; }
+    .ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--jumbo):not(.ha-row--cancelled) td:first-child { box-shadow: inset 6px 0 0 #0e7490; }
 
     /* 変更あり：確認が要る行として目立たせる */
     .ha-row--changed td.ha-sticky, .ha-row--changed td:nth-child(8), .ha-row--changed { background: #fef3c7; }
@@ -4082,9 +4076,7 @@ import '../styles/kt-components.css';
     }
     /* ただしキャンセル行の未割当は対応不要なので、オレンジにせず灰色に沈める（ユーザー指摘） */
     .ha-row--cancelled .ha-select.ha-staff--none,
-    .ha-row--inputerr .ha-select.ha-staff--none,
-    .ha-all-card--cancelled .ha-select.ha-staff--none,
-    .ha-all-card--inputerr .ha-select.ha-staff--none {
+    .ha-all-card--cancelled .ha-select.ha-staff--none {
       background: #e5e7eb; border-color: #9ca3af; color: #6b7280; font-weight: 700;
     }
     .ha-select.ha-staff--none {
@@ -4092,12 +4084,6 @@ import '../styles/kt-components.css';
     }
 
     /* キャンセル：対応不要なので沈める。取り消し線で一目で分かるように */
-    /* 入力ミス：キャンセルと同じく対応不要なので沈める（取り消し線）。色は紫系でキャンセル（灰）と区別する */
-    .ha-row--inputerr td.ha-sticky, .ha-row--inputerr td:nth-child(8), .ha-row--inputerr { background: #ede9fe; }
-    .ha-row--inputerr td:first-child { box-shadow: inset 6px 0 0 #7c3aed; }
-    .ha-row--inputerr td { color: #7c6fa8; text-decoration: line-through; }
-    .ha-row--inputerr td.ha-time { color: #7c6fa8; }
-    .ha-row--inputerr select, .ha-row--inputerr .ha-badge, .ha-row--inputerr .ha-linkbtn { text-decoration: none; }
     .ha-row--cancelled td.ha-sticky, .ha-row--cancelled td:nth-child(8), .ha-row--cancelled { background: #eeeeee; }
     .ha-row--cancelled td:first-child { box-shadow: inset 6px 0 0 #9ca3af; }
     .ha-row--cancelled td { color: #9ca3af; text-decoration: line-through; }
@@ -4122,7 +4108,6 @@ import '../styles/kt-components.css';
     .ha-badge--unassigned { background: #ffedd5; border-color: #ea580c; color: #9a3412; font-weight: 800; }
     .ha-badge--changed { background: #fffbeb; border-color: #92400e; color: #92400e; }
     .ha-badge--cancelled { background: #f4f4f5; border-color: #6b7280; color: #6b7280; }
-    .ha-badge--input_error { background: #f5f3ff; border-color: #6d28d9; color: #6d28d9; }
     .ha-badge--jumbo { background: #f0fdf4; border-color: #15803d; color: #15803d; }
     /* 引き継ぎ後の新着。他の状態色と衝突しないよう青緑を当てる */
     .ha-badge--new {
@@ -4148,7 +4133,6 @@ import '../styles/kt-components.css';
     .ha-select.ha-status--normal { background: #fff; border-color: #bbb; color: #111; }
     .ha-select.ha-status--changed { background: #fffbeb; border-color: #92400e; color: #92400e; }
     .ha-select.ha-status--cancelled { background: #f4f4f5; border-color: #6b7280; color: #6b7280; }
-    .ha-select.ha-status--input_error { background: #f5f3ff; border-color: #6d28d9; color: #6d28d9; }
     .ha-select.ha-status--charter { background: #fdf2f8; border-color: #be185d; color: #be185d; }
     .ha-select.ha-status--jumbo { background: #f0fdf4; border-color: #15803d; color: #15803d; }
     /* 新着（＝状態は通常のまま、引き継ぎ以降に入った予約）。行左端の縦線と同じ青緑で揃える */
@@ -4342,8 +4326,8 @@ import '../styles/kt-components.css';
       background: #fff;
     }
     /* 行の色の約束は日別ボードの「行の色の約束」と共通（状態で行全体の色、左端に濃い縦線、未割当は担当者セルだけ） */
-    .ha-all-card--new:not(.ha-all-card--changed):not(.ha-all-card--charter):not(.ha-all-card--jumbo):not(.ha-all-card--cancelled):not(.ha-all-card--inputerr) td { background: #ecfeff; }
-    .ha-all-card--new:not(.ha-all-card--changed):not(.ha-all-card--charter):not(.ha-all-card--jumbo):not(.ha-all-card--cancelled):not(.ha-all-card--inputerr) td:first-child { box-shadow: inset 6px 0 0 #0e7490; }
+    .ha-all-card--new:not(.ha-all-card--changed):not(.ha-all-card--charter):not(.ha-all-card--jumbo):not(.ha-all-card--cancelled) td { background: #ecfeff; }
+    .ha-all-card--new:not(.ha-all-card--changed):not(.ha-all-card--charter):not(.ha-all-card--jumbo):not(.ha-all-card--cancelled) td:first-child { box-shadow: inset 6px 0 0 #0e7490; }
     .ha-all-card--changed td { background: #fef3c7; }
     .ha-all-card--changed td:first-child { box-shadow: inset 6px 0 0 #d97706; }
     .ha-all-card--charter td { background: #fce7f3; }
@@ -4352,9 +4336,6 @@ import '../styles/kt-components.css';
     .ha-all-card--jumbo td:first-child { box-shadow: inset 6px 0 0 #16a34a; }
     .ha-all-card--cancelled td { background: #eeeeee; color: #9ca3af; text-decoration: line-through; }
     .ha-all-card--cancelled td:first-child { box-shadow: inset 6px 0 0 #9ca3af; }
-    .ha-all-card--inputerr td { background: #ede9fe; color: #7c6fa8; text-decoration: line-through; }
-    .ha-all-card--inputerr td:first-child { box-shadow: inset 6px 0 0 #7c3aed; }
-    .ha-all-card--inputerr .ha-select, .ha-all-card--inputerr .ha-check { text-decoration: none; }
     .ha-all-card--cancelled .ha-select, .ha-all-card--cancelled .ha-check { text-decoration: none; }
     .ha-all-card--new.ha-all-card--changed td:first-child { box-shadow: inset 6px 0 0 #0e7490, inset 12px 0 0 #d97706; }
     .ha-all-card--new.ha-all-card--charter td:first-child { box-shadow: inset 6px 0 0 #0e7490, inset 12px 0 0 #db2777; }
@@ -4482,12 +4463,11 @@ import '../styles/kt-components.css';
       /* カード表示では、行の左端の縦線をカード（tr）に付け替える。
          セル単位の背景色はカード全体の色（trの背景）に任せ、担当者セルのオレンジだけ残す */
       .ha-grid tr td:first-child { box-shadow: none !important; }
-      .ha-grid tr.ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--jumbo):not(.ha-row--cancelled):not(.ha-row--inputerr) { box-shadow: inset 6px 0 0 #0e7490; }
+      .ha-grid tr.ha-row--new:not(.ha-row--changed):not(.ha-row--charter):not(.ha-row--jumbo):not(.ha-row--cancelled) { box-shadow: inset 6px 0 0 #0e7490; }
       .ha-grid tr.ha-row--changed { box-shadow: inset 6px 0 0 #d97706; }
       .ha-grid tr.ha-row--charter { box-shadow: inset 6px 0 0 #db2777; }
       .ha-grid tr.ha-row--jumbo { box-shadow: inset 6px 0 0 #16a34a; }
       .ha-grid tr.ha-row--cancelled { box-shadow: inset 6px 0 0 #9ca3af; }
-      .ha-grid tr.ha-row--inputerr { box-shadow: inset 6px 0 0 #7c3aed; }
       .ha-time { font-size: 1.05rem; }
       .ha-select { max-width: 65%; }
 

@@ -1700,6 +1700,28 @@ alter table dispatch_reservations add constraint dispatch_reservations_status_ch
 - 並び：普通貸切とジャンボ貸切を隣に置くため、入力ミスを末尾（6番目）に移した（入力ミスは前日に追加したばかりのため）
 - 乗務割の「貸切」区分（シフトの貸切コード）は予約の状態とは別なので、変更していない
 
+## 5.75 状態を5つに整理：通常／変更あり／キャンセル／貸切／ジャンボ（2026-10-20）
+
+ユーザー指示「通常/変更あり/キャンセル/貸切/ジャンボに変更して」。§5.73（入力ミス）を廃止し、
+§5.74末尾の「普通貸切／ジャンボ貸切」の表示名を **貸切／ジャンボ** に戻した。
+
+- 状態セレクトの並び：通常／変更あり／キャンセル／貸切／ジャンボ
+- DBの値は `normal / changed / cancelled / charter / jumbo`（表示名の変更のみ。charter・jumbo は変わらない）
+- 入力ミス（`input_error`）は廃止。コード・見た目（紫）・集計行から削除。対応不要の扱い（`isVoidStatus`）はキャンセルだけに戻った
+- 集計行の文言：「貸切 N件」「ジャンボ N件」
+
+DBの整理（Supabase SQL Editorで実行）。**入力ミスの予約があればキャンセルに寄せてから**制約を戻す：
+
+```sql
+update dispatch_reservations set status = 'cancelled' where status = 'input_error';
+alter table dispatch_reservations drop constraint dispatch_reservations_status_check;
+alter table dispatch_reservations add constraint dispatch_reservations_status_check
+  check (status in ('normal','changed','cancelled','charter','jumbo'));
+```
+
+- SQLを実行する前にコードだけ先に反映されても、動作に問題はない（5つの状態はいずれも現行の制約で保存できる）。
+  ただし、入力ミスのままの予約があると、状態セレクトに該当の選択肢がなく空欄に見えるので、SQLは早めに実行する
+
 ## 6. 想定していないこと（将来の課題）
 
 - **DSコネクトによるAPI直結**。実現すればCSVの手作業が消える。電脳交通への問い合わせが前提

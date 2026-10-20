@@ -2010,6 +2010,9 @@ import '../styles/kt-components.css';
       // 「全て確認済み」の記録があり、かつ未チェックが無いときだけ完了
       const signed = !!checkConfirm && missed.length === 0;
       const complete = missed.length === 0 && (!checkConfirmAvailable || signed);
+      // 完了（全て確認済み）の緑の表示は、朝7時（CHECK_DEADLINE_HOUR）を過ぎたら消す。確認は0時以降の1回きりなので、
+      // 日中まで緑が残ると「リセットされていない」ように見えるため（ユーザー指摘。docs §5.76）。0時で新しい日の分に切り替わる
+      if (complete && pastDeadline) { box.hidden = true; document.title = BASE_TITLE; return; }
 
       box.innerHTML = '';
       const head = document.createElement('p');

@@ -1875,6 +1875,12 @@ import '../styles/kt-components.css';
     const CONFIRMER_KEY = 'fuji-haisha-confirmer';
     const CHECK_DEADLINE_HOUR = 7; // 朝7時（JST）までに終わっていなければ強い警告
     const CHECK_RESET_HOUR = 8;    // 朝8時（JST）に、完了の緑の表示を消す（リセット）
+    // 夕方18時（JST）から、確認の対象を「明日」の予約に切り替える（ユーザー要望「明日に向けてチェックをしたい」）。
+    // 乗務終了後（0時前でも）に翌日の予約を確認して「全て確認済み」を入れられる。0時を過ぎると同じ日付が「本日」になり、
+    // 記録（確認者・時刻）はそのまま引き継がれる。朝7時の期限・朝8時のリセットは「本日」のときだけ働く
+    const CHECK_EVENING_HOUR = 18;
+    const jstHourNow = () => new Date(Date.now() + 9 * 3600 * 1000).getUTCHours();
+    const checkTargetKey = () => (jstHourNow() >= CHECK_EVENING_HOUR ? shiftDate(todayJst(), 1) : todayJst());
     let checkDayKey = '';
     let checkDayRows: any[] = [];
     let checkConfirm: any = null;           // その日の「全て確認済み」の記録（無ければ null）
@@ -1886,7 +1892,7 @@ import '../styles/kt-components.css';
       if (checkDayLoading) return;
       checkDayLoading = true;
       checkDayLastTry = Date.now();
-      const key = todayJst();
+      const key = checkTargetKey();
       try {
         const [rows, conf] = await Promise.all([
           fetchReservationsByDate(key),
@@ -1994,8 +2000,8 @@ import '../styles/kt-components.css';
 
     function renderCheckBanner() {
       const box = $('checkBanner');
-      if (checkDayKey !== todayJst()) {
-        // 0時を過ぎて日付が変わった。新しい日の予約を取り直す
+      if (checkDayKey !== checkTargetKey()) {
+        // 0時・18時を過ぎて確認の対象の日が変わった。新しい日の予約を取り直す
         box.hidden = true;
         document.title = BASE_TITLE;
         if (!checkDayLoading && Date.now() - checkDayLastTry > 30 * 1000) refreshCheckDay();
@@ -2004,16 +2010,17 @@ import '../styles/kt-components.css';
       const rows = checkDayRows.filter((r) => !isVoidStatus(r.status));
       if (rows.length === 0) { box.hidden = true; document.title = BASE_TITLE; return; }
 
-      const label = `本日(${checkDayKey.slice(5).replace('-', '/')})`;
+      const isToday = checkDayKey === todayJst();
+      const label = `${isToday ? '本日' : '明日'}(${checkDayKey.slice(5).replace('-', '/')})`;
       const missed = rows.filter((r) => !r.checked);
       const jstHour = new Date(Date.now() + 9 * 3600 * 1000).getUTCHours();
-      const pastDeadline = jstHour >= CHECK_DEADLINE_HOUR;
+      const pastDeadline = isToday && jstHour >= CHECK_DEADLINE_HOUR;
       // 「全て確認済み」の記録があり、かつ未チェックが無いときだけ完了
       const signed = !!checkConfirm && missed.length === 0;
       const complete = missed.length === 0 && (!checkConfirmAvailable || signed);
       // 完了（全て確認済み）の緑の表示は、朝8時（CHECK_RESET_HOUR）になったら消す。確認は0時以降の1回きりなので、
       // 日中まで緑が残ると「リセットされていない」ように見えるため（ユーザー指摘・指定「確認した朝8時にリセット」。docs §5.76）。0時で新しい日の分に切り替わる
-      if (complete && jstHour >= CHECK_RESET_HOUR) { box.hidden = true; document.title = BASE_TITLE; return; }
+      if (complete && isToday && jstHour >= CHECK_RESET_HOUR) { box.hidden = true; document.title = BASE_TITLE; return; }
 
       box.innerHTML = '';
       const head = document.createElement('p');

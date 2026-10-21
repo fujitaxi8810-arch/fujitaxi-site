@@ -309,8 +309,7 @@ import '../styles/kt-components.css';
       <div class="ha-field ha-field--full">
         <span>どの場合ですか</span>
         <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="wcheck" checked /> <b>Wチェックが完了した</b>（遅番の相方＝電話番ではない方がサイン）</label>
-        <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="unavoidable" /> <b>やむを得ない場合</b>（もう一人の方＝電話番がサイン）</label>
-        <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="morning" /> <b>日勤が朝にチェックした</b>（チェックした人がサイン）</label>
+        <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="morning" /> <b>日勤が朝にチェックした</b>（遅番が二人でWチェックできなかったとき。Wチェック後にチェックした人がサイン）</label>
       </div>
       <p class="ha-note" id="confirmModalNote"></p>
       <div class="ha-field ha-field--full">
@@ -1924,10 +1923,10 @@ import '../styles/kt-components.css';
 
     /*
      * 確認者（＝サインする人）は、場面で変わる（Wチェックの運用ルール。ユーザー指示：
-     * 「遅番の電話番ではない方の名前を記載／やむを得ない場合はもう一人の方がサイン／日勤が朝チェックする場合は
-     * チェックした人がサイン」「選択する人がかわるはず」。docs §5.78）。
+     * 「遅番の電話番ではない方の名前を記載／遅番が二人でWチェックできない場合は次の日の朝の人がWチェック後にチェック」
+     * 「選択する人がかわるはず」。docs §5.78）。流れ：日勤が夕方に1回目のチェック → 遅番がチェック（Wチェック）→
+     * 遅番がやむを得ず二人でWチェックできないときは、翌朝の日勤がWチェックしてから「全て確認済み」。
      *   ・wcheck     Wチェックが完了した  → 前日の遅番のうち、電話番ではない方（遅番の相方）
-     *   ・unavoidable やむを得ない場合     → 前日の遅番のうち、電話番の方（もう一人）
      *   ・morning    日勤が朝にチェックした → 確認する日に日勤（①系・S系・貸切）で出ている人
      * 0時以降の確認は営業を終えた**前の日の遅番**が行うので、遅番は確認する日の前日の分（乗務割の「遅番」と
      * 同じ判定＝シフトの③＋その日だけ追加した人−その日だけ外した人）。電話番はその前日のシフトの電話番の印。
@@ -1944,7 +1943,7 @@ import '../styles/kt-components.css';
       return dow >= 1 && dow <= 5 && !HOLIDAYS[dateKey];
     };
     const normName = (n: string) => String(n || '').split(' ').join('').split(String.fromCharCode(0x3000)).join('');
-    const CONFIRM_CASES: Record<string, string> = { wcheck: '', unavoidable: '（やむを得ない場合）', morning: '（日勤・朝のチェック）' };
+    const CONFIRM_CASES: Record<string, string> = { wcheck: '', morning: '（日勤・朝のチェック）' };
 
     async function confirmerPools(targetDate: string) {
       const prev = shiftDate(targetDate, -1);
@@ -1962,7 +1961,6 @@ import '../styles/kt-components.css';
       const everyone = pick(allowedIds);
       const lateAll = pick(lateIds);
       const wc = pick(new Set([...lateIds].filter((id) => !phoneIds.has(id))));
-      const un = pick(new Set([...lateIds].filter((id) => phoneIds.has(id))));
       const dayCodes = ['①', '①S', '①H', 'SH', 'SHS', 'S', '貸切'];
       const dayIds = new Set<string>(todayShifts.filter((x: any) => dayCodes.includes(x.code)).map((x: any) => x.staffId));
       if (isWeekdayWork(targetDate)) {
@@ -1977,14 +1975,12 @@ import '../styles/kt-components.css';
       return {
         wcheck: withFallback(wc, [{ names: lateAll, note: `${prevLabel}の遅番に「電話番ではない方」が見つからないため、遅番の人全員から選べるようにしています。` }],
           `${prevLabel}の遅番の相方（電話番ではない方）から選んでください。`),
-        unavoidable: withFallback(un, [{ names: lateAll, note: `${prevLabel}の遅番に電話番の印がないため、遅番の人全員から選べるようにしています。` }],
-          `${prevLabel}の遅番の電話番（もう一人の方）から選んでください。`),
         morning: withFallback(dayNames, [], `${targetDate.slice(5).replace('-', '/')}の日勤の人から、チェックした人を選んでください。`),
       } as Record<string, { names: string[]; note: string }>;
     }
 
     // 確認者を選ぶ小さなモーダル。選んで確定した名前（やめたら null）を返す。
-    // やむを得ない場合・日勤の朝のチェックは、名前のあとに場面を付けて記録する（バナーにそのまま出る）
+    // 日勤の朝のチェックは、名前のあとに場面を付けて記録する（バナーにそのまま出る）
     async function chooseConfirmer(targetDate: string): Promise<string | null> {
       let pools: Record<string, { names: string[]; note: string }>;
       try {

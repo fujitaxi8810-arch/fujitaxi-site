@@ -1997,7 +1997,10 @@ import '../styles/kt-components.css';
         sel.value = p.names.includes(prevSel) ? prevSel : (p.names.includes(saved) ? saved : '');
         $('confirmModalNote').textContent = p.note;
       };
-      radios.forEach((r) => { r.checked = r.value === 'wcheck'; r.onchange = fill; });
+      // 朝7時（日勤が出勤する時間）以降に「本日」の確認をするのは、遅番でWチェックが終わらなかった分を日勤が朝に
+      // チェックする場面なので、最初から「日勤が朝にチェックした」（日勤の人の名前）を選んでおく（ユーザー指示。docs §5.78）
+      const first = targetDate === todayJst() && jstHourNow() >= CHECK_DEADLINE_HOUR ? 'morning' : 'wcheck';
+      radios.forEach((r) => { r.checked = r.value === first; r.onchange = fill; });
       fill();
       $('confirmModal').hidden = false;
       return new Promise((resolve) => {

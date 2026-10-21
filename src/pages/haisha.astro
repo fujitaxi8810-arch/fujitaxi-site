@@ -1936,6 +1936,13 @@ import '../styles/kt-components.css';
     // 「全て確認済み」を押せる（サインできる）のは、この8名だけ（ユーザー指定。docs §5.78）。
     // 氏名の空白（全角・半角）の違いで外れないよう、空白を除いて照合する。増減はここを書き換える
     const CONFIRMER_ALLOWED = ['小林隼人', '渡部晃', '堀内洋伯', '荒智章', '目黒圭吾', '中橋常郎', '菅原元輝', '小林結'];
+    // シフトに入っていないが、平日（土・日・祝日を除く）は日勤で出勤している人。朝の日勤の候補に、平日だけ加える
+    // （ユーザー情報：「シフトにないので小林結は平日のみ。土・日・祝日は休みで日勤で出勤しています」）
+    const WEEKDAY_DAY_STAFF = ['小林結'];
+    const isWeekdayWork = (dateKey: string) => {
+      const dow = new Date(dateKey + 'T00:00:00Z').getUTCDay();
+      return dow >= 1 && dow <= 5 && !HOLIDAYS[dateKey];
+    };
     const normName = (n: string) => String(n || '').split(' ').join('').split(String.fromCharCode(0x3000)).join('');
     const CONFIRM_CASES: Record<string, string> = { wcheck: '', unavoidable: '（やむを得ない場合）', morning: '（日勤・朝のチェック）' };
 
@@ -1958,6 +1965,9 @@ import '../styles/kt-components.css';
       const un = pick(new Set([...lateIds].filter((id) => phoneIds.has(id))));
       const dayCodes = ['①', '①S', '①H', 'SH', 'SHS', 'S', '貸切'];
       const dayIds = new Set<string>(todayShifts.filter((x: any) => dayCodes.includes(x.code)).map((x: any) => x.staffId));
+      if (isWeekdayWork(targetDate)) {
+        for (const x of staff) if (WEEKDAY_DAY_STAFF.includes(normName(x.name))) dayIds.add(x.id);
+      }
       const dayNames = pick(dayIds);
       const withFallback = (names: string[], fb: { names: string[]; note: string }[], note: string) => {
         if (names.length > 0) return { names, note };

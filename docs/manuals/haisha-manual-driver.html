@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>配車管理 乗務員マニュアル</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f5f0; --surface: #ffffff; --surface-2: #efede5;
+  --text: #201e19; --text-muted: #6d695d;
+  --border: #e2ded2; --border-strong: #cfc9b8;
+  --accent: #a1730a; --accent-bg: #fbf1da; --accent-ink: #6e4f07;
+  --warn-bg: #fdf0dd; --warn-border: #e4b876; --warn-ink: #7a4e07;
+  --danger-bg: #fbeaea; --danger-border: #dba3a3; --danger-ink: #8a2c2c;
+  --ok-bg: #eaf4ea; --ok-border: #a9cbaa; --ok-ink: #2f5c33;
+  --font-display: "Shippori Mincho", "Hiragino Mincho ProN", serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", sans-serif;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(32,30,25,0.06), 0 6px 20px rgba(32,30,25,0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141311; --surface: #1d1c19; --surface-2: #24231f;
+    --text: #f1efe6; --text-muted: #a8a396;
+    --border: #34322c; --border-strong: #454138;
+    --accent: #f5c800; --accent-bg: #332c11; --accent-ink: #f5c800;
+    --warn-bg: #332912; --warn-border: #6b551f; --warn-ink: #e3b45c;
+    --danger-bg: #331717; --danger-border: #6b2f2f; --danger-ink: #e28888;
+    --ok-bg: #16261a; --ok-border: #35543a; --ok-ink: #8fc796;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141311; --surface: #1d1c19; --surface-2: #24231f;
+  --text: #f1efe6; --text-muted: #a8a396;
+  --border: #34322c; --border-strong: #454138;
+  --accent: #f5c800; --accent-bg: #332c11; --accent-ink: #f5c800;
+  --warn-bg: #332912; --warn-border: #6b551f; --warn-ink: #e3b45c;
+  --danger-bg: #331717; --danger-border: #6b2f2f; --danger-ink: #e28888;
+  --ok-bg: #16261a; --ok-border: #35543a; --ok-ink: #8fc796;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body);
+  font-size: 16px; line-height: 1.75; max-width: 780px; margin: 0 auto; padding: 2.5rem 1.25rem 6rem;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; text-wrap: balance; color: var(--text); }
+p { margin: 0 0 1rem; }
+a { color: var(--accent-ink); }
+code { background: var(--surface-2); padding: 0.05rem 0.35rem; border-radius: 4px; font-size: 0.9em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+.masthead { display: flex; align-items: center; gap: 0.9rem; padding-bottom: 1.4rem; margin-bottom: 1.6rem; border-bottom: 2px solid var(--border-strong); }
+.masthead__badge { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(155deg, #242424, #0a0a0a); border: 1px solid rgba(245,200,0,0.4); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.masthead__badge svg { width: 28px; height: 28px; }
+.eyebrow { font-weight: 700; font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 0.15rem; }
+.masthead h1 { font-size: 1.5rem; margin: 0; line-height: 1.3; }
+.meta-row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; font-size: 0.86rem; color: var(--text-muted); margin-bottom: 2rem; }
+.meta-row strong { color: var(--text); }
+
+nav.toc { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.3rem; margin-bottom: 2.6rem; box-shadow: var(--shadow); }
+nav.toc .toc-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; color: var(--text-muted); margin-bottom: 0.6rem; }
+nav.toc ol { margin: 0; padding-left: 1.5rem; columns: 2; column-gap: 1.5rem; }
+nav.toc li { margin-bottom: 0.35rem; break-inside: avoid; }
+nav.toc a { text-decoration: none; font-size: 0.92rem; }
+nav.toc a:hover { text-decoration: underline; }
+nav.toc li.new a::after { content: "NEW"; margin-left: 0.4rem; font-size: 0.62rem; font-weight: 900; color: #fff; background: var(--accent); padding: 0.05rem 0.35rem; border-radius: 999px; vertical-align: 0.1em; }
+:root:not([data-theme="light"]) nav.toc li.new a::after { color: #1a1500; }
+:root[data-theme="dark"] nav.toc li.new a::after { color: #1a1500; }
+
+section { margin-bottom: 2.8rem; scroll-margin-top: 1.2rem; }
+section > h2 { font-size: 1.28rem; display: flex; align-items: baseline; gap: 0.6rem; margin: 0 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+section > h2 .num { font-family: var(--font-body); font-weight: 900; color: var(--accent); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+h3 { font-size: 1.02rem; margin: 1.4rem 0 0.6rem; }
+
+.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+.steps > li { counter-increment: step; display: grid; grid-template-columns: 2.1rem 1fr; gap: 0.9rem; padding: 0.85rem 0; border-bottom: 1px dashed var(--border); }
+.steps > li:last-child { border-bottom: none; }
+.steps > li::before { content: counter(step); font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--accent-ink); background: var(--accent-bg); width: 2.1rem; height: 2.1rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.step-title { font-weight: 700; margin: 0 0 0.3rem; }
+.steps p:last-child { margin-bottom: 0; }
+
+.callout { border-radius: var(--radius); border: 1px solid var(--border); padding: 0.95rem 1.15rem; margin: 1rem 0; font-size: 0.94rem; }
+.callout__label { font-weight: 700; font-size: 0.78rem; margin-bottom: 0.3rem; }
+.callout--warn { background: var(--warn-bg); border-color: var(--warn-border); } .callout--warn .callout__label { color: var(--warn-ink); }
+.callout--danger { background: var(--danger-bg); border-color: var(--danger-border); } .callout--danger .callout__label { color: var(--danger-ink); }
+.callout--ok { background: var(--ok-bg); border-color: var(--ok-border); } .callout--ok .callout__label { color: var(--ok-ink); }
+.callout p:last-child { margin-bottom: 0; }
+
+.ref-wrap { overflow-x: auto; }
+table.ref { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 0.6rem 0 1.2rem; }
+table.ref th, table.ref td { text-align: left; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.ref th { color: var(--text-muted); font-weight: 700; font-size: 0.78rem; }
+table.ref tr:last-child td { border-bottom: none; }
+
+.badge { display: inline-flex; align-items: center; padding: 0.18rem 0.55rem; border-radius: 999px; font-size: 0.82rem; font-weight: 700; white-space: nowrap; border: 1px solid transparent; }
+.b-new { background: #ecfeff; color: #0e7490; border-color: #0e7490; }
+.b-changed { background: #fef3c7; color: #92400e; border-color: #d97706; }
+.b-charter { background: #fce7f3; color: #be185d; border-color: #db2777; }
+.b-cancel { background: #eeeeee; color: #6b7280; border-color: #9ca3af; text-decoration: line-through; }
+.b-none { background: #ffedd5; color: #9a3412; border-color: #ea580c; font-weight: 800; }
+.b-red { background: #fef2f2; color: #7f1d1d; border-color: #b91c1c; }
+.b-ok { background: #ecfdf5; color: #065f46; border-color: #047857; }
+.b-jumbo { background: #f0fdf4; color: #15803d; border-color: #16a34a; }
+.bar { display: inline-block; width: 0.5rem; height: 1.1rem; border-radius: 2px; vertical-align: middle; margin-right: 0.35rem; }
+
+.tabs-demo { display: flex; gap: 0.5rem; margin: 0.9rem 0 1.3rem; flex-wrap: wrap; }
+.tabs-demo span { padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.86rem; font-weight: 700; border: 1.5px solid var(--border-strong); color: var(--text-muted); }
+.tabs-demo span.active { background: var(--accent); border-color: var(--accent); color: #1a1500; }
+.kicker-list { margin: 0 0 1.2rem; padding-left: 1.3rem; }
+.kicker-list li { margin-bottom: 0.4rem; }
+
+/* 図（毎日の予約チェック） */
+.diagram { margin: 1.2rem 0 1.4rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.8rem; box-shadow: var(--shadow); overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.diagram figcaption { font-size: 0.82rem; color: var(--text-muted); padding: 0.5rem 0.4rem 0.1rem; }
+.d-card { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.d-t { fill: var(--text); font-family: var(--font-body); }
+.d-m { fill: var(--text-muted); font-family: var(--font-body); }
+.d-seg-a { fill: var(--surface-2); }
+.d-seg-b { fill: var(--warn-bg); stroke: var(--warn-border); stroke-width: 1.2; }
+.d-seg-c { fill: var(--danger-bg); stroke: var(--danger-border); stroke-width: 1.2; }
+.d-warn-ink { fill: var(--warn-ink); font-family: var(--font-body); }
+.d-red { fill: var(--danger-bg); stroke: var(--danger-ink); stroke-width: 1.5; }
+.d-red-dark { fill: var(--danger-bg); stroke: var(--danger-ink); stroke-width: 4; }
+.d-red-ink { fill: var(--danger-ink); font-family: var(--font-body); }
+.d-ok { fill: var(--ok-bg); stroke: var(--ok-ink); stroke-width: 1.5; }
+.d-ok-ink { fill: var(--ok-ink); font-family: var(--font-body); }
+.d-arrow { stroke: var(--text-muted); stroke-width: 2; fill: none; }
+.d-arrowhead { fill: var(--text-muted); }
+.d-loop { stroke: var(--danger-ink); stroke-width: 2; fill: none; stroke-dasharray: 5 4; }
+.d-loophead { fill: var(--danger-ink); }
+.d-num { fill: var(--accent); }
+.d-numt { fill: #1a1500; font-family: var(--font-body); font-weight: 900; }
+
+.footer-note { margin-top: 3.2rem; padding-top: 1.4rem; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead__badge">
+    <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="120" y="200" width="272" height="110" rx="26" fill="#F5C800"/>
+      <rect x="150" y="160" width="120" height="56" rx="14" fill="#F5C800"/>
+      <circle cx="180" cy="330" r="34" fill="#0a0a0a" stroke="#F5C800" stroke-width="8"/>
+      <circle cx="332" cy="330" r="34" fill="#0a0a0a" stroke="#F5C800" stroke-width="8"/>
+    </svg>
+  </div>
+  <div>
+    <p class="eyebrow">富士タクシー 社内用ツール</p>
+    <h1>配車管理 乗務員マニュアル</h1>
+  </div>
+</header>
+
+<div class="meta-row">
+  <span><strong>対象</strong>：乗務員</span>
+  <span><strong>URL</strong>：/haisha</span>
+  <span><strong>版</strong>：2026年10月15日版（最新仕様）</span>
+</div>
+
+<p>配車管理（/haisha）は、事務所が組んだ当日の配車を確認するための画面です。ふだんは<strong>見るだけ</strong>で操作は不要です。ログインも要りません。ただし<strong>日勤（夕方）と遅番の方</strong>は、「予約チェック」とサインをお願いします（<a href="#check">04</a>）。</p>
+
+<section id="open">
+  <h2><span class="num">01</span>開き方</h2>
+  <ol class="steps">
+    <li><div><p class="step-title">日勤：夕方・引き継ぐ前</p><p>紙の予約表と配車ボードをWチェックし、日別の配車ボードの右端の「済」に全部チェックを入れます（キャンセルは対象外）。全部入ったら、画面の一番上の<strong>「日勤（夕方）の確認済み」</strong>にチェックを入れて、確認した日勤の人の名前を選びます。全部の「済」が入るまでは押せません。</p></div></li>
+    <li><div><p class="step-title">遅番：業務終了後に、二人でWチェック</p><p>CSVを0時以降に出力し、最新であることを確認してから、<strong>二人</strong>でWチェックします。完了した分は、紙の予約表と配車ボードの<strong>両方</strong>にレ点を入れます（未完了は、配車ボードにはレ点せず、紙のみ）。全部の「済」が入ったら、画面の一番上の<strong>「全て確認済み」</strong>にチェックを入れ、「Wチェックが完了した」のまま、<strong>電話番ではない側</strong>の人の名前を選びます。日勤のサインが無いと押せません。</p></div></li>
+    <li><div><p class="step-title">やむを得ない場合：紙のみ → 翌朝の日勤が完了</p><p>二人でWチェックできないとき（相方が急病・事故・緊急の呼び出し／終了時間が大きく違う／遅番が1名しかいない／システムの障害）は、<strong>紙の予約表のみ</strong>にチェックします。<strong>翌朝、日勤が全て完了</strong>して「全て確認済み」にチェックを入れ、「日勤が朝にチェックした」で<strong>日勤の人の名前</strong>を選びます（朝7時以降は最初からこの場面が選ばれます）。</p></div></li>
+    <li><div><p class="step-title">サインする人</p>
+      <table class="ref"><tr><th>段階</th><th>サインする人</th><th>画面で選ぶ項目</th></tr>
+      <tr><td><strong>日勤</strong>（夕方・引き継ぐ前）</td><td>確認した日勤の人</td><td>「日勤（夕方）の確認済み」</td></tr>
+      <tr><td><strong>遅番</strong>（業務終了後、二人でWチェック完了後）</td><td><strong>電話番ではない側</strong>の人</td><td>「全て確認済み」→「Wチェックが完了した」</td></tr>
+      <tr><td><strong>やむを得ない場合</strong>（紙のみチェック）→<strong>翌朝の日勤</strong></td><td>日勤の人</td><td>「全て確認済み」→「日勤が朝にチェックした」</td></tr></table>
+      <p>サインできるのは、<strong>小林隼人・渡部晃・堀内洋伯・荒智章・目黒圭吾・中橋常郎・菅原元輝・小林結</strong>の8名だけです（日勤の候補は、確認する日の前日に日勤で出ている人。小林結さんはシフトに無いため、平日（土・日・祝日を除く）だけ日勤の候補に出ます）。サインした人は、責任をもって対応してください。</p></div></li>
+    <li><div><p class="step-title">緑の表示になれば完了</p><p>「✓ 本日の予約は全て確認済み　日勤（夕方）：○○　確認：△△」と出ます。押し間違えたときは、チェックを外すと取り消せます。この緑の表示は、朝8時になると自動で消えます。</p></div></li>
+  </ol>
+  <div class="callout callout--danger">
+    <p class="callout__label">⚠ 日勤のサインは必須／朝7時までに</p>
+    <p>日勤（夕方）の確認済みが入っていないと、遅番の「全て確認済み」は押せず、完了になりません。朝7時を過ぎても終わっていないと、「🚨 朝7時を過ぎても…再チェックしてください」という強い警告に変わります。確認のあとに新しい予約が入った場合も、赤に戻るので、その予約を確認して、もう一度「全て確認済み」を押してください。</p>
+  </div>
+</section>
+
+<section id="trouble">
+  <h2><span class="num">05</span>困ったときは</h2>
+  <div class="ref-wrap">
+  <table class="ref">
+    <tr><th>症状</th><th>対応</th></tr>
+    <tr><td>自分の名前の行が見当たらない</td><td>「経過分も表示」を押すと、時刻を過ぎて消えた予約も見られます</td></tr>
+    <tr><td>画面が固まる・表示が古い</td><td>一度画面を閉じて開き直してください（Ctrl+F5）</td></tr>
+    <tr><td>「全て確認済み」が押せない</td><td>まだ「済」が入っていない予約があります（赤い警告の「未チェックを確認する」を押すと、隠れた分も表示されます）。または、日勤（夕方）の確認済みが入っていません（日勤のサインが必要です）</td></tr>
+    <tr><td>名前の候補に自分が出ない</td><td>候補は場面で変わります（「どの場合ですか」を確認）。それでも出ないときは、事務所に確認してください</td></tr>
+    <tr><td>それでも解決しない</td><td>事務所に電話で確認してください</td></tr>
+  </table>
+  </div>
+</section>
+
+<p class="footer-note">富士タクシー社内用ドキュメント（2026年10月15日版）。実証実験期間中の運用を前提としています。</p>
+
+</body>
+</html>

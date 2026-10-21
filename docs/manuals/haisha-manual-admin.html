@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>配車管理 事務所マニュアル</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f5f0; --surface: #ffffff; --surface-2: #efede5;
+  --text: #201e19; --text-muted: #6d695d;
+  --border: #e2ded2; --border-strong: #cfc9b8;
+  --accent: #a1730a; --accent-bg: #fbf1da; --accent-ink: #6e4f07;
+  --warn-bg: #fdf0dd; --warn-border: #e4b876; --warn-ink: #7a4e07;
+  --danger-bg: #fbeaea; --danger-border: #dba3a3; --danger-ink: #8a2c2c;
+  --ok-bg: #eaf4ea; --ok-border: #a9cbaa; --ok-ink: #2f5c33;
+  --font-display: "Shippori Mincho", "Hiragino Mincho ProN", serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", sans-serif;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(32,30,25,0.06), 0 6px 20px rgba(32,30,25,0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141311; --surface: #1d1c19; --surface-2: #24231f;
+    --text: #f1efe6; --text-muted: #a8a396;
+    --border: #34322c; --border-strong: #454138;
+    --accent: #f5c800; --accent-bg: #332c11; --accent-ink: #f5c800;
+    --warn-bg: #332912; --warn-border: #6b551f; --warn-ink: #e3b45c;
+    --danger-bg: #331717; --danger-border: #6b2f2f; --danger-ink: #e28888;
+    --ok-bg: #16261a; --ok-border: #35543a; --ok-ink: #8fc796;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141311; --surface: #1d1c19; --surface-2: #24231f;
+  --text: #f1efe6; --text-muted: #a8a396;
+  --border: #34322c; --border-strong: #454138;
+  --accent: #f5c800; --accent-bg: #332c11; --accent-ink: #f5c800;
+  --warn-bg: #332912; --warn-border: #6b551f; --warn-ink: #e3b45c;
+  --danger-bg: #331717; --danger-border: #6b2f2f; --danger-ink: #e28888;
+  --ok-bg: #16261a; --ok-border: #35543a; --ok-ink: #8fc796;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body);
+  font-size: 16px; line-height: 1.75; max-width: 780px; margin: 0 auto; padding: 2.5rem 1.25rem 6rem;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; text-wrap: balance; color: var(--text); }
+p { margin: 0 0 1rem; }
+a { color: var(--accent-ink); }
+code { background: var(--surface-2); padding: 0.05rem 0.35rem; border-radius: 4px; font-size: 0.9em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+.masthead { display: flex; align-items: center; gap: 0.9rem; padding-bottom: 1.4rem; margin-bottom: 1.6rem; border-bottom: 2px solid var(--border-strong); }
+.masthead__badge { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(155deg, #242424, #0a0a0a); border: 1px solid rgba(245,200,0,0.4); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.masthead__badge svg { width: 28px; height: 28px; }
+.eyebrow { font-weight: 700; font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 0.15rem; }
+.masthead h1 { font-size: 1.5rem; margin: 0; line-height: 1.3; }
+.meta-row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; font-size: 0.86rem; color: var(--text-muted); margin-bottom: 2rem; }
+.meta-row strong { color: var(--text); }
+
+nav.toc { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.3rem; margin-bottom: 2.6rem; box-shadow: var(--shadow); }
+nav.toc .toc-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; color: var(--text-muted); margin-bottom: 0.6rem; }
+nav.toc ol { margin: 0; padding-left: 1.5rem; columns: 2; column-gap: 1.5rem; }
+nav.toc li { margin-bottom: 0.35rem; break-inside: avoid; }
+nav.toc a { text-decoration: none; font-size: 0.92rem; }
+nav.toc a:hover { text-decoration: underline; }
+nav.toc li.new a::after { content: "NEW"; margin-left: 0.4rem; font-size: 0.62rem; font-weight: 900; color: #fff; background: var(--accent); padding: 0.05rem 0.35rem; border-radius: 999px; vertical-align: 0.1em; }
+:root:not([data-theme="light"]) nav.toc li.new a::after { color: #1a1500; }
+:root[data-theme="dark"] nav.toc li.new a::after { color: #1a1500; }
+
+section { margin-bottom: 2.8rem; scroll-margin-top: 1.2rem; }
+section > h2 { font-size: 1.28rem; display: flex; align-items: baseline; gap: 0.6rem; margin: 0 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+section > h2 .num { font-family: var(--font-body); font-weight: 900; color: var(--accent); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+h3 { font-size: 1.02rem; margin: 1.4rem 0 0.6rem; }
+
+.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+.steps > li { counter-increment: step; display: grid; grid-template-columns: 2.1rem 1fr; gap: 0.9rem; padding: 0.85rem 0; border-bottom: 1px dashed var(--border); }
+.steps > li:last-child { border-bottom: none; }
+.steps > li::before { content: counter(step); font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--accent-ink); background: var(--accent-bg); width: 2.1rem; height: 2.1rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.step-title { font-weight: 700; margin: 0 0 0.3rem; }
+.steps p:last-child { margin-bottom: 0; }
+
+.callout { border-radius: var(--radius); border: 1px solid var(--border); padding: 0.95rem 1.15rem; margin: 1rem 0; font-size: 0.94rem; }
+.callout__label { font-weight: 700; font-size: 0.78rem; margin-bottom: 0.3rem; }
+.callout--warn { background: var(--warn-bg); border-color: var(--warn-border); } .callout--warn .callout__label { color: var(--warn-ink); }
+.callout--danger { background: var(--danger-bg); border-color: var(--danger-border); } .callout--danger .callout__label { color: var(--danger-ink); }
+.callout--ok { background: var(--ok-bg); border-color: var(--ok-border); } .callout--ok .callout__label { color: var(--ok-ink); }
+.callout p:last-child { margin-bottom: 0; }
+
+.ref-wrap { overflow-x: auto; }
+table.ref { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 0.6rem 0 1.2rem; }
+table.ref th, table.ref td { text-align: left; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.ref th { color: var(--text-muted); font-weight: 700; font-size: 0.78rem; }
+table.ref tr:last-child td { border-bottom: none; }
+
+.badge { display: inline-flex; align-items: center; padding: 0.18rem 0.55rem; border-radius: 999px; font-size: 0.82rem; font-weight: 700; white-space: nowrap; border: 1px solid transparent; }
+.b-new { background: #ecfeff; color: #0e7490; border-color: #0e7490; }
+.b-changed { background: #fef3c7; color: #92400e; border-color: #d97706; }
+.b-charter { background: #fce7f3; color: #be185d; border-color: #db2777; }
+.b-cancel { background: #eeeeee; color: #6b7280; border-color: #9ca3af; text-decoration: line-through; }
+.b-none { background: #ffedd5; color: #9a3412; border-color: #ea580c; font-weight: 800; }
+.b-red { background: #fef2f2; color: #7f1d1d; border-color: #b91c1c; }
+.b-ok { background: #ecfdf5; color: #065f46; border-color: #047857; }
+.b-jumbo { background: #f0fdf4; color: #15803d; border-color: #16a34a; }
+.bar { display: inline-block; width: 0.5rem; height: 1.1rem; border-radius: 2px; vertical-align: middle; margin-right: 0.35rem; }
+
+.tabs-demo { display: flex; gap: 0.5rem; margin: 0.9rem 0 1.3rem; flex-wrap: wrap; }
+.tabs-demo span { padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.86rem; font-weight: 700; border: 1.5px solid var(--border-strong); color: var(--text-muted); }
+.tabs-demo span.active { background: var(--accent); border-color: var(--accent); color: #1a1500; }
+.kicker-list { margin: 0 0 1.2rem; padding-left: 1.3rem; }
+.kicker-list li { margin-bottom: 0.4rem; }
+
+/* 図（毎日の予約チェック） */
+.diagram { margin: 1.2rem 0 1.4rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.8rem; box-shadow: var(--shadow); overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.diagram figcaption { font-size: 0.82rem; color: var(--text-muted); padding: 0.5rem 0.4rem 0.1rem; }
+.d-card { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.d-t { fill: var(--text); font-family: var(--font-body); }
+.d-m { fill: var(--text-muted); font-family: var(--font-body); }
+.d-seg-a { fill: var(--surface-2); }
+.d-seg-b { fill: var(--warn-bg); stroke: var(--warn-border); stroke-width: 1.2; }
+.d-seg-c { fill: var(--danger-bg); stroke: var(--danger-border); stroke-width: 1.2; }
+.d-warn-ink { fill: var(--warn-ink); font-family: var(--font-body); }
+.d-red { fill: var(--danger-bg); stroke: var(--danger-ink); stroke-width: 1.5; }
+.d-red-dark { fill: var(--danger-bg); stroke: var(--danger-ink); stroke-width: 4; }
+.d-red-ink { fill: var(--danger-ink); font-family: var(--font-body); }
+.d-ok { fill: var(--ok-bg); stroke: var(--ok-ink); stroke-width: 1.5; }
+.d-ok-ink { fill: var(--ok-ink); font-family: var(--font-body); }
+.d-arrow { stroke: var(--text-muted); stroke-width: 2; fill: none; }
+.d-arrowhead { fill: var(--text-muted); }
+.d-loop { stroke: var(--danger-ink); stroke-width: 2; fill: none; stroke-dasharray: 5 4; }
+.d-loophead { fill: var(--danger-ink); }
+.d-num { fill: var(--accent); }
+.d-numt { fill: #1a1500; font-family: var(--font-body); font-weight: 900; }
+
+.footer-note { margin-top: 3.2rem; padding-top: 1.4rem; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead__badge">
+    <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="120" y="200" width="272" height="110" rx="26" fill="#F5C800"/>
+      <rect x="150" y="160" width="120" height="56" rx="14" fill="#F5C800"/>
+      <circle cx="180" cy="330" r="34" fill="#0a0a0a" stroke="#F5C800" stroke-width="8"/>
+      <circle cx="332" cy="330" r="34" fill="#0a0a0a" stroke="#F5C800" stroke-width="8"/>
+    </svg>
+  </div>
+  <div>
+    <p class="eyebrow">富士タクシー 社内用ツール</p>
+    <h1>配車管理 事務所マニュアル</h1>
+  </div>
+</header>
+
+<div class="meta-row">
+  <span><strong>対象</strong>：配車を組む事務所スタッフ</span>
+  <span><strong>URL</strong>：/haisha</span>
+  <span><strong>版</strong>：2026年10月15日版（最新仕様）</span>
+</div>
+
+<p>配車管理は、DS（電脳交通）から書き出したCSVを取り込んで担当者を割り当て、日々の配車を確認するための社内ツールです。このマニュアルは事務所で操作する方向けです。乗務員の方は別紙の「乗務員向けマニュアル」をご覧ください。</p>
+
+<nav class="toc" aria-label="目次">
+  <p class="toc-label">目次</p>
+  <ol>
+    <li><a href="#open">開き方・ログイン</a></li>
+    <li><a href="#screens">3つの画面</a></li>
+    <li class="new"><a href="#check">毎日の予約チェックと「全て確認済み」</a></li>
+    <li class="new"><a href="#alerts">画面上部の警告・最終取込</a></li>
+    <li><a href="#csv">CSVを取り込む</a></li>
+    <li><a href="#assign">担当者・状態・チェック</a></li>
+    <li><a href="#colors">行の色と表示の見方</a></li>
+    <li class="new"><a href="#duty">乗務割</a></li>
+    <li><a href="#handover">引き継ぎ・申し送り</a></li>
+    <li><a href="#history">記録を確認・元に戻す</a></li>
+    <li><a href="#admin">管理者だけの操作</a></li>
+    <li><a href="#print">印刷する</a></li>
+    <li><a href="#backup">もしもの備え：毎朝の紙の予備</a></li>
+    <li><a href="#trouble">困ったときは</a></li>
+  </ol>
+</nav>
+
+<section id="open">
+  <h2><span class="num">01</span>開き方・ログイン</h2>
+  <p>事務所の端末では、普段は<strong>ログイン操作は不要</strong>です。URL（<code>/haisha</code>）を開けばそのまま予約が見られます。</p>
+  <div class="callout callout--ok">
+    <p class="callout__label">✓ ふだんの利用</p>
+    <p>パスワードを聞かれる場合は、画面上部に出る案内に従って「ログインする」を押してください。それでも入れない場合は電波状況をご確認のうえ、管理者に連絡してください。</p>
+  </div>
+  <p>予約内容の編集・削除など一部の操作だけ、管理者のロック解除が必要です（<a href="#admin">後述</a>）。</p>
+  <div class="callout callout--ok">
+    <p class="callout__label">✓ 新しい版は自動で反映</p>
+    <p>画面を開きっぱなしにしていても、プログラムが更新されると<strong>数分以内に自動で再読み込み</strong>されます（入力中は終わるまで待ちます）。「変更したはずの表示が出ない」ときは、一度ページを再読み込み（Ctrl+F5）してください。</p>
+  </div>
+</section>
+
+<section id="screens">
+  <h2><span class="num">02</span>3つの画面</h2>
+  <p>画面上部のタブで切り替えます。</p>
+  <div class="tabs-demo">
+    <span class="active">日別の配車ボード</span>
+    <span>全体配車ボード</span>
+    <span>予約一覧</span>
+  </div>
+  <div class="ref-wrap">
+  <table class="ref">
+    <tr><th>画面</th><th>使う場面</th></tr>
+    <tr><td><strong>日別の配車ボード</strong></td><td>ふだんの操作の中心。1日分を表示し、担当者割り当て・チェック・印刷はここで行う。予約時刻から1時間経つと自動的に表から消える（「経過分も表示」で戻せる）。左端の「№」は上からの通し番号</td></tr>
+    <tr><td><strong>全体配車ボード</strong></td><td>1日分を横長の一覧表でまとめて見たいとき。列・操作は日別ボードと同じ。№・時刻・状態・担当者は左に、「済」は右端に固定され、横にスクロールしても見える</td></tr>
+    <tr><td><strong>予約一覧</strong></td><td>CSVの取り込み、日付をまたいだ検索はここで行う。「最終取込」の時刻もここに大きく出る</td></tr>
+  </table>
+  </div>
+  <div class="callout callout--ok">
+    <p class="callout__label">✓ 自動更新</p>
+    <p>日別ボード・全体配車ボードは、開いたままにしていても<strong>30秒ごとに自動で最新化</strong>されます。他の人がCSVを取り込んだり担当者を割り当てたりした内容もすぐに反映されます（担当者・状態・チェックを選んでいる最中の20秒間は、選択が消えないよう更新を待ちます）。</p>
+  </div>
+  <h3>文字サイズ</h3>
+  <p>ページの一番下の「文字サイズ」で、<strong>小・標準・大・特大</strong>を切り替えられます。「小」は1日分をできるだけスクロールせずに見たいとき、「大」「特大」は大きな画面を離れて見るときに使います。選んだ大きさは端末ごとに覚えられます。</p>
+</section>
+
+<section id="check">
+  <h2><span class="num">03</span>毎日の予約チェックと「全て確認済み」</h2>
+  <p>予約の確認は、<strong>日勤（夕方・引き継ぐ前）→ 遅番（業務終了後）</strong>の順に、<strong>それぞれ紙の予約表と配車ボードをWチェックして、全予約の「済」にチェックを入れ、確認した人の名前を選んでサイン</strong>します。チェックの漏れを防ぐため、終わるまで画面の一番上に警告が出続けます。<strong>日勤のサインは必須</strong>で、日勤が完了していないと、遅番（夜勤）も完了になりません。<strong>夕方18時から、画面の一番上の確認は「明日」の予約の分</strong>に切り替わるので、0時を待たずに確認できます（0時を過ぎると「本日」の表示に変わり、記録はそのまま引き継がれます）。</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 440" role="img" aria-labelledby="dg-t dg-d">
+      <title id="dg-t">毎日の予約チェックの流れ</title>
+      <desc id="dg-d">日勤が夕方・引き継ぐ前に紙と配車ボードをWチェックして、日勤（夕方）の確認済みにチェックし名前を選ぶ。その後、遅番が業務終了後に二人でWチェックし、紙と配車ボードにレ点を入れ、全て確認済みにチェックして電話番ではない側の名前を選ぶと完了。日勤のサインが無いと遅番も完了にならない。朝7時までに終わらないと強い警告が出る。</desc>
+
+      <!-- 時間の帯 -->
+      <text class="d-m" x="210" y="20" font-size="13" text-anchor="middle">乗務終了</text>
+      <text class="d-m" x="520" y="20" font-size="13" text-anchor="middle">朝7:00</text>
+      <rect class="d-seg-a" x="20" y="30" width="190" height="34" rx="8"/>
+      <rect class="d-seg-b" x="210" y="30" width="310" height="34"/>
+      <rect class="d-seg-c" x="520" y="30" width="180" height="34" rx="8"/>
+      <text class="d-m" x="115" y="52" font-size="13" text-anchor="middle">乗務中</text>
+      <text class="d-warn-ink" x="365" y="52" font-size="14" font-weight="700" text-anchor="middle">乗務終了後〜朝7時</text>
+      <text class="d-red-ink" x="610" y="52" font-size="13" font-weight="700" text-anchor="middle">未完了なら強い警告</text>
+      <line x1="210" y1="26" x2="210" y2="70" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="3 3"/>
+      <line x1="520" y1="26" x2="520" y2="70" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="3 3"/>
+
+      <!-- ① -->
+      <rect class="d-card" x="20" y="95" width="200" height="190" rx="12"/>
+      <circle class="d-num" cx="44" cy="120" r="14"/><text class="d-numt" x="44" y="125" font-size="14" text-anchor="middle">1</text>
+      <text class="d-t" x="66" y="125" font-size="15" font-weight="700">日勤（夕方）</text>
+      <text class="d-t" x="36" y="152" font-size="13">引き継ぐ前に、紙と</text>
+      <text class="d-t" x="36" y="170" font-size="13">配車ボードをWチェック。</text>
+      <text class="d-t" x="36" y="188" font-size="13">全予約の「済」に✓して、</text>
+      <text class="d-t" x="36" y="206" font-size="13">名前を選んでサイン</text>
+      <rect class="d-red" x="34" y="222" width="172" height="46" rx="8"/>
+      <text class="d-red-ink" x="120" y="242" font-size="12" font-weight="700" text-anchor="middle">日勤のサインは必須</text>
+      <text class="d-red-ink" x="120" y="259" font-size="12" font-weight="700" text-anchor="middle">（無いと遅番も未完了）</text>
+
+      <!-- → -->
+      <path class="d-arrow" d="M224 190 H252"/><path class="d-arrowhead" d="M262 190 L250 183 L250 197 Z"/>
+
+      <!-- ② -->
+      <rect class="d-card" x="262" y="95" width="200" height="190" rx="12"/>
+      <circle class="d-num" cx="286" cy="120" r="14"/><text class="d-numt" x="286" y="125" font-size="14" text-anchor="middle">2</text>
+      <text class="d-t" x="308" y="125" font-size="15" font-weight="700">遅番・全て確認済み</text>
+      <text class="d-t" x="278" y="152" font-size="13">業務終了後、二人で</text>
+      <text class="d-t" x="278" y="170" font-size="13">Wチェック。紙と配車</text>
+      <text class="d-t" x="278" y="188" font-size="13">ボードにレ点を入れ、</text>
+      <text class="d-t" x="278" y="206" font-size="13">電話番ではない側を選ぶ</text>
+      <rect class="d-red" x="276" y="222" width="172" height="46" rx="8"/>
+      <text class="d-red-ink" x="362" y="242" font-size="12" font-weight="700" text-anchor="middle">日勤のサインと</text>
+      <text class="d-red-ink" x="362" y="259" font-size="12" font-weight="700" text-anchor="middle">全ての「済」が必要</text>
+
+      <!-- → -->
+      <path class="d-arrow" d="M466 190 H494"/><path class="d-arrowhead" d="M504 190 L492 183 L492 197 Z"/>
+
+      <!-- ③ -->
+      <rect class="d-card" x="504" y="95" width="196" height="190" rx="12"/>
+      <circle class="d-num" cx="528" cy="120" r="14"/><text class="d-numt" x="528" y="125" font-size="14" text-anchor="middle">3</text>
+      <text class="d-t" x="550" y="125" font-size="15" font-weight="700">完了</text>
+      <text class="d-t" x="520" y="158" font-size="13">警告が消えて緑に。</text>
+      <text class="d-t" x="520" y="178" font-size="13">日勤と遅番の名前と</text>
+      <text class="d-t" x="520" y="198" font-size="13">時刻が記録される</text>
+      <rect class="d-ok" x="518" y="222" width="168" height="46" rx="8"/>
+      <text class="d-ok-ink" x="602" y="242" font-size="12" font-weight="700" text-anchor="middle">✓ 本日の予約は</text>
+      <text class="d-ok-ink" x="602" y="259" font-size="12" font-weight="700" text-anchor="middle">全て確認済み</text>
+
+      <!-- 7時を過ぎたら -->
+      <rect class="d-red-dark" x="20" y="320" width="680" height="96" rx="12"/>
+      <text class="d-red-ink" x="40" y="348" font-size="15" font-weight="900">🚨 朝7時を過ぎても終わっていないと</text>
+      <text class="d-red-ink" x="40" y="372" font-size="13" font-weight="700">「朝7時を過ぎても、本日の予約確認が終わっていません　再チェックしてください」</text>
+      <text class="d-t" x="40" y="396" font-size="13">太い赤枠・大きい文字になります。①の「済」の確認からやり直してください。</text>
+      <!-- 戻る矢印 -->
+      <path class="d-loop" d="M110 320 V302 H60 V288"/><path class="d-loophead" d="M60 285 L53 298 L67 298 Z"/>
+    </svg>
+    <figcaption>予約チェックの流れ。①日勤が夕方にサイン → ②遅番が業務終了後にWチェックしてサイン → ③朝7時までに緑にします。</figcaption>
+  </figure>
+
+  <ol class="steps">
+    <li><div><p class="step-title">日勤：夕方・引き継ぐ前に、Wチェックして「日勤（夕方）の確認済み」</p><p>紙の予約表と配車ボードをWチェックし、日別の配車ボードで全予約の「済」にチェックを入れます（キャンセルは対象外）。全部入ったら、画面の一番上の<strong>「日勤（夕方）の確認済み」</strong>にチェックを入れ、確認した日勤の人の名前を選びます。<strong>全部の「済」が入るまでは押せません</strong>（グレーのまま）。</p></div></li>
+    <li><div><p class="step-title">遅番：業務終了後に、二人でWチェックして「全て確認済み」</p><p>CSVを0時以降に出力し、最新（ダウンロード時間）を確認したうえで、<strong>二人</strong>でWチェックします。完了した分は、紙の予約表と配車ボードの<strong>両方</strong>にレ点を入れます（未完了の予約は、配車ボードにはレ点せず、紙のみ）。全ての「済」が入ったら、画面の一番上の<strong>「全て確認済み」</strong>にチェックを入れ、場面は「Wチェックが完了した」のまま、<strong>電話番ではない側</strong>の人の名前を選びます。<strong>日勤のサインが無いと押せません</strong>。</p></div></li>
+    <li><div><p class="step-title">やむを得ない場合：紙のみチェック → 翌朝の日勤が完了する</p><p>遅番が二人でWチェックできないとき（相方が急病・事故・緊急の呼び出しなどで立ち会えない／乗務の終了時間が大きく違う／遅番が1名しかいない／DS・配車ボードの障害）は、<strong>紙の予約表のみ</strong>にチェックします（配車ボードにはレ点しません）。<strong>翌朝、日勤が全て完了</strong>して「全て確認済み」にチェックし、場面「日勤が朝にチェックした」で<strong>日勤の人の名前</strong>を選びます（朝7時以降の本日分は、最初からこの場面が選ばれています）。</p></div></li>
+    <li><div><p class="step-title">サインする人と、選ぶ項目</p>
+      <table class="ref"><tr><th>段階</th><th>サインする人</th><th>画面で選ぶ項目</th></tr>
+      <tr><td><strong>日勤</strong>（夕方・引き継ぐ前）</td><td>確認した日勤の人</td><td>「日勤（夕方）の確認済み」</td></tr>
+      <tr><td><strong>遅番</strong>（業務終了後、二人でWチェック完了後）</td><td><strong>電話番ではない側</strong>の人</td><td>「全て確認済み」→「Wチェックが完了した」</td></tr>
+      <tr><td><strong>やむを得ない場合</strong>（紙のみチェック）→<strong>翌朝の日勤</strong></td><td>日勤の人</td><td>「全て確認済み」→「日勤が朝にチェックした」</td></tr></table>
+      <p>サインできるのは、<strong>小林隼人・渡部晃・堀内洋伯・荒智章・目黒圭吾・中橋常郎・菅原元輝・小林結</strong>の8名だけです（日勤の候補は、確認する日の前日に日勤で出ている人。小林結さんはシフトに無いため、平日（土・日・祝日を除く）だけ日勤の候補に出ます）。サインした人は、責任をもって対応してください。選ばずには確定できません。</p></div></li>
+    <li><div><p class="step-title">緑の表示に変わったら完了</p><p>「✓ 本日の予約は全て確認済み　日勤（夕方）：○○（18:20）　確認：△△（01:17）」と出ます。誰がいつ確認したかが記録されます。押し間違えたときは、チェックを外すと取り消せます（確認のメッセージが出ます）。この緑の表示は、<strong>朝8時になると自動で消えます</strong>（記録は残ります）。</p></div></li>
+  </ol>
+
+  <div class="callout callout--danger">
+    <p class="callout__label">⚠ 日勤のサインは必須</p>
+    <p>日勤（夕方）の確認済みが入っていないと、遅番の「全て確認済み」は押せず、画面も緑（完了）になりません。「日勤（夕方）の確認済みが入っていません。日勤が完了しないと、遅番も完了になりません」と注意が出ます。</p>
+  </div>
+
+  <h3>警告の出方</h3>
+  <div class="ref-wrap">
+  <table class="ref">
+    <tr><th>画面の表示</th><th>意味</th><th>すること</th></tr>
+    <tr><td><span class="badge b-red">⚠ 予約確認が終わっていません</span></td><td>朝7時前。未チェックの予約が残っている</td><td>「済」を入れていく</td></tr>
+    <tr><td><span class="badge b-red">🚨 朝7時を過ぎても…</span></td><td>7時を過ぎても未完了。太い赤枠で大きく出る</td><td>すぐ再チェックして、最後に「全て確認済み」を入れる</td></tr>
+    <tr><td><span class="badge b-red">「全て確認済み」のあとに未チェックが…</span></td><td>確認のあとに新しい予約が入った等で、未チェックが出た。記録は無効になる</td><td>その予約を確認して「済」を入れ、もう一度「全て確認済み」を押す</td></tr>
+    <tr><td><span class="badge b-red">日勤（夕方）の確認済みが入っていません</span></td><td>全予約チェック済みだが、日勤のサインが無い。遅番も完了にならない</td><td>日勤の人が「日勤（夕方）の確認済み」にチェックして名前を選ぶ</td></tr>
+    <tr><td><span class="badge b-ok">✓ 全て確認済み</span></td><td>全予約チェック済みで、日勤・遅番の確認者の記録もある</td><td>何もしなくてよい（朝8時になると表示は消える）</td></tr>
+  </table>
+  </div>
+  <div class="callout callout--ok">
+    <p class="callout__label">✓ 見落とし防止</p>
+    <p>警告は日別・全体・予約一覧のどのタブでも一番上に出ます。ブラウザのタブ名にも「⚠未確認」が付くので、別のタブを見ていても気付けます。「未チェックを確認する」ボタンを押すと、今日の日別ボードが開き、時間がたって自動で隠れた予約も表示されます。メールやスマホへのプッシュ通知はしていません。</p>
+  </div>
+  <div class="callout callout--warn">
+    <p class="callout__label">ご注意</p>
+    <p>日付が変わる（0時）と、対象が新しい日に切り替わり、その日の予約が未チェックの状態から始まります。日中にDSから新しい予約が入ると、その予約は未チェックなので、再び赤になります。</p>
+  </div>
+</section>
+
+<section id="alerts">
+  <h2><span class="num">04</span>画面上部の警告・最終取込</h2>
+  <p>不具合や取り込みの滞りに気付けるよう、画面の上に警告が出ます。画面は塞がず、直ると自動で消えます。</p>
+  <div class="ref-wrap">
+  <table class="ref">
+    <tr><th>警告</th><th>意味・対応</th></tr>
+    <tr><td>最新の予約を読み込めていません（最後に更新できたのは 10:36）</td><td>通信が途切れた、ログインが切れた、システム側（Supabase）の障害など。理由も一緒に出る。通信が戻れば自動で消える</td></tr>
+    <tr><td>画面の自動更新が止まっている可能性があります</td><td>3分以上更新されていないとき。ページを再読み込みする</td></tr>
+    <tr><td>CSVの取り込みから○時間以上たっています</td><td>日中（7〜23時）に、最後の取り込みから8時間以上たったとき。DSの最新のCSVを取り込む</td></tr>
+    <tr><td>新しいバージョンがあります</td><td>入力が終わると自動で再読み込みされる。今すぐなら再読み込みする</td></tr>
+  </table>
+  </div>
+  <h3>「最終取込」の表示</h3>
+  <p>「予約一覧」タブの上に、最後にCSVを取り込んだ<strong>日時</strong>が大きな白いバッジで出ます。横に「1時間23分前」のような経過時間、取り込んだ人と件数が並びます。<strong>8時間以上たつと赤くなります</strong>。「このデータは最新か」を一目で確かめられます。</p>
+</section>
+
+<section id="csv">
+  <h2><span class="num">05</span>CSVを取り込む</h2>
+  <div class="callout callout--danger">
+    <p class="callout__label">⚠ 必ず守ること</p>
+    <p>取り込むCSVは、<strong>DSからダウンロードしたファイルをそのまま</strong>使ってください。Excel等で開いて保存し直すと、登録日時の精度が落ち、複数台の予約が1件にまとまって消えてしまう事故につながります。内容の確認だけなら開いても構いません。</p>
+  </div>
+  <ol class="steps">
+    <li><div><p class="step-title">「予約一覧」タブを開く</p><p>右上の「CSVを取り込む」を押します。</p></div></li>
+    <li><div><p class="step-title">ファイルを選ぶ、または貼り付ける</p><p>「CSVファイルを選ぶ」でファイルを指定するか、内容をそのまま貼り付けます。</p></div></li>
+    <li><div><p class="step-title">「内容を確認する」を押す</p><p>まだ保存はされません。新規・更新・時刻の変更・キャンセルの件数と、何がどうなるかがここで表示されます。</p></div></li>
+    <li><div><p class="step-title">赤枠の警告が出ていないか確認する</p><p>ファイル違いや登録日時の欠落を検知すると赤枠で警告が出ます。心当たりがなければ、取り込みを中止してファイルを確認してください。</p></div></li>
+    <li><div><p class="step-title">「取り込む」を押して確定</p><p>ここで初めてデータベースに反映されます。</p></div></li>
+  </ol>
+  <h3>取り込むと予約の状態がこう変わる</h3>
+  <div class="ref-wrap">
+  <table class="ref">
+    <tr><th>DS側で起きたこと</th><th>アプリでの扱い</th></tr>
+    <tr><td>予約の中身（行先・場所・メモ等）が変わった</td><td>その予約が<span class="badge b-changed">変更あり</span>になる（通常のものだけ。キャンセル・貸切・ジャンボなど、人が付けた状態はそのまま）</td></tr>
+    <tr><td>予約の<strong>時刻</strong>が変わった（同じ電話番号・同じお客様名の新しい予約が入った）</td><td>元の予約は<span class="badge b-cancel">キャンセル</span>になり「→ 07:50に変更」が付く。変更後の新しい予約が<span class="badge b-changed">変更あり</span>で入り「← 07:45から変更」が付く</td></tr>
+    <tr><td>1時間以上先の予約が、CSVから消えた</td><td><span class="badge b-cancel">キャンセル</span>になる（直前の予約が消えるのは「配車が終わった」ためなので変えない）</td></tr>
+    <tr><td>内容が同じ</td><td>「変更なし」。何もしない</td></tr>
+  </table>
+  </div>
+  <div class="callout callout--ok">
+    <p class="callout__label">✓ 消えないもの</p>
+    <p>担当者・チェック・申し送りは、CSVを何度取り込んでも消えません。「変更あり」の確認が済んだら、状態の欄で「通常」に戻してください（戻したあとは、内容がまた変わるまで変更ありには戻りません）。</p>
+  </div>
+</section>
+
+<section id="assign">
+  <h2><span class="num">06</span>担当者・状態・チェック</h2>
+  <p>日別の配車ボード・全体配車ボードとも、行の中の欄を選ぶだけで<strong>その場で自動保存</strong>されます。保存ボタンはありません。これらは誰でも操作できます。</p>
+  <div class="ref-wrap">
+  <table class="ref">
+    <tr><th>欄</th><th>できること</th></tr>
+    <tr><td>状態</td><td>5つを手で切り替える：通常／変更あり／キャンセル／<strong>貸切</strong>／<strong>ジャンボ</strong>。貸切は、通常のタクシー呼び出しではなく貸切の予約のとき。ジャンボは、ジャンボタクシーの予約のとき</td></tr>
+    <tr><td>担当者</td><td>乗務割の対象になっている人から選ぶ。決まっていないと「— 未割当 —」がオレンジで表示される</td></tr>
+    <tr><td>済</td><td>確認が済んだ印としてチェックを入れる（毎日の確認は<a href="#check">03</a>）</td></tr>
+    <tr><td>編集（✎）</td><td>予約の内容（迎車場所・メモ・電話番号など）を直接修正する。<strong>管理者のロックを解除したときだけ</strong>表示される（<a href="#admin">後述</a>）</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="colors">
+  <h2><span class="num">07</span>行の色と表示の見方</h2>
+  <p>行全体の色は<strong>「状態」だけ</strong>で決まります。行の左端の太い縦線も同じ色で、離れて見ても状態が分かります。</p>
+  <div class="ref-wrap">
+  <table class="ref">
+    <tr><th>表示</th><th>意味</th></tr>
+    <tr><td><span class="bar" style="background:#0e7490"></span><span class="badge b-new">新着</span></td><td>引き継ぎ以降にDSへ登録された予約（行は水色）。状態を変えると、その状態の色が優先され、縦線が二重になる</td></tr>
+    <tr><td><span class="bar" style="background:#d97706"></span><span class="badge b-changed">変更あり</span></td><td>予約の時刻や内容が変わった予約（行は黄）。時刻変更の新しい予約には「← 07:45から変更」が付き、押すと元の予約の日が開く</td></tr>
+    <tr><td><span class="bar" style="background:#db2777"></span><span class="badge b-charter">貸切</span></td><td>貸切の予約（行はピンク）</td></tr>
+    <tr><td><span class="bar" style="background:#16a34a"></span><span class="badge b-jumbo">ジャンボ</span></td><td>ジャンボタクシーの予約（行は緑）</td></tr>
+    <tr><td><span class="bar" style="background:#9ca3af"></span><span class="badge b-cancel">キャンセル</span></td><td>取り消された予約（行は灰色で打ち消し線）。時刻変更の元の予約には「→ 07:50に変更」が付き、押すと変更後の予約の日が開く</td></tr>
+    <tr><td><span class="badge b-none">— 未割当 —</span></td><td>担当者がまだ決まっていない予約。<strong>担当者の欄だけ</strong>オレンジ。画面上部の「未割当 17件」も同じオレンジ。キャンセル行の未割当だけは灰色</td></tr>
+  </table>
+  </div>
+  <p>担当者は人ごとに色が決まっていて、乗務割の名前と同じ色で表示されます（全員が別の色です）。</p>
+</section>
+
+<section id="duty">
+  <h2><span class="num">08</span>乗務割</h2>
+  <p>日別・全体ボードの上の「乗務割」（クリックで開く）に、その日の乗務員が区分ごとに並びます。<strong>/shift（月次シフト）の内容が自動で反映</strong>されます。</p>
+  <div class="ref-wrap">
+  <table class="ref">
+    <tr><th>区分</th><th>どう決まるか</th></tr>
+    <tr><td>普通・遅番</td><td>シフトの①・③の人。急な変更は下の「＋追加」「×」で、その日だけ直せる</td></tr>
+    <tr><td>スクール・スクール原町・乗合・貸切</td><td>シフトのコード（①S・①H・SH・SHS・S・貸切）の人</td></tr>
+    <tr><td>交流</td><td>シフトに対応するコードがなく、「＋追加」で手で入れる</td></tr>
+  </table>
+  </div>
+  <h3>急なシフト変更への対応（その日だけ）</h3>
+  <ul class="kicker-list">
+    <li>名前の横の<strong>×</strong>を押すと、その人をその日の乗務割から外せます（確認メッセージが出ます）。<strong>/shiftのシフト自体は変わりません</strong>。</li>
+    <li>「＋追加」で、その日だけ別の人を入れられます。外した人は「（除外中・戻す）」と出て、選び直すと元に戻ります。</li>
+    <li>基本の担当を変えたいときは、「シフトを編集」から /shift で直します。</li>
+  </ul>
+  <p>名前が<strong>赤</strong>の人は、まだ出勤の打刻がありません。<strong>薄い</strong>人は、すでに退勤しています。</p>
+</section>
+
+<section id="handover">
+  <h2><span class="num">09</span>引き継ぎ・申し送り</h2>
+  <p>日別の配車ボード上部の「前回の引き継ぎ」から記録します。ここで押した時刻が「新着」の基準になり、以降に入った予約だけが新着として表示されます。</p>
+  <ul class="kicker-list">
+    <li><strong>押し忘れても大丈夫</strong>：毎日<strong>19時</strong>に自動で基準が立ち上がり、翌朝10時まで（19時から15時間）、19時以降に入った予約が新着になります。</li>
+    <li>手動で押した記録も、<strong>15時間たつと古くなり</strong>、新着の判定には使われなくなります（「期限切れのため、今は新着の判定をしていません」と出ます）。</li>
+    <li>申し送り内容だけを書き換えたいとき（新着の基準は動かしたくないとき）は、「✎ 申し送りを書く」を使います。</li>
+  </ul>
+</section>
+
+<section id="history">
+  <h2><span class="num">10</span>記録を確認・元に戻す</h2>
+  <div class="ref-wrap">
+  <table class="ref">
+    <tr><th>パネル</th><th>できること</th></tr>
+    <tr><td>変更履歴</td><td>予約の追加・変更・削除を新しい順に表示。項目ごとの変更前後の値も見える。「元に戻す」でその変更だけを取り消せる（「変更あり」の予約が何がどう変わったかは、ここで確認できる）</td></tr>
+    <tr><td>過去履歴（予約一覧内）</td><td>削除された予約を、お客様名の読み順で確認できる（この画面からの復元はできない）</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="admin">
+  <h2><span class="num">11</span>管理者だけの操作</h2>
+  <p><code>/haisha?admin</code> で開くと、画面下部に「管理者ロック解除」が出ます。押して管理者アカウントでログインすると使えます（普段のスタッフ画面には出ません）。</p>
+  <ul class="kicker-list">
+    <li><strong>予約の編集（✎）・＋新規予約</strong> — ロック中は、✎の列と「＋新規予約」が隠れ、予約一覧の行をクリックしても編集は開きません</li>
+    <li><strong>予約の削除</strong></li>
+    <li><strong>「配車に関わる人の設定」</strong> — 担当者の選択肢・乗務割から外す人（事務職など）をチェックで管理する</li>
+  </ul>
+  <div class="callout callout--ok">
+    <p class="callout__label">✓ ロック中でもできること</p>
+    <p>担当者・状態・「済」の操作、乗務割の追加・除外（×）、毎日の「全て確認済み」は、ロック中でも誰でもできます。予約の中身を書き換える操作だけが管理者限定です。</p>
+  </div>
+  <div class="callout callout--warn">
+    <p class="callout__label">ご参考</p>
+    <p><code>?admin</code>は画面の出し分けだけで、本当のアクセス制限ではありません。実際の権限はログインで決まります。</p>
+  </div>
+</section>
+
+<section id="print">
+  <h2><span class="num">12</span>印刷する</h2>
+  <p>日別の配車ボード・全体配車ボードとも、右上の「印刷」から出力できます。操作用のボタンやナビゲーション、警告バナーは印刷時に自動的に隠れます。</p>
+</section>
+
+<section id="backup">
+  <h2><span class="num">13</span>もしもの備え：毎朝の紙の予備</h2>
+  <p>システム（Supabase）側の障害で、一時的にアプリが使えなくなることがあります（2026年8月に実際に発生）。その間も配車業務を止めないよう、毎朝、紙の予備を用意しておきます。</p>
+  <ol class="steps">
+    <li><div><p class="step-title">始業時に「日別の配車ボード」を開く</p><p>「経過分も表示」を押して、その日の予約が全件見えている状態にします。</p></div></li>
+    <li><div><p class="step-title">右上の「印刷」を押す</p><p>その日の配車表を紙に出力しておきます。</p></div></li>
+    <li><div><p class="step-title">アプリが使えなくなったら、この紙を見ながら電話でやり取りする</p><p>システムが直るまでの間、担当者・状態は口頭・電話で確認して配車を進めます。</p></div></li>
+    <li><div><p class="step-title">復旧したら、紙の間に入った分をアプリに反映する</p><p>紙の予備は「その日の朝時点の記録」なので、障害の間に決まった変更（新規予約・担当変更等）は復旧後にアプリへ入れ直してください。</p></div></li>
+  </ol>
+  <div class="callout callout--ok">
+    <p class="callout__label">✓ どんな時に見るか</p>
+    <p>画面が真っ白・エラーが出て動かない・「システム側で一時的な問題が発生している可能性があります」という案内が出た、といった場面で使います。ふだんは特に何もしなくて構いません。</p>
+  </div>
+</section>
+
+<section id="trouble">
+  <h2><span class="num">14</span>困ったときは</h2>
+  <div class="ref-wrap">
+  <table class="ref">
+    <tr><th>症状</th><th>対応</th></tr>
+    <tr><td>予約が0件のまま動かない</td><td>ログインが切れている可能性。画面上部の案内から再ログインする</td></tr>
+    <tr><td>取り込みで赤い警告が出た</td><td>そのまま取り込まず、ファイルがDS直接ダウンロードのものか確認する</td></tr>
+    <tr><td>入れたはずの予約が減っている</td><td>複数台の予約が1件にまとまっていないか確認し、必要なら手動で追加する（管理者に相談）</td></tr>
+    <tr><td>✎（編集）や「＋新規予約」が出ない</td><td>管理者のロック中のため。必要なら <code>/haisha?admin</code> で開き「管理者ロック解除」をする</td></tr>
+    <tr><td>赤い警告「予約確認が終わっていません」が消えない</td><td>未チェックの予約が残っている。「未チェックを確認する」を押して、隠れた分も含めて「済」を入れる。確認後に新しい予約が入った場合は、もう一度「全て確認済み」を押す</td></tr>
+    <tr><td>「全て確認済み」が押せない</td><td>まだ「済」が入っていない予約がある（キャンセル以外すべて必要）。または、日勤（夕方）の確認済みが入っていない（日勤のサインは必須）</td></tr>
+    <tr><td>確認者の候補に出てほしい人がいない</td><td>サインできるのは指定の8名だけ。そのうえで、日勤の人は前日（朝の場合は当日）の日勤のシフト、遅番の人は前日のシフト③と電話番の印から決まる。シフトか、乗務割の「遅番」の追加を確認する</td></tr>
+    <tr><td>直したはずの表示が古いまま</td><td>画面を再読み込み（Ctrl+F5）する。数分で自動でも反映される</td></tr>
+    <tr><td>「システム側で一時的な問題が発生している可能性があります」と出た</td><td>端末の設定・電波状況の問題ではありません。少し時間をおいてからもう一度お試しください。直らない場合は前項の紙の予備に切り替え、管理者に連絡してください</td></tr>
+    <tr><td>それでも解決しない</td><td>電波状況を確認のうえ、もう一度お試しください</td></tr>
+  </table>
+  </div>
+</section>
+
+<p class="footer-note">富士タクシー社内用ドキュメント（2026年10月15日版）。実証実験期間中の運用を前提としています。改善のご要望はいつでもお知らせください。</p>
+
+</body>
+</html>

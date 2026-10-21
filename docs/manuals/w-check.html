@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wチェックの運用</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root { --ink:#1a1a1a; --muted:#555; --line:#222; --soft:#f1f1f1; --soft2:#e4e4e4; --font:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Meiryo",sans-serif; }
+* { box-sizing: border-box; }
+html { background:#e9e8e3; }
+body { margin:0; color:var(--ink); font-family:var(--font); line-height:1.5; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.sheet { width:210mm; min-height:297mm; margin:12px auto 40px; background:#fff; padding:4mm 11mm 2mm; box-shadow:0 2px 18px rgba(0,0,0,.18); }
+
+header { border-bottom:3px solid var(--line); padding-bottom:3px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:flex-end; gap:10px; }
+.role { display:inline-block; font-size:10pt; font-weight:900; color:#fff; background:var(--line); border-radius:6px; padding:1px 12px; letter-spacing:.08em; margin:0 0 3px; }
+h1 { margin:0; font-size:20pt; line-height:1.2; font-weight:900; white-space:nowrap; }
+.sub { font-size:11pt; font-weight:700; margin:2px 0 0; }
+.when { font-size:8.5pt; color:var(--muted); text-align:right; white-space:nowrap; }
+
+.tag { display:inline-block; font-size:8.5pt; font-weight:700; border:1.5px solid var(--line); border-radius:999px; padding:0 8px; margin-right:4px; background:var(--soft); vertical-align:1px; }
+.tag.paper { background:#fff; border-style:dashed; }
+
+h2.sec { margin:3px 0 2px; font-size:12.5pt; font-weight:900; display:flex; align-items:center; gap:7px; }
+h2.sec .n { width:28px; height:28px; border-radius:50%; background:var(--line); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:13pt; }
+
+/* 1 Wチェックとは */
+.wc { display:grid; grid-template-columns:1fr 170px 1fr; gap:6px; align-items:stretch; }
+.person { border:2px solid var(--line); border-radius:10px; padding:0 8px; display:flex; flex-direction:column; justify-content:center; text-align:center; background:var(--soft); }
+.person .ico { font-size:17pt; line-height:1; }
+.person b { display:block; font-size:14pt; }
+.person small { font-size:9pt; color:var(--muted); }
+.mid { border:2px dashed var(--line); border-radius:10px; padding:2px 6px; text-align:center; font-size:10.5pt; display:flex; flex-direction:column; justify-content:center; }
+.mid b { font-size:12pt; display:block; }
+.mid .arrows { font-size:14pt; font-weight:900; line-height:1; }
+.wc-note { margin:2px 0 0; font-size:10pt; font-weight:700; text-align:center; }
+
+/* 2 ふだんの流れ */
+.flow { display:grid; grid-template-columns:1fr 20px 1fr 20px 1fr; align-items:stretch; }
+.col { border:2px solid var(--line); border-radius:10px; overflow:hidden; background:#fff; }
+.col .head { background:var(--line); color:#fff; padding:4px 9px; font-weight:900; font-size:12pt; line-height:1.3; }
+.col .head small { display:block; font-weight:500; font-size:8.5pt; opacity:.9; }
+.col .body { padding:3px 9px 4px; font-size:9.5pt; line-height:1.45; }
+.col .body p { margin:0 0 4px; }
+.col .body .big { font-weight:900; font-size:11pt; }
+.flow .ar { display:flex; align-items:center; justify-content:center; font-weight:900; font-size:15pt; }
+.ok { display:inline-block; border:1.5px solid var(--line); border-radius:4px; padding:0 6px; font-weight:900; background:var(--soft); }
+
+/* 3 できないとき */
+.two { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+.card { border:2px solid var(--line); border-radius:10px; padding:5px 10px 7px; background:#fff; }
+.card h3 { margin:0 0 4px; font-size:11pt; font-weight:900; border-bottom:1.5px solid var(--line); padding-bottom:2px; line-height:1.35; }
+.step { display:grid; grid-template-columns:22px 1fr; gap:7px; align-items:start; font-size:10pt; line-height:1.45; margin:3px 0; }
+.step .c { width:21px; height:21px; border-radius:50%; background:var(--line); color:#fff; font-weight:900; font-size:9.5pt; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+.dn { text-align:center; font-weight:900; font-size:10pt; line-height:1; margin:1px 0; }
+.who { display:grid; grid-template-columns:1fr; gap:2px; margin-top:3px; }
+.who div { border:1.5px solid var(--line); border-radius:8px; padding:4px 9px; font-size:10pt; background:var(--soft); line-height:1.45; }
+.who div.dn { border:none; background:none; padding:0; border-radius:0; font-size:11pt; line-height:1; }
+.who div.late { background:#fff; border-style:dashed; }
+.who b { display:block; font-size:11pt; margin-bottom:2px; }
+
+/* 4 配車ボード */
+.board { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+.bx { border:2px solid var(--line); border-radius:10px; padding:4px 11px 6px; font-size:10pt; line-height:1.5; }
+.bx b.t { display:block; font-size:11.5pt; border-bottom:1.5px solid var(--line); margin-bottom:3px; padding-bottom:2px; }
+.bx.warn { border-style:dashed; background:var(--soft); }
+.bx ul { margin:0; padding-left:1.1em; }
+
+.principle { margin:0 0 4px; padding:2px 10px; border:2px solid var(--line); border-radius:8px; background:var(--soft2); font-size:11pt; text-align:center; }
+.principle b { font-size:11.5pt; }
+.done-cond { background:var(--line); color:#fff; border-color:var(--line); text-align:left; }
+.done-cond b { color:#fff; }
+.rule { margin-top:3px; border:3px solid var(--line); border-radius:10px; overflow:hidden; }
+.rule-h { background:var(--line); color:#fff; padding:4px 11px; font-weight:900; font-size:12pt; }
+.rule-b { padding:3px 11px 4px; font-size:9.5pt; line-height:1.45; }
+.foot { margin-top:2px; font-size:8pt; color:var(--muted); text-align:right; }
+
+@page { size:A4 portrait; margin:0; }
+@media print { html{background:#fff;} .sheet{margin:0; box-shadow:none; width:210mm; height:297mm; min-height:0; overflow:hidden;} }
+
+.same { border:2px solid var(--line); border-radius:10px; padding:4px 9px 5px; }
+.cases { display:flex; flex-wrap:wrap; align-items:center; gap:3px 7px; font-size:10pt; margin-bottom:4px; }
+.case { border:1.5px dashed var(--line); border-radius:999px; padding:1px 10px; font-weight:700; background:#fff; }
+.plus { font-size:9pt; color:var(--muted); }
+.eq { font-size:10.5pt; margin-left:auto; }
+.steps3 { display:grid; grid-template-columns:1fr 18px 1fr 18px 1fr; align-items:stretch; }
+.st { border:2px solid var(--line); border-radius:8px; overflow:hidden; background:#fff; }
+.st .sth { background:var(--soft2); padding:3px 8px; font-weight:900; font-size:11pt; line-height:1.3; }
+.st .sth small { display:block; font-weight:500; font-size:8.5pt; color:var(--muted); }
+.st .sth .c { display:inline-flex; width:19px; height:19px; border-radius:50%; background:var(--line); color:#fff; align-items:center; justify-content:center; font-size:9.5pt; margin-right:6px; vertical-align:1px; }
+.st .stb { padding:3px 8px 4px; font-size:9.5pt; line-height:1.45; }
+.st.done3 { border-width:3px; }
+.st.done3 .sth { background:var(--line); color:#fff; }
+.st.done3 .sth .c { background:#fff; color:var(--line); }
+.ar2 { display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13pt; }
+.csvband { display:flex; align-items:center; gap:10px; flex-wrap:nowrap; border:3px solid var(--line); border-radius:10px; padding:3px 10px; margin-bottom:3px; background:#fff; }
+.csvband .big { font-size:16pt; font-weight:900; line-height:1.25; background:var(--line); color:#fff; border-radius:6px; padding:0 10px; white-space:nowrap; }
+.csvband .small { font-size:9pt; font-weight:700; line-height:1.35; }
+.hl { font-size:12pt; font-weight:900; text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:2px; }
+.defn { margin-bottom:4px; }
+.defn-h { display:flex; justify-content:space-between; align-items:baseline; font-size:10.5pt; font-weight:900; background:var(--soft2); border:1.5px solid var(--line); border-radius:6px; padding:1px 9px; }
+.defn ul { margin:2px 0 0; padding-left:1.3em; font-size:9.5pt; line-height:1.38; }
+.defn-t { font-size:9pt; font-weight:500; }
+.mx { width:100%; border-collapse:separate; border-spacing:0; border:2px solid var(--line); border-radius:10px; overflow:hidden; font-size:10pt; }
+.mx th { background:var(--soft2); padding:2px 8px; font-size:10pt; border-bottom:1.5px solid var(--line); }
+.mx th + th { border-left:1.5px solid var(--line); }
+.mx td { padding:3px 9px; line-height:1.4; vertical-align:middle; }
+.mx td + td { border-left:1.5px solid var(--line); }
+.mx tr + tr td { border-top:1.5px solid var(--line); }
+.mx .rh { width:34%; } .mx .rh small { display:block; font-size:8.5pt; color:var(--muted); }
+.mx .mk { display:inline-flex; width:20px; height:20px; align-items:center; justify-content:center; border-radius:50%; font-weight:900; margin-right:6px; border:2px solid var(--line); }
+.mx .yes .mk { border:none; font-size:15pt; width:22px; }
+.mx .no { background:var(--soft); } .mx .no .mk { background:var(--line); color:#fff; }
+.mxnote { margin:2px 0 0; font-size:9.5pt; font-weight:700; }
+.sg { width:100%; border-collapse:separate; border-spacing:0; border:2px solid var(--line); border-radius:10px; overflow:hidden; font-size:10pt; }
+.sg th { background:var(--soft2); padding:2px 8px; font-size:9.5pt; text-align:left; border-bottom:1.5px solid var(--line); }
+.sg th + th, .sg td + td { border-left:1.5px solid var(--line); }
+.sg td { padding:2px 9px; height:9mm; line-height:1.3; vertical-align:middle; }
+.sg tr + tr td { border-top:1.5px solid var(--line); }
+.sg .nm { width:34%; }
+.resp { margin:3px 0 0; padding:2px 10px; background:var(--line); color:#fff; border-radius:8px; font-weight:900; font-size:11pt; text-align:center; }
+/* 1 compact */
+.wc { grid-template-columns:1fr 150px 1fr; }
+.person { flex-direction:row; align-items:baseline; justify-content:center; gap:8px; padding:5px 8px; }
+.person b { display:inline; font-size:13pt; }
+.mid { padding:1px 6px; }
+.mid .arrows { display:inline; }
+.wc { grid-template-columns:1fr 150px 1fr; }
+.mid { padding:4px 6px; }
+.mid b { display:inline; }
+.flow { grid-template-columns:1fr 18px 1.55fr 18px 1fr; }
+.steps3 { grid-template-columns:1.5fr 16px 1fr 16px 1fr; }
+.mx td { padding:1px 9px; }
+.mx th { padding:1px 8px; }
+.sg td { height:8mm; padding:1px 9px; }
+.sg th { padding:1px 8px; }
+.col .body { padding:2px 9px 3px; }
+.rule-b { padding:2px 11px 3px; }
+.rule-h { padding:2px 11px; }
+body { line-height:1.4; }
+.flow { grid-template-columns:1fr 16px 1.3fr 16px 1fr; }
+.col .body .big { font-size:10.5pt; }
+.rule { margin-top:3px; border-width:2px; }
+.person { padding:2px 8px; }
+.mid { padding:2px 6px; }
+.wc-note { margin:1px 0 0; }
+h2.sec { margin:3px 0 2px; }
+.csvband { padding:1px 10px; }
+.mxnote { margin:1px 0 0; }
+.sg td { height:7.5mm; }
+.resp { margin-top:3px; font-size:10.5pt; padding:1px 10px; }
+.sheet { padding-top:3mm; }
+header { margin-bottom:3px; }
+.role { margin-bottom:1px; }
+.sub { margin:0; }
+.sg td { height:6.8mm; }
+.person b { font-size:12.5pt; }
+.principle { padding:1px 10px; margin-bottom:3px; }
+.same { padding:3px 9px 4px; }
+.mx td { padding:0 9px; }
+.mx .rh small { font-size:8pt; }
+.col .head { padding:2px 9px; }
+.st .stb { padding:2px 8px 3px; }
+.foot { margin-top:1px; }
+.sg td { height:auto; padding:2px 9px; }
+.sg .nm { width:36%; font-weight:700; }
+.sg td { padding:1px 8px; line-height:1.25; font-size:9.5pt; }
+.sg .nm { width:34%; }
+.sg td:first-child { width:36%; }
+.rule-b { font-size:9pt; }
+.person { padding:1px 8px; }
+.wc-note { font-size:9.5pt; }
+.flow .col .body p { margin-bottom:2px; }
+.warnnote { margin:3px 0 0; padding:1px 10px; border:2px solid var(--line); border-radius:8px; font-weight:900; font-size:10pt; text-align:center; }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <header>
+    <div>
+      <p class="role">事務所マニュアル</p>
+      <h1>Wチェック（ダブルチェック）の運用</h1>
+      <p class="sub">予約の確認を、2人で行うときの決まりごと</p>
+    </div>
+    <div class="when">毎日の予約確認（乗務終了後）に適用<br>日勤・遅番とも同じ</div>
+  </header>
+
+  <div class="csvband"><span class="big">CSVは「0時以降に出力」して</span><span class="small">最新（ダウンロード時間）を確認してから進める</span></div>
+
+  <h2 class="sec"><span class="n">1</span>Wチェックとは</h2>
+  <div class="wc">
+    <div class="person"><b>電話番</b><small>1人目</small></div>
+    <div class="mid"><span class="arrows">⇄</span> <b>声に出して確認</b></div>
+    <div class="person"><b>遅番の相方</b><small>2人目（電話番ではない方）</small></div>
+  </div>
+  <p class="wc-note">お互いに<span class="tag paper">予約表（紙）</span>と照合しながら、声に出して確認する</p>
+
+  <h2 class="sec"><span class="n">2</span>ふだんの流れ（理想）</h2>
+  <div class="flow">
+    <div class="col">
+      <div class="head">日勤<small>夕方・引き継ぐ前</small></div>
+      <div class="body">
+        <p class="big">Wチェックして、サイン</p>
+        <p><span class="tag paper">予約表（紙）</span>と<span class="tag">配車ボード</span>をWチェックしたのち、「全て確認」にチェックして、<b>確認した人の名前を選ぶ</b></p>
+      </div>
+    </div>
+    <div class="ar">▶</div>
+    <div class="col">
+      <div class="head">遅番<small>業務終了後</small></div>
+      <div class="body">
+        <p class="big">二人でWチェック</p>
+        <p><span class="hl">CSVは0時以降に出力</span>し、最新の確認後、二人でWチェック。完了後、<b>予約表と配車ボードの両方</b>にレ点を入れ、<b>電話番ではない側の名前</b>を選ぶ</p>
+      </div>
+    </div>
+    <div class="ar">▶</div>
+    <div class="col">
+      <div class="head">翌朝　日勤<small>やむを得ない場合</small></div>
+      <div class="body">
+        <p class="big">紙のみチェック → 朝に完了</p>
+        <p>Wチェックできないときは<b>紙のみ</b>チェック。翌朝、日勤が全て完了して、<b>日勤の名前</b>を選ぶ</p>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec"><span class="n">3</span>Wチェックができないとき</h2>
+  <p class="principle"><b>原則は、遅番でもWチェックまで確認する。</b>できないのは「やむを得ない場合」だけです。</p>
+  <div class="same">
+    <div class="defn">
+      <div class="defn-h"><span>「やむを得ない場合」とは、次のいずれかをいう</span><span class="defn-t">→ どれも<b>同じ対応</b>（下の流れ）</span></div>
+      <ul>
+        <li>相方が急病・事故・緊急の呼び出しなどで、<b>確認に立ち会えない</b></li>
+        <li>乗務の終了時間が大きく違い、<b>2人が同じ時間に確認できない</b></li>
+        <li>遅番が<b>1名しかいない</b>ため、2人でWチェックができない</li>
+        <li>システム（DS・配車ボード）の障害で、<b>確認の作業自体ができない</b></li>
+      </ul>
+    </div>
+    <div class="steps3">
+      <div class="st">
+        <div class="sth"><span class="c">1</span>1人目<small>先に帰庫した人／遅番の1人</small></div>
+        <div class="stb"><span class="hl">CSVは0時以降に出力</span>し、<b>最新であること（ダウンロード時間）を確認</b>したうえで、予約確認を進める。レ点は<span class="tag paper">予約表（紙）</span><b>だけ</b>。配車ボードは<b>空欄のまま</b></div>
+      </div>
+      <div class="ar2">▶</div>
+      <div class="st">
+        <div class="sth"><span class="c">2</span>2人目<small>あとに帰庫した人／翌朝の日勤の人</small></div>
+        <div class="stb">チェック漏れなどがないか<b>再確認</b>して、2人目のチェックをする</div>
+      </div>
+      <div class="ar2">▶</div>
+      <div class="st done3">
+        <div class="sth"><span class="c">✓</span>Wチェック完了</div>
+        <div class="stb">完了したら、<span class="tag paper">予約表</span>と<span class="tag">配車ボード</span>の<b>両方</b>にレ点</div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec"><span class="n">4</span>配車ボードにチェックするのは「Wチェックが完了した場合のみ」</h2>
+  <p class="principle done-cond"><b>Wチェックが全て完了しないと「全て確認済み」（＝完了）にならず</b>、警告が残ります。</p>
+  <table class="mx">
+    <tr><th></th><th>予約表（紙）</th><th>配車ボードの「済」</th></tr>
+    <tr class="ok-row"><td class="rh"><b>Wチェックが完了した予約</b><small>2人で確認できた</small></td><td class="yes"><span class="mk">○</span>レ点を入れる</td><td class="yes"><span class="mk">○</span>チェックする</td></tr>
+    <tr class="ng-row"><td class="rh"><b>Wチェックが未完了の予約</b><small>1人目のチェックのみ、など</small></td><td class="yes"><span class="mk">○</span>レ点を入れる</td><td class="no"><span class="mk">✗</span><b>チェックしない</b>（空欄のまま）</td></tr>
+  </table>
+  <p class="mxnote">全てWチェック完了になったら、「全て確認済み」にチェックして警告を消す</p>
+  <div class="rule"><div class="rule-b"><b>なぜ、未完了はボードにレ点しないのか：</b>朝、ボードの「済」が<b>全てレ点だと警告が出ず</b>、未完了の予約に<u>気付けない</u>から。未完了をボードに残せば、<b>翌朝の警告で日勤が気付いて</b>朝にチェックできる。</div></div>
+
+  <h2 class="sec"><span class="n">5</span>サイン（<span class="tag">配車ボード</span>で、名前を選ぶ）</h2>
+  <table class="sg">
+    <tr><th>場面</th><th>サインする人</th><th class="nm">配車ボードで選ぶ項目</th></tr>
+    <tr><td><b>日勤</b>（夕方・引き継ぐ前）</td><td><b>確認した日勤の人</b></td><td class="nm">「日勤（夕方）の確認済み」</td></tr>
+    <tr><td><b>遅番</b>（二人でWチェック完了後）</td><td><b>電話番ではない側</b></td><td class="nm">「Wチェックが完了した」</td></tr>
+    <tr><td><b>やむを得ない場合</b>（紙のみ）→翌朝</td><td><b>日勤の人</b></td><td class="nm">「日勤が朝にチェックした」</td></tr>
+  </table>
+  <p class="resp">サインした人は、責任をもって対応してください。</p>
+  <p class="warnnote">【注意】日勤のサインは必須です。日勤が完了していないと、遅番（夜勤）も完了になりません。</p>
+
+  <p class="foot">富士タクシー　配車管理 / 事務所マニュアル：Wチェックの運用（2026年10月版）</p>
+</main>
+</body>
+</html>

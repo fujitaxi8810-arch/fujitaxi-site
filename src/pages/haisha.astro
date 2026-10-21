@@ -4502,7 +4502,9 @@ import '../styles/kt-components.css';
      * はみ出す場合は .ha-all-grid の overflow-x: auto で横スクロールする
      * （縦の行の高さは崩したくないので white-space: nowrap のままにする）
      */
-    .ha-all-place { white-space: nowrap; color: #444; }
+    /* 横幅が広がって画面に収まらない、というユーザー指摘（2026-10-21「前は収まっていた」）への対応：
+       迎車場所・行き先は長い住所で表がどんどん横に伸びるため、一定の幅（15rem）で折り返す。省略はしない（全文が見える） */
+    .ha-all-place { white-space: normal; overflow-wrap: anywhere; max-width: 15rem; color: #444; }
     .ha-all-status { white-space: nowrap; }
     .ha-all-table .ha-select {
       min-width: 6rem;

@@ -308,6 +308,7 @@ import '../styles/kt-components.css';
       <h2 class="kt-title" id="confirmModalTitle">全て確認済み</h2>
       <div class="ha-field ha-field--full" id="confirmCaseField">
         <span>どの場合ですか</span>
+        <label class="ha-confirm-case" id="confirmDayLabel"><input type="radio" name="confirmCase" value="day" /> <b>日勤（夕方・引き継ぐ前）</b>（紙と配車ボードをWチェックした日勤の人がサイン）</label>
         <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="wcheck" checked /> <b>Wチェックが完了した</b>（遅番の相方＝電話番ではない方がサイン）</label>
         <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="morning" /> <b>日勤が朝にチェックした</b>（遅番が二人でWチェックできなかったとき。Wチェック後にチェックした人がサイン）</label>
       </div>
@@ -1994,10 +1995,11 @@ import '../styles/kt-components.css';
 
     // 確認者を選ぶ小さなモーダル。選んで確定した名前（やめたら null）を返す。
     // 日勤の朝のチェックは、名前のあとに場面を付けて記録する（バナーにそのまま出る）
-    async function chooseConfirmer(targetDate: string, mode: 'final' | 'first' = 'final'): Promise<string | null> {
+    async function chooseConfirmer(targetDate: string, mode: 'final' | 'first' = 'final'): Promise<{ name: string; kind: string } | null> {
       let pools: Record<string, { names: string[]; note: string }>;
       try {
         pools = await confirmerPools(targetDate);
+        pools.day = pools.first;
       } catch (e) {
         alert(failMsg(e, '確認する人の読み込み'));
         return null;
@@ -2006,6 +2008,7 @@ import '../styles/kt-components.css';
       const radios = Array.from(document.querySelectorAll('input[name="confirmCase"]')) as HTMLInputElement[];
       const currentCase = () => (mode === 'first' ? 'first' : (radios.find((r) => r.checked) || radios[0]).value);
       $('confirmCaseField').hidden = mode === 'first';
+      $('confirmDayLabel').hidden = !checkFirstAvailable;
       $('confirmModalTitle').textContent = mode === 'first' ? '日勤（夕方）の確認済み' : '全て確認済み';
       const fill = () => {
         const p = pools[currentCase()];
@@ -2025,12 +2028,14 @@ import '../styles/kt-components.css';
       };
       // 朝7時（日勤が出勤する時間）以降に「本日」の確認をするのは、遅番でWチェックが終わらなかった分を日勤が朝に
       // チェックする場面なので、最初から「日勤が朝にチェックした」（日勤の人の名前）を選んでおく（ユーザー指示。docs §5.78）
-      const first = targetDate === todayJst() && jstHourNow() >= CHECK_DEADLINE_HOUR ? 'morning' : 'wcheck';
+      // 夕方〜夜で、日勤（夕方）のサインがまだなら「日勤（夕方・引き継ぐ前）」を最初に選んでおく
+      const first = targetDate === todayJst() && jstHourNow() >= CHECK_DEADLINE_HOUR ? 'morning'
+        : (checkFirstAvailable && !checkFirst ? 'day' : 'wcheck');
       radios.forEach((r) => { r.checked = r.value === first; r.onchange = fill; });
       fill();
       $('confirmModal').hidden = false;
       return new Promise((resolve) => {
-        const done = (v: string | null) => {
+        const done = (v: { name: string; kind: string } | null) => {
           $('confirmModal').hidden = true;
           $('confirmOkBtn').onclick = null;
           $('confirmCancelBtn').onclick = null;
@@ -2040,7 +2045,7 @@ import '../styles/kt-components.css';
         $('confirmOkBtn').onclick = () => {
           if (!sel.value) { alert('確認した人を選んでください。'); return; }
           localStorage.setItem(CONFIRMER_KEY, sel.value);
-          done(sel.value + (CONFIRM_CASES[currentCase()] || ''));
+          done({ name: sel.value + (CONFIRM_CASES[currentCase()] || ''), kind: currentCase() });
         };
         $('confirmCancelBtn').onclick = () => done(null);
       });
@@ -2051,9 +2056,18 @@ import '../styles/kt-components.css';
       box.disabled = true;
       try {
         if (box.checked) {
-          const name = await chooseConfirmer(key);
-          if (!name) { box.checked = false; return; }
-          await setConfirmation(key, name);
+          const pick = await chooseConfirmer(key);
+          if (!pick) { box.checked = false; return; }
+          if (pick.kind === 'day') {
+            // 日勤（夕方）のサイン。記録は別テーブル（dispatch_first_checks）。「全て確認済み」の記録ではない
+            await setFirstCheck(key, pick.name);
+          } else if (checkFirstAvailable && !checkFirst) {
+            alert('先に、日勤（夕方・引き継ぐ前）のサインが必要です。日勤が完了しないと、遅番も完了になりません。');
+            box.checked = false;
+            return;
+          } else {
+            await setConfirmation(key, pick.name);
+          }
         } else {
           if (!confirm('「全て確認済み」を取り消します。よろしいですか？')) { box.checked = true; return; }
           await clearConfirmation(key);
@@ -2072,9 +2086,9 @@ import '../styles/kt-components.css';
       box.disabled = true;
       try {
         if (box.checked) {
-          const name = await chooseConfirmer(key, 'first');
-          if (!name) { box.checked = false; return; }
-          await setFirstCheck(key, name);
+          const pick = await chooseConfirmer(key, 'first');
+          if (!pick) { box.checked = false; return; }
+          await setFirstCheck(key, pick.name);
         } else {
           if (!confirm('日勤（夕方）の確認済みを取り消します。よろしいですか？')) { box.checked = true; return; }
           await clearFirstCheck(key);
@@ -2206,12 +2220,12 @@ import '../styles/kt-components.css';
         cb.type = 'checkbox';
         cb.className = 'ha-check';
         cb.checked = signed;
-        cb.disabled = missed.length > 0 || (!signed && !firstOk);
+        cb.disabled = missed.length > 0;
         cb.onchange = () => onConfirmToggle(cb);
         label2.appendChild(cb);
         const span = document.createElement('span');
         span.textContent = missed.length > 0 ? '全て確認済み（全ての予約にチェックが入ると押せます）'
-          : (!signed && !firstOk ? '全て確認済み（日勤（夕方）の確認済みが入ると押せます）' : '全て確認済み');
+          : (!signed && !firstOk ? '全て確認済み（先に日勤（夕方）のサイン。選択肢から選べます）' : '全て確認済み');
         label2.appendChild(span);
         box.appendChild(label2);
       }

@@ -2107,7 +2107,10 @@ import '../styles/kt-components.css';
       const pastDeadline = isToday && jstHour >= CHECK_DEADLINE_HOUR;
       // 「全て確認済み」の記録があり、かつ未チェックが無いときだけ完了
       const signed = !!checkConfirm && missed.length === 0;
-      const complete = missed.length === 0 && (!checkConfirmAvailable || signed);
+      // 日勤（夕方）の確認済みのサインは必須（ユーザー指示「日勤のサインは必須／日勤も完了していないと夜勤も完了にならない」。
+      // docs §5.79）。テーブルが未作成のとき（checkFirstAvailable=false）だけは求めない
+      const firstOk = !checkFirstAvailable || !!checkFirst;
+      const complete = missed.length === 0 && firstOk && (!checkConfirmAvailable || signed);
       // 完了（全て確認済み）の緑の表示は、朝8時（CHECK_RESET_HOUR）になったら消す。確認は0時以降の1回きりなので、
       // 日中まで緑が残ると「リセットされていない」ように見えるため（ユーザー指摘・指定「確認した朝8時にリセット」。docs §5.76）。0時で新しい日の分に切り替わる
       if (complete && isToday && jstHour >= CHECK_RESET_HOUR) { box.hidden = true; document.title = BASE_TITLE; return; }
@@ -2121,8 +2124,7 @@ import '../styles/kt-components.css';
         const by = checkConfirm
           ? `　確認：${checkConfirm.confirmedBy || '—'}（${jstTimeLabel(checkConfirm.confirmedAt)}）` : '';
         const firstTxt = checkFirst ? `　日勤（夕方）：${checkFirst.checkedBy || '—'}（${jstTimeLabel(checkFirst.checkedAt)}）` : '';
-        const noFirst = !checkFirst && checkFirstAvailable ? '　⚠ 日勤（夕方）のサインがありません' : '';
-        head.textContent = `✓ ${label}の予約は全て確認済み（全${rows.length}件）${firstTxt}${by}${noFirst}`;
+        head.textContent = `✓ ${label}の予約は全て確認済み（全${rows.length}件）${firstTxt}${by}`;
         box.appendChild(head);
       } else {
         const urgent = pastDeadline;
@@ -2133,6 +2135,8 @@ import '../styles/kt-components.css';
           head.textContent = urgent
             ? `🚨 朝${CHECK_DEADLINE_HOUR}時を過ぎても、${label}の予約確認が終わっていません　未チェック ${missed.length}件（全${rows.length}件中）　再チェックしてください`
             : `⚠ ${label}の予約確認が終わっていません　未チェック ${missed.length}件（全${rows.length}件中）`;
+        } else if (!firstOk) {
+          head.textContent = `${urgent ? '🚨 ' : '⚠ '}${label}の予約は全てチェック済みですが、日勤（夕方）の確認済みが入っていません。日勤が完了しないと、遅番も完了になりません`;
         } else {
           head.textContent = urgent
             ? `🚨 朝${CHECK_DEADLINE_HOUR}時を過ぎても、${label}の「全て確認済み」が入っていません　再チェックして、最後にチェックを入れてください`
@@ -2142,7 +2146,8 @@ import '../styles/kt-components.css';
 
         const note = document.createElement('p');
         note.className = 'ha-checkbanner__note';
-        note.textContent = '乗務終了後に、すべての予約の「済」にチェックを入れ、最後に「全て確認済み」にチェックを入れてください。';
+        note.textContent = '乗務終了後に、すべての予約の「済」にチェックを入れ、最後に「全て確認済み」にチェックを入れてください。'
+          + (checkFirstAvailable ? '　※日勤（夕方）の確認済みが入っていないと、遅番も完了になりません。' : '');
         box.appendChild(note);
 
         if (missed.length > 0) {
@@ -2194,11 +2199,12 @@ import '../styles/kt-components.css';
         cb.type = 'checkbox';
         cb.className = 'ha-check';
         cb.checked = signed;
-        cb.disabled = missed.length > 0;
+        cb.disabled = missed.length > 0 || (!signed && !firstOk);
         cb.onchange = () => onConfirmToggle(cb);
         label2.appendChild(cb);
         const span = document.createElement('span');
-        span.textContent = missed.length > 0 ? '全て確認済み（全ての予約にチェックが入ると押せます）' : '全て確認済み';
+        span.textContent = missed.length > 0 ? '全て確認済み（全ての予約にチェックが入ると押せます）'
+          : (!signed && !firstOk ? '全て確認済み（日勤（夕方）の確認済みが入ると押せます）' : '全て確認済み');
         label2.appendChild(span);
         box.appendChild(label2);
       }

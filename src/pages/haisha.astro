@@ -1933,6 +1933,10 @@ import '../styles/kt-components.css';
      * 同じ判定＝シフトの③＋その日だけ追加した人−その日だけ外した人）。電話番はその前日のシフトの電話番の印。
      * 該当者がいないときは、選べなくならないよう範囲を広げる（遅番全員 → 配車に出る乗務員全員）。
      */
+    // 「全て確認済み」を押せる（サインできる）のは、この8名だけ（ユーザー指定。docs §5.78）。
+    // 氏名の空白（全角・半角）の違いで外れないよう、空白を除いて照合する。増減はここを書き換える
+    const CONFIRMER_ALLOWED = ['小林隼人', '渡部晃', '堀内洋伯', '荒智章', '目黒圭吾', '中橋常郎', '菅原元輝', '小林結'];
+    const normName = (n: string) => String(n || '').split(' ').join('').split(String.fromCharCode(0x3000)).join('');
     const CONFIRM_CASES: Record<string, string> = { wcheck: '', unavoidable: '（やむを得ない場合）', morning: '（日勤・朝のチェック）' };
 
     async function confirmerPools(targetDate: string) {
@@ -1946,8 +1950,9 @@ import '../styles/kt-components.css';
       for (const e of excluded) if (e.category === 'late') lateIds.delete(e.staffId);
       const phoneIds = new Set<string>(shifts.filter((x: any) => x.phoneDuty).map((x: any) => x.staffId));
       const order = (x: any) => x.shiftDisplayOrder ?? x.displayOrder;
-      const pick = (ids: Set<string>) => [...staff.filter((x: any) => ids.has(x.id))].sort((a, b) => order(a) - order(b)).map((x) => x.name);
-      const everyone = pick(new Set(staff.filter((x: any) => !x.shiftGroup && x.haishaAssignable !== false).map((x: any) => x.id)));
+      const allowedIds = new Set<string>(staff.filter((x: any) => CONFIRMER_ALLOWED.includes(normName(x.name))).map((x: any) => x.id));
+      const pick = (ids: Set<string>) => [...staff.filter((x: any) => ids.has(x.id) && allowedIds.has(x.id))].sort((a, b) => order(a) - order(b)).map((x) => x.name);
+      const everyone = pick(allowedIds);
       const lateAll = pick(lateIds);
       const wc = pick(new Set([...lateIds].filter((id) => !phoneIds.has(id))));
       const un = pick(new Set([...lateIds].filter((id) => phoneIds.has(id))));
@@ -1957,7 +1962,7 @@ import '../styles/kt-components.css';
       const withFallback = (names: string[], fb: { names: string[]; note: string }[], note: string) => {
         if (names.length > 0) return { names, note };
         for (const f of fb) if (f.names.length > 0) return f;
-        return { names: everyone, note: '該当者が登録されていないため、乗務員全員から選べるようにしています。' };
+        return { names: everyone, note: '該当者がいないため、サインできる8名の全員から選べるようにしています。' };
       };
       return {
         wcheck: withFallback(wc, [{ names: lateAll, note: `${prevLabel}の遅番に「電話番ではない方」が見つからないため、遅番の人全員から選べるようにしています。` }],

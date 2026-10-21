@@ -2189,6 +2189,13 @@ import '../styles/kt-components.css';
           : (missed.length > 0 ? '日勤（夕方）の確認済み（全ての予約にチェックが入ると押せます）' : '日勤（夕方）の確認済み（日勤の人がサイン）');
         label1.appendChild(span1);
         box.appendChild(label1);
+      } else {
+        // テーブル dispatch_first_checks が未作成（SQL未実行）。欄が出ない理由が分からず「日勤の確認が無い」と
+        // 見えるため、理由を画面に出す（SQLを実行すると消える。docs §5.79）
+        const miss = document.createElement('p');
+        miss.className = 'ha-checkbanner__note';
+        miss.textContent = '※「日勤（夕方）の確認済み」の欄は、データベースの準備（SQLの実行）がまだのため表示されていません。';
+        box.appendChild(miss);
       }
 
       // 「全て確認済み」のチェック欄（記録テーブルが使えるときだけ）。全件チェックが済むまでは押せない

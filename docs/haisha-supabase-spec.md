@@ -1773,6 +1773,39 @@ alter table dispatch_reservations add constraint dispatch_reservations_status_ch
   Wチェックが完了した場合は名前だけ。**DBの変更なし**
 - 「サインした人は責任をもって対応」は運用ルール。アプリ側では確認者の名前が記録に残ることで担保する
 
+## 5.79 日勤の1回目のチェックにもサインを付ける（2026-10-21）
+
+ユーザー指示「日勤でも配車ボードにはレ点チェックはいれるからサインは必要にします」。流れは
+「日勤が夕方に1回目のチェック（サイン）→ 遅番がチェック（Wチェック、完了したら「全て確認済み」でサイン）→
+遅番が二人でできないときは翌朝の日勤がWチェックして「全て確認済み」でサイン」。
+
+- バナーに「**日勤の1回目のチェック済み（日勤の人がサイン）**」のチェック欄を追加（「全て確認済み」の上）。
+  全予約のチェックを待たず、いつでも押せる。押すと名前を選ぶ画面（場面の選択は出さない）。候補は**確認する日の前日の日勤**
+  （夕方に1回目をする人。シフトの①系・S系・貸切＋平日の小林結。サインできる8名のみ）。取り消しも可（確認メッセージあり）
+- 記録は新テーブル `dispatch_first_checks`（日ごとに1件：誰が・いつ）。「全て確認済み」（`dispatch_confirmations`）とは別
+- 表示：緑の完了バナーに「1回目（日勤）：○○（時刻）」を出す。**日勤のサインが無いときは、緑のままでも
+  「⚠ 日勤の1回目のサインがありません」を付ける**（完了そのものは止めない＝夜の確認を日勤のサイン待ちで止めないため）
+- テーブルが未作成でも画面は動く（その場合は日勤のサイン欄を出さない）
+
+```sql
+create table dispatch_first_checks (
+  work_date date primary key,
+  checked_by text,
+  checked_at timestamptz not null default now()
+);
+
+alter table dispatch_first_checks enable row level security;
+
+create policy dispatch_first_checks_select on dispatch_first_checks
+  for select to authenticated using (true);
+create policy dispatch_first_checks_insert on dispatch_first_checks
+  for insert to authenticated with check (true);
+create policy dispatch_first_checks_update on dispatch_first_checks
+  for update to authenticated using (true) with check (true);
+create policy dispatch_first_checks_delete on dispatch_first_checks
+  for delete to authenticated using (true);
+```
+
 ## 6. 想定していないこと（将来の課題）
 
 - **DSコネクトによるAPI直結**。実現すればCSVの手作業が消える。電脳交通への問い合わせが前提

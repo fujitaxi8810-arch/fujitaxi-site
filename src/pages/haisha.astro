@@ -306,7 +306,7 @@ import '../styles/kt-components.css';
   <div class="kt-modal-overlay" id="confirmModal" hidden>
     <div class="kt-modal ha-modal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
       <h2 class="kt-title" id="confirmModalTitle">全て確認済み</h2>
-      <div class="ha-field ha-field--full">
+      <div class="ha-field ha-field--full" id="confirmCaseField">
         <span>どの場合ですか</span>
         <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="wcheck" checked /> <b>Wチェックが完了した</b>（遅番の相方＝電話番ではない方がサイン）</label>
         <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="morning" /> <b>日勤が朝にチェックした</b>（遅番が二人でWチェックできなかったとき。Wチェック後にチェックした人がサイン）</label>
@@ -408,6 +408,7 @@ import '../styles/kt-components.css';
       fetchDailyDuties, addDailyDuty, removeDailyDuty,
       fetchDutyExclusions, addDutyExclusion, removeDutyExclusion,
       fetchConfirmation, setConfirmation, clearConfirmation,
+      fetchFirstCheck, setFirstCheck, clearFirstCheck,
       insertReservation, updateReservation, deleteReservation,
       assignStaff, setChecked, setStatus, setStaffAssignable,
       fetchLatestHandover, recordHandover, deleteHandover, updateHandoverNote,
@@ -1890,6 +1891,8 @@ import '../styles/kt-components.css';
     let checkDayRows: any[] = [];
     let checkConfirm: any = null;           // その日の「全て確認済み」の記録（無ければ null）
     let checkConfirmAvailable = true;       // 記録テーブルが使えるか
+    let checkFirst: any = null;             // 日勤の1回目のチェックのサイン（無ければ null）
+    let checkFirstAvailable = true;         // そのテーブルが使えるか（未作成なら欄を出さない）
     let checkDayLoading = false;
     let checkDayLastTry = 0; // 通信失敗時に、描画のたびに取りにいって連打しないため
 
@@ -1899,13 +1902,16 @@ import '../styles/kt-components.css';
       checkDayLastTry = Date.now();
       const key = checkTargetKey();
       try {
-        const [rows, conf] = await Promise.all([
+        const [rows, conf, first] = await Promise.all([
           fetchReservationsByDate(key),
           fetchConfirmation(key).then((c: any) => ({ ok: true, c })).catch(() => ({ ok: false, c: null })),
+          fetchFirstCheck(key).then((c: any) => ({ ok: true, c })).catch(() => ({ ok: false, c: null })),
         ]);
         checkDayRows = rows;
         checkConfirm = conf.c;
         checkConfirmAvailable = conf.ok;
+        checkFirst = first.c;
+        checkFirstAvailable = first.ok;
         checkDayKey = key;
       } catch (e) {
         // 失敗しても本体の表示には影響させない（日付が変わっていれば出さない）
@@ -1967,6 +1973,12 @@ import '../styles/kt-components.css';
         for (const x of staff) if (WEEKDAY_DAY_STAFF.includes(normName(x.name))) dayIds.add(x.id);
       }
       const dayNames = pick(dayIds);
+      // 日勤の1回目のチェックは、確認する日の前日の日勤（夕方に1回目をする人）がサインする
+      const prevDayIds = new Set<string>(shifts.filter((x: any) => dayCodes.includes(x.code)).map((x: any) => x.staffId));
+      if (isWeekdayWork(prev)) {
+        for (const x of staff) if (WEEKDAY_DAY_STAFF.includes(normName(x.name))) prevDayIds.add(x.id);
+      }
+      const prevDayNames = pick(prevDayIds);
       const withFallback = (names: string[], fb: { names: string[]; note: string }[], note: string) => {
         if (names.length > 0) return { names, note };
         for (const f of fb) if (f.names.length > 0) return f;
@@ -1975,13 +1987,14 @@ import '../styles/kt-components.css';
       return {
         wcheck: withFallback(wc, [{ names: lateAll, note: `${prevLabel}の遅番に「電話番ではない方」が見つからないため、遅番の人全員から選べるようにしています。` }],
           `${prevLabel}の遅番の相方（電話番ではない方）から選んでください。`),
+        first: withFallback(prevDayNames, [], `${prevLabel}の日勤の人から、1回目のチェックをした人を選んでください。`),
         morning: withFallback(dayNames, [], `${targetDate.slice(5).replace('-', '/')}の日勤の人から、チェックした人を選んでください。`),
       } as Record<string, { names: string[]; note: string }>;
     }
 
     // 確認者を選ぶ小さなモーダル。選んで確定した名前（やめたら null）を返す。
     // 日勤の朝のチェックは、名前のあとに場面を付けて記録する（バナーにそのまま出る）
-    async function chooseConfirmer(targetDate: string): Promise<string | null> {
+    async function chooseConfirmer(targetDate: string, mode: 'final' | 'first' = 'final'): Promise<string | null> {
       let pools: Record<string, { names: string[]; note: string }>;
       try {
         pools = await confirmerPools(targetDate);
@@ -1991,7 +2004,9 @@ import '../styles/kt-components.css';
       }
       const sel = $('confirmBy') as HTMLSelectElement;
       const radios = Array.from(document.querySelectorAll('input[name="confirmCase"]')) as HTMLInputElement[];
-      const currentCase = () => (radios.find((r) => r.checked) || radios[0]).value;
+      const currentCase = () => (mode === 'first' ? 'first' : (radios.find((r) => r.checked) || radios[0]).value);
+      $('confirmCaseField').hidden = mode === 'first';
+      $('confirmModalTitle').textContent = mode === 'first' ? '日勤の1回目のチェック' : '全て確認済み';
       const fill = () => {
         const p = pools[currentCase()];
         const prevSel = sel.value;
@@ -2052,6 +2067,27 @@ import '../styles/kt-components.css';
       }
     }
 
+    async function onFirstToggle(box: HTMLInputElement) {
+      const key = checkDayKey;
+      box.disabled = true;
+      try {
+        if (box.checked) {
+          const name = await chooseConfirmer(key, 'first');
+          if (!name) { box.checked = false; return; }
+          await setFirstCheck(key, name);
+        } else {
+          if (!confirm('日勤の1回目のチェックのサインを取り消します。よろしいですか？')) { box.checked = true; return; }
+          await clearFirstCheck(key);
+        }
+        await refreshCheckDay();
+      } catch (e) {
+        alert(failMsg(e, '日勤の1回目のチェックの保存'));
+        box.checked = !box.checked;
+      } finally {
+        box.disabled = false;
+      }
+    }
+
     function renderCheckBanner() {
       const box = $('checkBanner');
       if (checkDayKey !== checkTargetKey()) {
@@ -2084,7 +2120,9 @@ import '../styles/kt-components.css';
         box.className = 'ha-checkbanner ha-checkbanner--ok';
         const by = checkConfirm
           ? `　確認：${checkConfirm.confirmedBy || '—'}（${jstTimeLabel(checkConfirm.confirmedAt)}）` : '';
-        head.textContent = `✓ ${label}の予約は全て確認済み（全${rows.length}件）${by}`;
+        const firstTxt = checkFirst ? `　1回目（日勤）：${checkFirst.checkedBy || '—'}（${jstTimeLabel(checkFirst.checkedAt)}）` : '';
+        const noFirst = !checkFirst && checkFirstAvailable ? '　⚠ 日勤の1回目のサインがありません' : '';
+        head.textContent = `✓ ${label}の予約は全て確認済み（全${rows.length}件）${firstTxt}${by}${noFirst}`;
         box.appendChild(head);
       } else {
         const urgent = pastDeadline;
@@ -2126,6 +2164,25 @@ import '../styles/kt-components.css';
           };
           box.appendChild(btn);
         }
+      }
+
+      // 日勤の1回目のチェックのサイン欄（テーブルが使えるときだけ）。日勤は夕方に1回目のチェックをして、
+      // 配車ボードにもレ点を入れるので、サインを残す。全件チェックを待たずにいつでも押せる
+      if (checkFirstAvailable) {
+        const label1 = document.createElement('label');
+        label1.className = 'ha-checkbanner__confirm';
+        const cb1 = document.createElement('input');
+        cb1.type = 'checkbox';
+        cb1.className = 'ha-check';
+        cb1.checked = !!checkFirst;
+        cb1.onchange = () => onFirstToggle(cb1);
+        label1.appendChild(cb1);
+        const span1 = document.createElement('span');
+        span1.textContent = checkFirst
+          ? `日勤の1回目のチェック済み（${checkFirst.checkedBy || '—'}）`
+          : '日勤の1回目のチェック済み（日勤の人がサイン）';
+        label1.appendChild(span1);
+        box.appendChild(label1);
       }
 
       // 「全て確認済み」のチェック欄（記録テーブルが使えるときだけ）。全件チェックが済むまでは押せない

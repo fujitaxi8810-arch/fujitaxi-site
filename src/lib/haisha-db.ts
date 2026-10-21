@@ -664,6 +664,34 @@ export async function clearConfirmation(dateKey: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── 日勤の1回目のチェックのサイン ──
+// 日勤は夕方に1回目のチェックをして、配車ボードにもレ点を入れるため、サインを残す（docs §5.79）。
+// 日ごとに1件。遅番の「全て確認済み」（dispatch_confirmations）とは別テーブル。
+
+export type FirstCheck = { workDate: string; checkedBy: string | null; checkedAt: string };
+
+export async function fetchFirstCheck(dateKey: string): Promise<FirstCheck | null> {
+  const { data, error } = await supabase
+    .from('dispatch_first_checks')
+    .select('work_date, checked_by, checked_at')
+    .eq('work_date', dateKey)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { workDate: data.work_date, checkedBy: data.checked_by, checkedAt: data.checked_at } : null;
+}
+
+export async function setFirstCheck(dateKey: string, checkedBy: string): Promise<void> {
+  const { error } = await supabase
+    .from('dispatch_first_checks')
+    .upsert({ work_date: dateKey, checked_by: checkedBy, checked_at: new Date().toISOString() }, { onConflict: 'work_date' });
+  if (error) throw error;
+}
+
+export async function clearFirstCheck(dateKey: string): Promise<void> {
+  const { error } = await supabase.from('dispatch_first_checks').delete().eq('work_date', dateKey);
+  if (error) throw error;
+}
+
 // ── CSV取り込み ──
 
 /**

@@ -306,9 +306,15 @@ import '../styles/kt-components.css';
   <div class="kt-modal-overlay" id="confirmModal" hidden>
     <div class="kt-modal ha-modal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
       <h2 class="kt-title" id="confirmModalTitle">全て確認済み</h2>
+      <div class="ha-field ha-field--full">
+        <span>どの場合ですか</span>
+        <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="wcheck" checked /> <b>Wチェックが完了した</b>（遅番の相方＝電話番ではない方がサイン）</label>
+        <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="unavoidable" /> <b>やむを得ない場合</b>（もう一人の方＝電話番がサイン）</label>
+        <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="morning" /> <b>日勤が朝にチェックした</b>（チェックした人がサイン）</label>
+      </div>
       <p class="ha-note" id="confirmModalNote"></p>
       <div class="ha-field ha-field--full">
-        <span>確認した人</span>
+        <span>確認した人（サインする人）</span>
         <select id="confirmBy" class="kt-input"></select>
       </div>
       <div class="kt-modal__actions">
@@ -1917,60 +1923,95 @@ import '../styles/kt-components.css';
     }
 
     /*
-     * 確認者の候補は「遅番対応者のみ」（ユーザー要望：「名前は乗務員の名前から選択できるように。遅番対応者のみ」）。
-     * 0時以降の確認は、営業を終えた**前の日の遅番**が行うので、確認する日の前日の遅番（乗務割の「遅番」と
-     * 同じ判定＝シフトの③＋その日だけ追加した人−その日だけ外した人）を候補にする。
-     * 前日の遅番が登録されていないときは、全員を選べなくならないよう配車に出る乗務員全員を出す。
+     * 確認者（＝サインする人）は、場面で変わる（Wチェックの運用ルール。ユーザー指示：
+     * 「遅番の電話番ではない方の名前を記載／やむを得ない場合はもう一人の方がサイン／日勤が朝チェックする場合は
+     * チェックした人がサイン」「選択する人がかわるはず」。docs §5.78）。
+     *   ・wcheck     Wチェックが完了した  → 前日の遅番のうち、電話番ではない方（遅番の相方）
+     *   ・unavoidable やむを得ない場合     → 前日の遅番のうち、電話番の方（もう一人）
+     *   ・morning    日勤が朝にチェックした → 確認する日に日勤（①系・S系・貸切）で出ている人
+     * 0時以降の確認は営業を終えた**前の日の遅番**が行うので、遅番は確認する日の前日の分（乗務割の「遅番」と
+     * 同じ判定＝シフトの③＋その日だけ追加した人−その日だけ外した人）。電話番はその前日のシフトの電話番の印。
+     * 該当者がいないときは、選べなくならないよう範囲を広げる（遅番全員 → 配車に出る乗務員全員）。
      */
-    async function lateShiftCandidates(targetDate: string) {
+    const CONFIRM_CASES: Record<string, string> = { wcheck: '', unavoidable: '（やむを得ない場合）', morning: '（日勤・朝のチェック）' };
+
+    async function confirmerPools(targetDate: string) {
       const prev = shiftDate(targetDate, -1);
-      const [shifts, daily, excluded] = await Promise.all([
-        fetchShiftsByDate(prev), fetchDailyDuties(prev), fetchDutyExclusionsSafe(prev),
+      const prevLabel = prev.slice(5).replace('-', '/');
+      const [shifts, daily, excluded, todayShifts] = await Promise.all([
+        fetchShiftsByDate(prev), fetchDailyDuties(prev), fetchDutyExclusionsSafe(prev), fetchShiftsByDate(targetDate),
       ]);
-      const ids = new Set<string>(shifts.filter((x: any) => x.code === '③').map((x: any) => x.staffId));
-      for (const d of daily) if (d.category === 'late') ids.add(d.staffId);
-      for (const e of excluded) if (e.category === 'late') ids.delete(e.staffId);
+      const lateIds = new Set<string>(shifts.filter((x: any) => x.code === '③').map((x: any) => x.staffId));
+      for (const d of daily) if (d.category === 'late') lateIds.add(d.staffId);
+      for (const e of excluded) if (e.category === 'late') lateIds.delete(e.staffId);
+      const phoneIds = new Set<string>(shifts.filter((x: any) => x.phoneDuty).map((x: any) => x.staffId));
       const order = (x: any) => x.shiftDisplayOrder ?? x.displayOrder;
-      const pick = (list: any[]) => [...list].sort((a, b) => order(a) - order(b)).map((x) => x.name);
-      const late = pick(staff.filter((x: any) => ids.has(x.id)));
-      if (late.length > 0) return { names: late, note: `${prev.slice(5).replace('-', '/')}の遅番の人から選んでください。`, fallback: false };
-      const all = pick(staff.filter((x: any) => !x.shiftGroup && x.haishaAssignable !== false));
-      return { names: all, note: `${prev.slice(5).replace('-', '/')}の遅番が登録されていないため、乗務員全員から選べるようにしています。`, fallback: true };
+      const pick = (ids: Set<string>) => [...staff.filter((x: any) => ids.has(x.id))].sort((a, b) => order(a) - order(b)).map((x) => x.name);
+      const everyone = pick(new Set(staff.filter((x: any) => !x.shiftGroup && x.haishaAssignable !== false).map((x: any) => x.id)));
+      const lateAll = pick(lateIds);
+      const wc = pick(new Set([...lateIds].filter((id) => !phoneIds.has(id))));
+      const un = pick(new Set([...lateIds].filter((id) => phoneIds.has(id))));
+      const dayCodes = ['①', '①S', '①H', 'SH', 'SHS', 'S', '貸切'];
+      const dayIds = new Set<string>(todayShifts.filter((x: any) => dayCodes.includes(x.code)).map((x: any) => x.staffId));
+      const dayNames = pick(dayIds);
+      const withFallback = (names: string[], fb: { names: string[]; note: string }[], note: string) => {
+        if (names.length > 0) return { names, note };
+        for (const f of fb) if (f.names.length > 0) return f;
+        return { names: everyone, note: '該当者が登録されていないため、乗務員全員から選べるようにしています。' };
+      };
+      return {
+        wcheck: withFallback(wc, [{ names: lateAll, note: `${prevLabel}の遅番に「電話番ではない方」が見つからないため、遅番の人全員から選べるようにしています。` }],
+          `${prevLabel}の遅番の相方（電話番ではない方）から選んでください。`),
+        unavoidable: withFallback(un, [{ names: lateAll, note: `${prevLabel}の遅番に電話番の印がないため、遅番の人全員から選べるようにしています。` }],
+          `${prevLabel}の遅番の電話番（もう一人の方）から選んでください。`),
+        morning: withFallback(dayNames, [], `${targetDate.slice(5).replace('-', '/')}の日勤の人から、チェックした人を選んでください。`),
+      } as Record<string, { names: string[]; note: string }>;
     }
 
-    // 確認者を選ぶ小さなモーダル。選んで確定した名前（やめたら null）を返す
+    // 確認者を選ぶ小さなモーダル。選んで確定した名前（やめたら null）を返す。
+    // やむを得ない場合・日勤の朝のチェックは、名前のあとに場面を付けて記録する（バナーにそのまま出る）
     async function chooseConfirmer(targetDate: string): Promise<string | null> {
-      let cand: { names: string[]; note: string };
+      let pools: Record<string, { names: string[]; note: string }>;
       try {
-        cand = await lateShiftCandidates(targetDate);
+        pools = await confirmerPools(targetDate);
       } catch (e) {
-        alert(failMsg(e, '遅番の人の読み込み'));
+        alert(failMsg(e, '確認する人の読み込み'));
         return null;
       }
       const sel = $('confirmBy') as HTMLSelectElement;
-      sel.innerHTML = '';
-      const ph = document.createElement('option');
-      ph.value = ''; ph.textContent = '— 選んでください —';
-      sel.appendChild(ph);
-      for (const n of cand.names) {
-        const o = document.createElement('option');
-        o.value = n; o.textContent = n;
-        sel.appendChild(o);
-      }
-      const saved = localStorage.getItem(CONFIRMER_KEY) || '';
-      sel.value = cand.names.includes(saved) ? saved : '';
-      $('confirmModalNote').textContent = cand.note;
+      const radios = Array.from(document.querySelectorAll('input[name="confirmCase"]')) as HTMLInputElement[];
+      const currentCase = () => (radios.find((r) => r.checked) || radios[0]).value;
+      const fill = () => {
+        const p = pools[currentCase()];
+        const prevSel = sel.value;
+        sel.innerHTML = '';
+        const ph = document.createElement('option');
+        ph.value = ''; ph.textContent = '— 選んでください —';
+        sel.appendChild(ph);
+        for (const n of p.names) {
+          const o = document.createElement('option');
+          o.value = n; o.textContent = n;
+          sel.appendChild(o);
+        }
+        const saved = localStorage.getItem(CONFIRMER_KEY) || '';
+        sel.value = p.names.includes(prevSel) ? prevSel : (p.names.includes(saved) ? saved : '');
+        $('confirmModalNote').textContent = p.note;
+      };
+      radios.forEach((r) => { r.checked = r.value === 'wcheck'; r.onchange = fill; });
+      fill();
       $('confirmModal').hidden = false;
       return new Promise((resolve) => {
         const done = (v: string | null) => {
           $('confirmModal').hidden = true;
           $('confirmOkBtn').onclick = null;
           $('confirmCancelBtn').onclick = null;
+          radios.forEach((r) => { r.onchange = null; });
           resolve(v);
         };
         $('confirmOkBtn').onclick = () => {
           if (!sel.value) { alert('確認した人を選んでください。'); return; }
-          done(sel.value);
+          localStorage.setItem(CONFIRMER_KEY, sel.value);
+          done(sel.value + (CONFIRM_CASES[currentCase()] || ''));
         };
         $('confirmCancelBtn').onclick = () => done(null);
       });
@@ -1983,7 +2024,6 @@ import '../styles/kt-components.css';
         if (box.checked) {
           const name = await chooseConfirmer(key);
           if (!name) { box.checked = false; return; }
-          localStorage.setItem(CONFIRMER_KEY, name);
           await setConfirmation(key, name);
         } else {
           if (!confirm('「全て確認済み」を取り消します。よろしいですか？')) { box.checked = true; return; }
@@ -3514,6 +3554,8 @@ import '../styles/kt-components.css';
     .ha-checkbanner--urgent { background: #fee2e2; border-color: #7f1d1d; border-width: 5px; color: #7f1d1d; }
     .ha-checkbanner--urgent .ha-checkbanner__head { font-size: 1.6rem; }
     /* 「全て確認済み」のチェック欄 */
+    .ha-confirm-case { display: block; font-size: 0.92rem; line-height: 1.5; margin: 0.2rem 0; cursor: pointer; }
+    .ha-confirm-case input { margin-right: 0.3rem; }
     .ha-checkbanner__confirm {
       display: inline-flex; align-items: center; gap: 0.6rem; flex-basis: 100%;
       font-size: 1.25rem; font-weight: 900; cursor: pointer;

@@ -1109,6 +1109,7 @@ import '../styles/kt-components.css';
         $('handoverModal').hidden = true;
         renderHandover();
         renderBoard();
+        void promptDaySignAfterHandover();
       } catch (e) {
         alert(failMsg(e, '引き継ぎの記録'));
       } finally {
@@ -2078,6 +2079,46 @@ import '../styles/kt-components.css';
         box.checked = !box.checked;
       } finally {
         box.disabled = false;
+      }
+    }
+
+    /*
+     * 「引き継ぎ」を記録したら、続けて日勤（夕方）のサイン画面を出す（ユーザー指示「連動して」。docs §5.81）。
+     * 日勤は引き継ぐ前（夕方18時より前でも）に明日の予約を確認してサインする運用のため、バナーが「明日」に切り替わる
+     * 18時を待たずにサインできるようにする。
+     *  ・午後（13時以降）の引き継ぎだけ。朝の引き継ぎでは出さない（HANDOVER_SIGN_FROM_HOUR）
+     *  ・対象は明日の予約（0〜7時台は本日分）。すでに日勤のサインがあれば出さない／予約が0件なら出さない
+     *  ・「済」が残っていれば、サイン画面は出さず、先に済を入れるよう案内する
+     */
+    const HANDOVER_SIGN_FROM_HOUR = 13;
+    async function promptDaySignAfterHandover() {
+      const h = jstHourNow();
+      if (h < HANDOVER_SIGN_FROM_HOUR && h >= CHECK_DEADLINE_HOUR) return;
+      const target = h < CHECK_DEADLINE_HOUR ? todayJst() : shiftDate(todayJst(), 1);
+      let rows: any[]; let first: any;
+      try {
+        [rows, first] = await Promise.all([fetchReservationsByDate(target), fetchFirstCheck(target)]);
+      } catch (e) {
+        return; // 記録テーブル未作成など。引き継ぎ自体は済んでいるので、黙って何もしない
+      }
+      if (first) return;
+      const live = rows.filter((r) => !isVoidStatus(r.status));
+      if (live.length === 0) return;
+      const label = `${h < CHECK_DEADLINE_HOUR ? '本日' : '明日'}(${target.slice(5).replace('-', '/')})`;
+      const missed = live.filter((r) => !r.checked);
+      if (missed.length > 0) {
+        alert(`引き継ぎを記録しました。
+
+日勤（夕方）のサインがまだです。${label}の予約に、「済」が入っていない予約が${missed.length}件あります。紙と配車ボードをWチェックして「済」を入れてから、画面上部の「日勤（夕方）の確認済み」でサインしてください。`);
+        return;
+      }
+      const pick = await chooseConfirmer(target, 'first');
+      if (!pick) return;
+      try {
+        await setFirstCheck(target, pick.name);
+        await refreshCheckDay();
+      } catch (e) {
+        alert(failMsg(e, '日勤（夕方）の確認済みの保存'));
       }
     }
 

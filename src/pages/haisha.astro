@@ -2086,14 +2086,12 @@ import '../styles/kt-components.css';
      * 「引き継ぎ」を記録したら、続けて日勤（夕方）のサイン画面を出す（ユーザー指示「連動して」。docs §5.81）。
      * 日勤は引き継ぐ前（夕方18時より前でも）に明日の予約を確認してサインする運用のため、バナーが「明日」に切り替わる
      * 18時を待たずにサインできるようにする。
-     *  ・午後（13時以降）の引き継ぎだけ。朝の引き継ぎでは出さない（HANDOVER_SIGN_FROM_HOUR）
+     *  ・時刻では絞らない（ユーザー指示「引継ぎ時間は変更しないでください」。引き継ぎを押すたびに、条件を満たせば出る）
      *  ・対象は明日の予約（0〜7時台は本日分）。すでに日勤のサインがあれば出さない／予約が0件なら出さない
      *  ・「済」が残っていれば、サイン画面は出さず、先に済を入れるよう案内する
      */
-    const HANDOVER_SIGN_FROM_HOUR = 13;
     async function promptDaySignAfterHandover() {
       const h = jstHourNow();
-      if (h < HANDOVER_SIGN_FROM_HOUR && h >= CHECK_DEADLINE_HOUR) return;
       const target = h < CHECK_DEADLINE_HOUR ? todayJst() : shiftDate(todayJst(), 1);
       let rows: any[]; let first: any;
       try {
@@ -2119,6 +2117,36 @@ import '../styles/kt-components.css';
         await refreshCheckDay();
       } catch (e) {
         alert(failMsg(e, '日勤（夕方）の確認済みの保存'));
+      }
+    }
+
+    /*
+     * 時間になったとき（夕方18時に確認の対象が「明日」に切り替わったとき）、明日の予約が全て「済」で日勤（夕方）のサインが
+     * まだなら、サイン画面を自動で開く（ユーザー指示「時間になったときや引き継ぎボタンを押したあとにチェックできる画面を
+     * ひらくように」。docs §5.81）。1つの端末で、同じ日付につき1回だけ（やめても繰り返さない。バナーの欄から後で押せる）。
+     * 別のモーダルが開いているときは出さない
+     */
+    let autoSignBusy = false;
+    async function maybeAutoOpenDaySign(isToday: boolean, missedCount: number) {
+      if (isToday || autoSignBusy || !checkFirstAvailable || checkFirst || missedCount > 0) return;
+      if (jstHourNow() < CHECK_EVENING_HOUR) return;
+      if (document.querySelector('.kt-modal-overlay:not([hidden])')) return;
+      const flagKey = 'fuji-haisha-autosign-' + checkDayKey;
+      try { if (localStorage.getItem(flagKey)) return; localStorage.setItem(flagKey, '1'); } catch (e) { /* 保存できない端末では毎回は出さないよう下の busy で防ぐ */ }
+      autoSignBusy = true;
+      try {
+        const key = checkDayKey;
+        // 複数の端末が同時に開くので、開く直前にもう一度、サイン済みでないか確かめる
+        const already = await fetchFirstCheck(key).catch(() => null);
+        if (already) { await refreshCheckDay(); return; }
+        const pick = await chooseConfirmer(key, 'first');
+        if (!pick) return;
+        await setFirstCheck(key, pick.name);
+        await refreshCheckDay();
+      } catch (e) {
+        alert(failMsg(e, '日勤（夕方）の確認済みの保存'));
+      } finally {
+        autoSignBusy = false;
       }
     }
 
@@ -2273,6 +2301,7 @@ import '../styles/kt-components.css';
 
       document.title = complete ? BASE_TITLE : `⚠未確認 ${BASE_TITLE}`;
       box.hidden = false;
+      void maybeAutoOpenDaySign(isToday, missed.length);
     }
 
     function visibleBoardRows() {

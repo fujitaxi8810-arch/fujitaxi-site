@@ -413,7 +413,7 @@ import '../styles/kt-components.css';
       insertReservation, updateReservation, deleteReservation,
       assignStaff, setChecked, setStatus, setStaffAssignable,
       fetchLatestHandover, recordHandover, deleteHandover, updateHandoverNote,
-      fetchDispatchHistory, revertHistoryEntry,
+      fetchDispatchHistory, fetchDispatchHistoryFor, revertHistoryEntry,
       fetchDeletedReservations,
       buildImportPlan, applyImportPlan, fetchLatestImportLog,
       jstDateKey, jstTimeLabel, todayJst, yesterdayJst,
@@ -456,6 +456,8 @@ import '../styles/kt-components.css';
     let todayAttendanceRows: any[] = [];
     let latestHandover: any = null;
     let historyRows: any[] = [];
+    // 「この予約の履歴だけ」を表示中のとき（変更ありの行の「変更履歴で見る」から。docs §5.82）
+    let historyFilter: { ids: string[]; label: string } | null = null;
     let editing: any = null;      // 編集中の予約（新規はnull）
     let allViewRows: any[] = [];  // 「全体で見る」タブ専用。boardRowsとは別に持つ
     let importPlan: any = null;
@@ -1188,9 +1190,22 @@ import '../styles/kt-components.css';
       const label = sameDay
         ? `→ ${jstTimeLabel(target.reserved_at)}に変更`
         : `→ ${dateKey.slice(5).replace('-', '/')} ${jstTimeLabel(target.reserved_at)}に変更`;
-      wrap.appendChild(buildJumpNote('ha-superseded-note', label, 'クリックすると変更後の予約がある日をボードで開きます', dateKey));
 
-      // 時刻以外（迎車場所・メモ等）も変わっていれば、項目名と前後の値を続けて出す
+      // 普段は「→ 08:00に変更 ▾」の1行だけ。押すと、その場で変わった項目と「足跡」へのボタンが開く
+      // （ユーザー指示：案A。キャンセル行の下に変更点が並ぶと行が伸びて見えにくいため。docs §5.82）
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'ha-superseded-note';
+      toggle.textContent = label + ' ▾';
+      toggle.title = 'クリックで、変わった項目と変更履歴へのボタンを開閉します';
+      toggle.setAttribute('aria-expanded', 'false');
+      wrap.appendChild(toggle);
+
+      const detail = document.createElement('div');
+      detail.className = 'ha-superseded-detail';
+      detail.hidden = true;
+
+      // 時刻以外（迎車場所・メモ等）も変わっていれば、項目名と前後の値を出す
       const changes = diffFields(toDsRawFields(r), target).filter((c) => c.field !== 'reserved_at');
       if (changes.length > 0) {
         const ul = document.createElement('ul');
@@ -1200,8 +1215,41 @@ import '../styles/kt-components.css';
           li.textContent = `${FIELD_LABELS[c.field]}：${fieldValueLabel(c.field, c.from)} → ${fieldValueLabel(c.field, c.to)}`;
           ul.appendChild(li);
         }
-        wrap.appendChild(ul);
+        detail.appendChild(ul);
       }
+
+      const acts = document.createElement('div');
+      acts.className = 'ha-superseded-acts';
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'ha-superseded-act';
+      open.textContent = '変更後の予約を開く';
+      open.onclick = (e) => {
+        e.stopPropagation();
+        $('datePick').value = dateKey;
+        showTab('board');
+        loadBoard();
+      };
+      acts.appendChild(open);
+      const hist = document.createElement('button');
+      hist.type = 'button';
+      hist.className = 'ha-superseded-act';
+      hist.textContent = '変更履歴で見る';
+      hist.title = '変更前後の予約の履歴だけを、変更履歴の欄に出します';
+      hist.onclick = (e) => {
+        e.stopPropagation();
+        openHistoryFor([r.id, r.supersededBy], `${jstTimeLabel(r.reservedAt)} ${r.customerName || ''}`.trim());
+      };
+      acts.appendChild(hist);
+      detail.appendChild(acts);
+      wrap.appendChild(detail);
+
+      toggle.onclick = (e) => {
+        e.stopPropagation();
+        detail.hidden = !detail.hidden;
+        toggle.textContent = label + (detail.hidden ? ' ▾' : ' ▴');
+        toggle.setAttribute('aria-expanded', String(!detail.hidden));
+      };
       return wrap;
     }
 
@@ -1655,7 +1703,7 @@ import '../styles/kt-components.css';
 
     async function loadHistory() {
       try {
-        historyRows = await fetchDispatchHistory(100);
+        historyRows = historyFilter ? await fetchDispatchHistoryFor(historyFilter.ids) : await fetchDispatchHistory(100);
         historyLoaded = true;
       } catch (e) {
         $('historyBody').textContent = '履歴を読み込めませんでした。';
@@ -1764,6 +1812,21 @@ import '../styles/kt-components.css';
       const body = $('historyBody');
       body.innerHTML = '';
 
+      if (historyFilter) {
+        const bar = document.createElement('div');
+        bar.className = 'ha-hist-filter';
+        const t = document.createElement('span');
+        t.textContent = `「${historyFilter.label}」の変更前後の履歴だけを表示しています`;
+        bar.appendChild(t);
+        const clear = document.createElement('button');
+        clear.type = 'button';
+        clear.className = 'kt-btn kt-btn--ghost';
+        clear.textContent = 'すべての履歴に戻す';
+        clear.onclick = () => { historyFilter = null; loadHistory(); };
+        bar.appendChild(clear);
+        body.appendChild(bar);
+      }
+
       if (historyRows.length === 0) {
         const p = document.createElement('p');
         p.className = 'kt-empty';
@@ -1837,6 +1900,17 @@ import '../styles/kt-components.css';
 
         body.appendChild(item);
       }
+    }
+
+    /** 変更前後の予約の履歴だけを出して、変更履歴の欄を開いてそこまで移動する（足跡をたどる） */
+    function openHistoryFor(ids: string[], label: string) {
+      historyFilter = { ids: ids.filter(Boolean), label };
+      showTab('board'); // 変更履歴の欄は日別ボードのタブにある
+      const panel = $('historyPanel') as HTMLDetailsElement;
+      panel.hidden = false;
+      historyLoaded = false;
+      if (panel.open) loadHistory(); else panel.open = true; // 開くと toggle で読み込まれる
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     $('historyReloadBtn').onclick = loadHistory;
@@ -4411,6 +4485,20 @@ import '../styles/kt-components.css';
       cursor: pointer;
     }
     .ha-superseded-note:hover { color: #6b2f04; }
+    /* 開いたときの中身（変更点＋足跡ボタン）。閉じているときは非表示（印刷では紙は開閉できないので、常に出す） */
+    .ha-superseded-detail[hidden] { display: none; }
+    .ha-superseded-acts { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
+    .ha-superseded-act {
+      font-size: 0.72rem; font-weight: 700; color: #92400e; background: #fffbeb;
+      border: 1px solid #92400e; border-radius: var(--radius-md); padding: 0.05rem 0.5rem; cursor: pointer;
+    }
+    .ha-superseded-act:hover { background: #fef3c7; }
+    .ha-hist-filter {
+      display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+      background: #fffbeb; border: 1px solid #92400e; border-radius: var(--radius-md);
+      padding: 0.3rem 0.6rem; margin-bottom: 0.5rem; font-size: 0.85rem; font-weight: 700; color: #92400e;
+    }
+    @media print { .ha-superseded-detail[hidden] { display: block !important; } .ha-superseded-acts { display: none; } }
     /* 時刻以外（迎車場所・メモ等）の変更点。項目が多いと縦に伸びるため、
        状態欄が広がりすぎないよう文字を小さめ・行間を詰め気味にする */
     .ha-superseded-diff {

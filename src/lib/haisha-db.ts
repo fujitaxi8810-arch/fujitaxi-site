@@ -383,6 +383,18 @@ export async function fetchDispatchHistory(limit = 100): Promise<HistoryEntry[]>
   return (data || []).map(rowToHistory);
 }
 
+/** 指定した予約（複数可）の履歴だけを新しい順に取る。変更前後の予約をたどる「足跡」の表示に使う */
+export async function fetchDispatchHistoryFor(reservationIds: string[]): Promise<HistoryEntry[]> {
+  if (reservationIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('dispatch_history')
+    .select('*')
+    .in('reservation_id', reservationIds)
+    .order('changed_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(rowToHistory);
+}
+
 /** 復元の対象にする列。id・作成日時・reserved_date（トリガーが再計算）は含めない */
 const RESTORABLE_COLUMNS = [
   'reserved_at', 'alarm_minutes', 'office_name', 'customer_name', 'customer_kana', 'phone',

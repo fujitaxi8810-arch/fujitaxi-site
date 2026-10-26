@@ -35,6 +35,8 @@ export type Reservation = {
   // アプリ側
   staffId: string | null;
   checked: boolean;
+  /** 紙のみにレ点（Wチェック待ち）。列 paper_checked が無いDBでは null（従来どおり済／未だけ）。docs §5.83 */
+  paperChecked: boolean | null;
   appMemo: string | null;
   status: ReservationStatus;
   source: 'csv' | 'manual';
@@ -145,6 +147,7 @@ function rowToReservation(row: any): Reservation {
     registeredBy: row.registered_by,
     staffId: row.staff_id,
     checked: row.checked,
+    paperChecked: row.paper_checked ?? null,
     appMemo: row.app_memo,
     status: row.status ?? 'normal',
     source: row.source,
@@ -307,8 +310,23 @@ export async function assignStaff(id: string, staffId: string | null): Promise<v
   if (error) throw error;
 }
 
-export async function setChecked(id: string, checked: boolean): Promise<void> {
-  const { error } = await supabase.from(TABLE).update({ checked }).eq('id', id);
+/** 済を保存する。clearPaper=true（paper_checked 列があるDB）なら、紙のみの印も外す（済になったら紙のみではない） */
+export async function setChecked(id: string, checked: boolean, clearPaper = false): Promise<void> {
+  const patch: Record<string, any> = clearPaper ? { checked, paper_checked: false } : { checked };
+  const { error } = await supabase.from(TABLE).update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+/** 「紙のみ」（紙の予約表にだけレ点。Wチェック待ち）を保存する。要 paper_checked 列（docs §5.83） */
+export async function setPaperChecked(id: string, paper: boolean): Promise<void> {
+  const { error } = await supabase.from(TABLE).update({ paper_checked: paper }).eq('id', id);
+  if (error) throw error;
+}
+
+/** まとめて「紙のみ」にする（Wチェックできない日に、日勤が未チェックを一度に紙のみにするため） */
+export async function setPaperCheckedMany(ids: string[], paper: boolean): Promise<void> {
+  if (ids.length === 0) return;
+  const { error } = await supabase.from(TABLE).update({ paper_checked: paper }).in('id', ids);
   if (error) throw error;
 }
 

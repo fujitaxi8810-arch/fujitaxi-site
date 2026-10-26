@@ -186,6 +186,23 @@ h1 { font-size:19pt; }
 .person { padding:1px 8px; }
 .col .body { padding:1px 9px 2px; font-size:9pt; }
 .st .stb { font-size:9pt; padding:2px 8px 2px; }
+.satnote { margin:3px 0 0; padding:1px 9px; border:2px dashed var(--line); border-radius:8px; font-size:9.3pt; line-height:1.3; background:var(--soft); }
+.same { padding:2px 9px 3px; }
+.defn ul { line-height:1.3; }
+.step .what { }
+.sheet { padding-top:2.5mm; }
+header { margin-bottom:2px; }
+.wc-note { margin:0; }
+h2.sec { margin:2px 0 1px; }
+.csvband { margin-bottom:2px; }
+.satnote { font-size:9pt; padding:0 8px; }
+.person { padding:0 8px; font-size:12pt; }
+.person b { font-size:12pt; }
+.mid { padding:0 6px; }
+.col .head { padding:1px 9px; }
+.col .head small { font-size:8pt; line-height:1.2; }
+.principle { padding:0 10px; }
+.csvband .big { font-size:14pt; }
 </style>
 </head>
 <body>
@@ -266,6 +283,7 @@ h1 { font-size:19pt; }
     </div>
   </div>
 
+  <p class="satnote"><b>土曜日の日勤</b>は予約受付表（紙）のみでサインし、<b>遅番がWチェック</b>して全てチェック（日・祝・月曜日は2枚目）</p>
   <h2 class="sec"><span class="n">4</span>配車ボードにチェックするのは「Wチェックが完了した場合のみ」</h2>
   <p class="principle done-cond"><b>Wチェックが全て完了しないと「全て確認済み」（＝完了）にならず</b>、警告が残ります。</p>
   <table class="mx">
@@ -274,7 +292,7 @@ h1 { font-size:19pt; }
     <tr class="ng-row"><td class="rh"><b>Wチェックが未完了の予約</b><small>1人目のチェックのみ、など</small></td><td class="yes"><span class="mk">○</span>レ点</td><td class="no"><span class="mk">✗</span><b>「済」にしない</b>。「受付表」ボタンを押す（黄色）</td></tr>
   </table>
   <p class="mxnote">全てWチェック完了になったら、「全て確認済み」にチェックして警告を消す</p>
-  <div class="rule"><div class="rule-b"><b>なぜ、未完了は「済」にしないのか：</b>朝、ボードの「済」が<b>全てレ点だと警告が出ず</b>、未完了の予約に<u>気付けない</u>から。未完了は<b>「受付表」ボタン（黄色）</b>にしておけば、<b>翌朝の警告で日勤が気付いて</b>Wチェックできる。</div></div>
+  <div class="rule"><div class="rule-b"><b>なぜ「済」にしないのか：</b>ボードの「済」が<b>全てレ点だと警告が出ず</b>、未完了に<u>気付けない</u>から。「受付表」ボタン（黄色）なら、<b>翌朝の警告で日勤が気付ける</b>。</div></div>
 
   <h2 class="sec"><span class="n">5</span>サイン（<span class="tag">配車ボード</span>で、名前を選ぶ）</h2>
   <table class="sg">
@@ -284,7 +302,7 @@ h1 { font-size:19pt; }
     <tr><td><b>やむを得ない場合</b>→翌朝</td><td><b>日勤の人</b></td><td class="nm">「日勤が朝にチェックした」</td></tr>
   </table>
   <p class="resp">サインした人は、責任をもって対応してください。</p>
-  <p class="warnnote">【注意】日勤のサインは必須です。日勤が完了していないと、遅番（夜勤）も完了になりません。<br><span style="font-weight:500;font-size:9pt">日勤のサインは、「予約受付表（紙）のみ」が残っていても押せます（名前の後ろに「予約受付表（紙）のみ ○件」が付く）。「全て確認済み」は、全部が「済」になってから。</span></p>
+  <p class="warnnote">【注意】日勤のサインは必須です。日勤が完了していないと、遅番（夜勤）も完了になりません。<br><span style="font-weight:500;font-size:9pt">日勤のサインは「予約受付表（紙）のみ」が残っていても押せる。「全て確認済み」は全部「済」になってから。</span></p>
 
   <p class="foot">富士タクシー　配車管理 / 事務所マニュアル：Wチェックの運用（2026年10月版）</p>
 </main>

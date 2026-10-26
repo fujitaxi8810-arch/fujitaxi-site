@@ -61,6 +61,7 @@ import '../styles/kt-components.css';
           <span class="kt-title">前回の引き継ぎ</span>
           <span class="ha-details__hint">クリックで開く</span>
           <span class="ha-badge ha-badge--new" id="handoverNoteBadge" hidden>✎ 申し送りあり</span>
+          <span class="ha-badge ha-badge--noadd" id="handoverNoAdd" hidden></span>
           <button type="button" class="kt-btn ha-handover__recordbtn" id="handoverBtn">引き継ぎ・申し送りを記録</button>
         </summary>
         <div class="ha-details__body">
@@ -656,6 +657,7 @@ import '../styles/kt-components.css';
     function renderHealth() {
       renderImportLines(); // 「◯分前」の表記も1分ごとに更新する
       renderCheckBanner(); // 0時での日付切り替えを拾う
+      void refreshAddWatch(); // 引き継ぎ以降の「追加なし」（60秒以内に取得済みなら再取得しない）
       const problems: string[] = [];
       const now = Date.now();
       const hhmm = (t: number) => jstTimeLabel(new Date(t).toISOString());
@@ -995,6 +997,47 @@ import '../styles/kt-components.css';
     // ── 引き継ぎ ──
     const HANDOVER_NAME_KEY = 'fuji-haisha-handover-name';
 
+    /*
+     * 「追加なし」：日勤から遅番へ引き継いだあと（基準時刻以降）に、予約の追加が1件もないとき**だけ**、見えやすい場所に出す
+     * （ユーザー指示「追加なしは日勤から遅番に引き継いだあとに追加がない場合、見えやすいところに出してほしい／追加なしの場合のみ」
+     * 「あくまで翌日のみの予約を対象としてください」。docs §5.84）。追加＝新着（引き継ぎ以降に入った予約）。**対象は翌日の予約だけ**
+     * （今日や、それより先の日は数えない。0〜7時台は、サイン画面と同じく「その日（本日）」）。
+     * 追加が1件でもあれば出さない（その場合は従来どおり「新着 N件」）。
+     */
+    let addWatchRows: any[] | null = null;
+    let addWatchKey = '';
+    const addWatchTarget = () => (jstHourNow() < CHECK_DEADLINE_HOUR ? todayJst() : shiftDate(todayJst(), 1));
+    let addWatchLast = 0;
+    async function refreshAddWatch(force = false) {
+      const key = addWatchTarget();
+      if (!force && key === addWatchKey && Date.now() - addWatchLast < 60 * 1000) { renderNoAdd(); return; }
+      addWatchLast = Date.now();
+      try {
+        addWatchRows = await fetchReservationsByDate(key);
+        addWatchKey = key;
+      } catch (e) { /* 取れなかったときは前回のまま（誤って「追加なし」と出さないため、初回は出さない） */ }
+      renderNoAdd();
+    }
+    function noAddInfo(): string | null {
+      const base = newBaselineTime();
+      if (base === null || addWatchRows === null || addWatchKey !== addWatchTarget()) return null;
+      const n = addWatchRows.filter((r) => !isVoidStatus(r.status) && isNewSinceHandover(r)).length;
+      if (n > 0) return null;
+      const day = addWatchKey === todayJst() ? '本日' : '明日';
+      return `追加なし（${day}${addWatchKey.slice(5).replace('-', '/')}の予約・${jstTimeLabel(new Date(base).toISOString())}以降）`;
+    }
+    function renderNoAdd() {
+      const el = $('handoverNoAdd');
+      const info = noAddInfo();
+      el.hidden = !info;
+      if (info) {
+        el.textContent = '✓ ' + info;
+        el.title = '引き継ぎ（基準時刻）以降、翌日の予約に追加はありません';
+      }
+      // 集計行の「追加なし」も、取得が終わったあとに描き直す（まだ画面の準備前なら何もしない）
+      try { if (!$('boardTable').hidden) renderBoardSummary(); } catch (e) { /* 初期化前 */ }
+    }
+
     function renderHandover() {
       const when = $('handoverWhen');
       const noteEl = $('handoverNote');
@@ -1005,6 +1048,7 @@ import '../styles/kt-components.css';
       const autoTimeLabel = auto !== null ? jstTimeLabel(new Date(auto).toISOString()) : null;
 
       if (!latestHandover) {
+        void refreshAddWatch(true);
         when.textContent = autoTimeLabel !== null
           // 押し忘れていても19時の自動判定が効いている状態（翌10時まで）
           ? `${autoTimeLabel}（自動）以降が新着　※記録を押すとその時刻が基準になります`
@@ -1020,6 +1064,7 @@ import '../styles/kt-components.css';
         return;
       }
 
+      void refreshAddWatch(true);
       const t = latestHandover.handedOverAt;
       const who = latestHandover.handedOverBy ? `（${latestHandover.handedOverBy}）` : '';
       const recordedLabel = `${jstDateKey(t).slice(5).replace('-', '/')} ${jstTimeLabel(t)}${who}`;
@@ -1409,8 +1454,7 @@ import '../styles/kt-components.css';
       const live = rows.filter((r) => !isVoidStatus(r.status));
       if (live.length === 0 || live.some((r) => r.paperChecked === null || r.paperChecked === undefined)) return ''; // 列が無いDBでは付けない
       const n = live.filter(isPaperOnly).length;
-      // 使わなかったときも「なし」と書く（ユーザー指示「追加なしの場合は追加なしで表記」）
-      return n > 0 ? `（予約受付表（紙）のみ ${n}件）` : '（予約受付表（紙）のみ なし）';
+      return n > 0 ? `（予約受付表（紙）のみ ${n}件）` : '';
     };
 
     function applyRowStatus(tr: HTMLElement, r: any) {
@@ -2769,7 +2813,12 @@ import '../styles/kt-components.css';
       el.textContent = '';
       parts.forEach((p, i) => {
         if (i > 0) el.appendChild(document.createTextNode('　'));
-        if (p.startsWith('未割当')) {
+        if (p.startsWith('追加なし')) {
+          const chip = document.createElement('span');
+          chip.className = 'ha-summary-noadd';
+          chip.textContent = '✓ ' + p;
+          el.appendChild(chip);
+        } else if (p.startsWith('未割当')) {
           const chip = document.createElement('span');
           chip.className = 'ha-summary-none';
           chip.textContent = p;
@@ -2799,13 +2848,14 @@ import '../styles/kt-components.css';
       const fresh = live.filter(isNewSinceHandover).length;
 
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
-      if (live.length > 0 && live.every((r) => r.paperChecked !== null && r.paperChecked !== undefined)) parts.push(paperOnlyN > 0 ? `予約受付表（紙）のみ ${paperOnlyN}件` : '予約受付表（紙）のみ なし');
+      if (paperOnlyN > 0) parts.push(`予約受付表（紙）のみ ${paperOnlyN}件`);
       if (changed > 0) parts.push(`変更あり ${changed}件`);
       if (charter > 0) parts.push(`貸切 ${charter}件`);
       const jumbo = live.filter((r) => r.status === 'jumbo').length;
       if (jumbo > 0) parts.push(`ジャンボ ${jumbo}件`);
       if (cancelled > 0) parts.push(`キャンセル ${cancelled}件`);
       if (fresh > 0) parts.push(`新着 ${fresh}件`);
+      else { const noAdd = noAddInfo(); if (noAdd) parts.push(noAdd); }
       if (hidden > 0) parts.push(`時間経過で非表示 ${hidden}件`);
 
       const baseTime = newBaselineTime();
@@ -3117,7 +3167,7 @@ import '../styles/kt-components.css';
       const charterCount = live.filter((r) => r.status === 'charter').length;
       const cancelledCount = rows.filter((r) => r.status === 'cancelled').length;
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
-      if (live.length > 0 && live.every((r) => r.paperChecked !== null && r.paperChecked !== undefined)) parts.push(paperOnlyCount > 0 ? `予約受付表（紙）のみ ${paperOnlyCount}件` : '予約受付表（紙）のみ なし');
+      if (paperOnlyCount > 0) parts.push(`予約受付表（紙）のみ ${paperOnlyCount}件`);
       if (changedCount > 0) parts.push(`変更あり ${changedCount}件`);
       if (charterCount > 0) parts.push(`貸切 ${charterCount}件`);
       const jumboCount = live.filter((r) => r.status === 'jumbo').length;
@@ -3864,6 +3914,9 @@ import '../styles/kt-components.css';
     .ha-grid .ha-row--paperonly td:nth-child(8), .ha-all-table .ha-all-card--paperonly td:nth-child(8) { background: #fef3c7; }
     .ha-row--paperonly td:first-child { box-shadow: inset 6px 0 0 #d97706; }
     .ha-paper-bulk { margin-top: 0.4rem; }
+    /* 追加なし（引き継ぎ以降に予約の追加がないとき）。緑で目立たせる */
+    .ha-badge--noadd { background: #ecfdf5; border: 2px solid #047857; color: #065f46; font-weight: 900; font-size: 0.95rem; padding: 0.1rem 0.6rem; }
+    .ha-summary-noadd { display: inline-block; background: #ecfdf5; border: 1px solid #047857; border-radius: var(--radius-md); color: #065f46; font-weight: 900; padding: 0.05rem 0.55rem; }
     @media print { .ha-paper-chip:not(.is-on) { display: none; } }
     .ha-row--overdue .ha-check, .ha-all-card--overdue .ha-check { outline: 2px solid #b91c1c; outline-offset: 1px; }
     .ha-healthbanner[hidden] { display: none; }

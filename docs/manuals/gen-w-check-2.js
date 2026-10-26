@@ -9,12 +9,13 @@ const key = (n) => `${YEAR}-${String(MONTH).padStart(2, "0")}-${String(n).padSta
 // シフトは関係なく、曜日・祝日で決める
 //  D: 日曜日・祝日 … 日勤・遅番とも1人 → 予約受付表（紙）のみ → 翌日の日勤がWチェック
 //  B: 月曜日        … 日勤はWチェック可、遅番は1人 → 予約受付表（紙）のみ → 翌日の日勤が朝にWチェック
+//  C: 土曜日（祝日を除く）… 日勤はWチェックが難しく予約受付表（紙）のみ、遅番はWチェック可 → 遅番がWチェックして全てチェック
 //  A: それ以外      … 当日で完了
 const days = [];
 for (let n = 1; n <= dim; n++) {
   const dw = new Date(Date.UTC(YEAR, MONTH - 1, n)).getUTCDay();
   const hol = HOL[key(n)];
-  const kind = dw === 0 || hol ? "D" : dw === 1 ? "B" : "A";
+  const kind = dw === 0 || hol ? "D" : dw === 1 ? "B" : dw === 6 ? "C" : "A";
   days.push({ n, dw, hol, kind });
 }
 function nextLabel(x) {
@@ -26,8 +27,9 @@ function cell(x) {
   let tag = "";
   if (x.kind === "A") tag = `<span class="tg ok">当日で完了</span>`;
   if (x.kind === "B") tag = `<span class="tg b">→ ${nextLabel(x)}の朝</span>`;
+  if (x.kind === "C") tag = `<span class="tg c">遅番でWチェック</span>`;
   if (x.kind === "D") tag = `<span class="tg d">→ ${nextLabel(x)}<br>Wチェック</span>`;
-  const sub = x.hol ? `<div class="ct hol">${x.hol}</div>` : x.dw === 0 ? `<div class="ct">日曜日</div>` : x.dw === 1 ? `<div class="ct">月曜日</div>` : `<div class="ct">&nbsp;</div>`;
+  const sub = x.hol ? `<div class="ct hol">${x.hol}</div>` : x.dw === 0 ? `<div class="ct">日曜日</div>` : x.dw === 1 ? `<div class="ct">月曜日</div>` : x.kind === "C" ? `<div class="ct">土曜日</div>` : `<div class="ct">&nbsp;</div>`;
   return `<td class="k-${x.kind}"><div class="dn"><b>${x.n}</b><i>${DOW[x.dw]}</i></div>${sub}${tag}</td>`;
 }
 
@@ -41,6 +43,7 @@ for (let r = 0; r < cells.length / 7; r++) rows += `<tr>${cells.slice(r * 7, r *
 
 const fmt = (arr) => arr.map((x) => x.n + "日").join("・");
 const listB = fmt(days.filter((x) => x.kind === "B"));
+const listC = fmt(days.filter((x) => x.kind === "C"));
 const listD = fmt(days.filter((x) => x.kind === "D"));
 
 const html = `<!doctype html>
@@ -67,7 +70,12 @@ h2.sec { margin:6px 0 3px; font-size:12.5pt; font-weight:900; display:flex; alig
 h2.sec .n { width:26px; height:26px; border-radius:50%; background:var(--line); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:12pt; }
 
 .reason { border:2.5px solid var(--line); border-radius:10px; padding:4px 10px; background:var(--soft); font-size:10pt; font-weight:700; margin-bottom:5px; }
-.two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.two { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+.two .step { grid-template-columns:50px 1fr; gap:4px; padding:2px 6px; }
+.two .step .what { font-size:8.8pt; line-height:1.3; }
+.two .dcard .dh { font-size:11pt; padding:2px 8px; }
+.two .dcard .dh small { font-size:7.5pt; }
+.two .flow { padding:4px 6px 5px; }
 .dcard { border:2.5px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; }
 .dcard .dh { background:var(--line); color:#fff; padding:3px 10px; font-weight:900; font-size:12pt; display:flex; justify-content:space-between; align-items:baseline; }
 .dcard .dh small { font-size:8.5pt; font-weight:500; opacity:.9; }
@@ -86,7 +94,7 @@ h2.sec .n { width:26px; height:26px; border-radius:50%; background:var(--line); 
 
 table.cal { width:100%; border-collapse:separate; border-spacing:0; border:2px solid var(--line); border-radius:8px; overflow:hidden; table-layout:fixed; }
 .cal th { background:var(--soft2); font-size:9.5pt; padding:2px 0; border-bottom:1.5px solid var(--line); }
-.cal td { height:19mm; vertical-align:top; padding:1.5px 3px 2px; border-right:1px solid #999; border-bottom:1px solid #999; font-size:8pt; }
+.cal td { height:17.5mm; vertical-align:top; padding:1.5px 3px 2px; border-right:1px solid #999; border-bottom:1px solid #999; font-size:8pt; }
 .cal td:last-child { border-right:none; }
 .cal tr:last-child td { border-bottom:none; }
 .cal .blank { background:repeating-linear-gradient(45deg,#fff,#fff 4px,#f3f3f3 4px,#f3f3f3 8px); }
@@ -99,9 +107,11 @@ table.cal { width:100%; border-collapse:separate; border-spacing:0; border:2px s
 .tg.ok { color:var(--muted); font-weight:500; }
 .tg.b { background:var(--soft3); border:1.2px solid var(--line); }
 .tg.d { background:var(--line); color:#fff; }
+.tg.c { background:var(--soft2); border:1.2px dashed var(--line); }
 .k-B { background:#f4f4f4; }
+.k-C { background:#f9f9f9; }
 .k-D { background:var(--soft2); box-shadow:inset 0 0 0 2px var(--line); }
-.legend { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin:4px 0 0; font-size:8.5pt; }
+.legend { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin:4px 0 0; font-size:8.5pt; }
 .legend div { border:1.5px solid var(--line); border-radius:6px; padding:2px 6px; line-height:1.3; }
 .legend b { display:block; font-size:9pt; }
 .note { margin:4px 0 0; font-size:8.5pt; color:var(--muted); line-height:1.4; }
@@ -122,9 +132,9 @@ table.cal { width:100%; border-collapse:separate; border-spacing:0; border:2px s
     <div class="when">${MONTH}月のスケジュール<br>シフトに関係なく、曜日・祝日で決める</div>
   </header>
 
-  <div class="reason">理由：<b>日曜日・祝日は日勤1人・遅番1人</b>、<b>月曜日は遅番が1人</b>のため、二人でのWチェックができない。<b>二人そろわない分は予約受付表（紙）にだけレ点</b>入れて、<b>翌日の日勤</b>が完了させる。</div>
+  <div class="reason">理由：<b>日曜日・祝日は日勤1人・遅番1人</b>、<b>月曜日は遅番が1人</b>、<b>土曜日は日勤がWチェックしにくい</b>ため、二人でのWチェックができない日がある。<b>二人そろわない分は予約受付表（紙）にだけレ点</b>入れて、<b>翌日の日勤</b>が完了させる（土曜日は、遅番がWチェックして全てチェックする）。</div>
 
-  <h2 class="sec"><span class="n">1</span>日曜日・祝日と月曜日の流れ</h2>
+  <h2 class="sec"><span class="n">1</span>日曜日・祝日／月曜日／土曜日の流れ</h2>
   <div class="two">
     <div class="dcard">
       <div class="dh">日曜日・祝日<small>日勤 1人／遅番 1人</small></div>
@@ -146,6 +156,16 @@ table.cal { width:100%; border-collapse:separate; border-spacing:0; border:2px s
         <div class="step fin"><div class="who">火曜 朝<small>日勤</small><span class="pp">●●●</span></div><div class="what"><span class="st o">○</span><b>翌日の日勤が朝チェック</b>（Wチェック後）して完了。<b>日勤の名前でサイン</b></div></div>
       </div>
     </div>
+    <div class="dcard">
+      <div class="dh">土曜日<small>日勤はWチェック難／遅番 2人</small></div>
+      <div class="flow">
+        <div class="step ng"><div class="who">日勤<small>夕方</small><span class="pp">●●</span></div><div class="what"><span class="st x">✗</span>Wチェックが難しい。<b>予約受付表（紙）のみ</b>（「受付表」ボタン）で、日勤の名前でサイン</div></div>
+        <p class="dn2">▼</p>
+        <div class="step"><div class="who">遅番<small>業務終了後</small><span class="pp">●●</span></div><div class="what"><span class="st o">○</span><b>二人でWチェック</b>して、「済」に。電話番ではない側の名前でサイン</div></div>
+        <p class="dn2">▼</p>
+        <div class="step fin"><div class="who">完了<small>当日中</small></div><div class="what"><span class="st o">○</span>全て「済」になり、<b>「全て確認済み」</b>で完了</div></div>
+      </div>
+    </div>
   </div>
 
   <h2 class="sec"><span class="n">2</span>${MONTH}月のスケジュール（Wチェックできない日は翌日）</h2>
@@ -153,11 +173,12 @@ table.cal { width:100%; border-collapse:separate; border-spacing:0; border:2px s
     <tr><th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th></tr>
 ${rows}  </table>
   <div class="legend">
-    <div><b>当日で完了</b>火〜土（祝日を除く）。日勤・遅番とも二人でWチェックできる。ふだんどおり</div>
+    <div><b>当日で完了</b>火〜金（祝日を除く）。日勤・遅番とも二人でWチェックできる。ふだんどおり</div>
     <div><b>→ 翌日の朝</b>月曜日。日勤はWチェック、遅番は1人で予約受付表（紙）のみ。翌日の日勤が朝にWチェック</div>
+    <div><b>遅番でWチェック</b>土曜日。日勤は予約受付表（紙）のみ。遅番が二人でWチェックして、全てチェック</div>
     <div><b>→ 翌日がWチェック</b>日曜日・祝日。日勤・遅番とも1人で予約受付表（紙）のみ。翌日の日勤が完了</div>
   </div>
-  <p class="note">【${MONTH}月】日曜日・祝日（<b>${listD}</b>）は、翌日の日勤がWチェック。月曜日（<b>${listB}</b>）は、翌日の日勤が朝にWチェック。<br>祝日：11月3日（文化の日）、11月23日（勤労感謝の日）。祝日は日曜日と同じ扱い。月曜日が祝日のとき（23日）も、日曜日・祝日の扱い。</p>
+  <p class="note">【${MONTH}月】土曜日（<b>${listC}</b>）は、日勤は予約受付表（紙）のみ、遅番がWチェックして全てチェック。日曜日・祝日（<b>${listD}</b>）は、翌日の日勤がWチェック。月曜日（<b>${listB}</b>）は、翌日の日勤が朝にWチェック。<br>祝日：11月3日（文化の日）、11月23日（勤労感謝の日）。祝日は日曜日と同じ扱い。月曜日が祝日のとき（23日）も、日曜日・祝日の扱い。</p>
 
   <p class="foot">富士タクシー　配車管理 / 事務所マニュアル：Wチェックの運用（2枚目）（2026年11月版）</p>
 </main>

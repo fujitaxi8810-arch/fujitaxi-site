@@ -7,8 +7,8 @@ const dim = new Date(Date.UTC(YEAR, MONTH, 0)).getUTCDate();
 const key = (n) => `${YEAR}-${String(MONTH).padStart(2, "0")}-${String(n).padStart(2, "0")}`;
 
 // シフトは関係なく、曜日・祝日で決める
-//  D: 日曜日・祝日 … 日勤・遅番とも1人 → 紙のみ → 翌日の日勤がWチェック
-//  B: 月曜日        … 日勤はWチェック可、遅番は1人 → 紙のみ → 翌日の日勤が朝にWチェック
+//  D: 日曜日・祝日 … 日勤・遅番とも1人 → 予約受付表（紙）のみ → 翌日の日勤がWチェック
+//  B: 月曜日        … 日勤はWチェック可、遅番は1人 → 予約受付表（紙）のみ → 翌日の日勤が朝にWチェック
 //  A: それ以外      … 当日で完了
 const days = [];
 for (let n = 1; n <= dim; n++) {
@@ -122,16 +122,16 @@ table.cal { width:100%; border-collapse:separate; border-spacing:0; border:2px s
     <div class="when">${MONTH}月のスケジュール<br>シフトに関係なく、曜日・祝日で決める</div>
   </header>
 
-  <div class="reason">理由：<b>日曜日・祝日は日勤1人・遅番1人</b>、<b>月曜日は遅番が1人</b>のため、二人でのWチェックができない。<b>二人そろわない分は紙にレ点だけ</b>入れて、<b>翌日の日勤</b>が完了させる。</div>
+  <div class="reason">理由：<b>日曜日・祝日は日勤1人・遅番1人</b>、<b>月曜日は遅番が1人</b>のため、二人でのWチェックができない。<b>二人そろわない分は予約受付表（紙）にだけレ点</b>入れて、<b>翌日の日勤</b>が完了させる。</div>
 
   <h2 class="sec"><span class="n">1</span>日曜日・祝日と月曜日の流れ</h2>
   <div class="two">
     <div class="dcard">
       <div class="dh">日曜日・祝日<small>日勤 1人／遅番 1人</small></div>
       <div class="flow">
-        <div class="step ng"><div class="who">日勤<small>夕方</small><span class="pp">●</span></div><div class="what"><span class="st x">✗</span>1人のためWチェック不可。<b>紙にレ点のみ</b></div></div>
+        <div class="step ng"><div class="who">日勤<small>夕方</small><span class="pp">●</span></div><div class="what"><span class="st x">✗</span>1人のためWチェック不可。<b>予約受付表（紙）にレ点のみ</b></div></div>
         <p class="dn2">▼</p>
-        <div class="step ng"><div class="who">遅番<small>業務終了後</small><span class="pp">●</span></div><div class="what"><span class="st x">✗</span>1人のためWチェック不可。<b>紙にレ点のみ</b></div></div>
+        <div class="step ng"><div class="who">遅番<small>業務終了後</small><span class="pp">●</span></div><div class="what"><span class="st x">✗</span>1人のためWチェック不可。<b>予約受付表（紙）にレ点のみ</b></div></div>
         <p class="dn2">▼</p>
         <div class="step fin"><div class="who">翌日 朝<small>日勤</small><span class="pp">●●●</span></div><div class="what"><span class="st o">○</span><b>翌日の日勤がWチェック</b>して完了。配車ボードに「済」、<b>日勤の名前でサイン</b></div></div>
       </div>
@@ -139,9 +139,9 @@ table.cal { width:100%; border-collapse:separate; border-spacing:0; border:2px s
     <div class="dcard">
       <div class="dh">月曜日<small>日勤 2人以上／遅番 1人</small></div>
       <div class="flow">
-        <div class="step"><div class="who">日勤<small>夕方</small><span class="pp">●●●</span></div><div class="what"><span class="st o">○</span>二人でWチェック可。紙と配車ボードにレ点、<b>日勤の名前でサイン</b></div></div>
+        <div class="step"><div class="who">日勤<small>夕方</small><span class="pp">●●●</span></div><div class="what"><span class="st o">○</span>二人でWチェック可。予約受付表（紙）と配車ボードにレ点、<b>日勤の名前でサイン</b></div></div>
         <p class="dn2">▼</p>
-        <div class="step ng"><div class="who">遅番<small>業務終了後</small><span class="pp">●</span></div><div class="what"><span class="st x">✗</span>1人のためWチェック不可。<b>紙にレ点のみ</b></div></div>
+        <div class="step ng"><div class="who">遅番<small>業務終了後</small><span class="pp">●</span></div><div class="what"><span class="st x">✗</span>1人のためWチェック不可。<b>予約受付表（紙）にレ点のみ</b></div></div>
         <p class="dn2">▼</p>
         <div class="step fin"><div class="who">火曜 朝<small>日勤</small><span class="pp">●●●</span></div><div class="what"><span class="st o">○</span><b>翌日の日勤が朝チェック</b>（Wチェック後）して完了。<b>日勤の名前でサイン</b></div></div>
       </div>
@@ -154,8 +154,8 @@ table.cal { width:100%; border-collapse:separate; border-spacing:0; border:2px s
 ${rows}  </table>
   <div class="legend">
     <div><b>当日で完了</b>火〜土（祝日を除く）。日勤・遅番とも二人でWチェックできる。ふだんどおり</div>
-    <div><b>→ 翌日の朝</b>月曜日。日勤はWチェック、遅番は1人で紙のみ。翌日の日勤が朝にWチェック</div>
-    <div><b>→ 翌日がWチェック</b>日曜日・祝日。日勤・遅番とも1人で紙のみ。翌日の日勤が完了</div>
+    <div><b>→ 翌日の朝</b>月曜日。日勤はWチェック、遅番は1人で予約受付表（紙）のみ。翌日の日勤が朝にWチェック</div>
+    <div><b>→ 翌日がWチェック</b>日曜日・祝日。日勤・遅番とも1人で予約受付表（紙）のみ。翌日の日勤が完了</div>
   </div>
   <p class="note">【${MONTH}月】日曜日・祝日（<b>${listD}</b>）は、翌日の日勤がWチェック。月曜日（<b>${listB}</b>）は、翌日の日勤が朝にWチェック。<br>祝日：11月3日（文化の日）、11月23日（勤労感謝の日）。祝日は日曜日と同じ扱い。月曜日が祝日のとき（23日）も、日曜日・祝日の扱い。</p>
 

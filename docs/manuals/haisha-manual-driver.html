@@ -168,15 +168,132 @@ table.ref tr:last-child td { border-bottom: none; }
 <section id="open">
   <h2><span class="num">01</span>開き方</h2>
   <ol class="steps">
-    <li><div><p class="step-title">日勤：夕方・引き継ぐ前</p><p>紙の予約表と配車ボードをWチェックし、日別の配車ボードの右端の「済」に全部チェックを入れます（キャンセルは対象外）。全部入ったら、画面の一番上の<strong>「日勤（夕方）の確認済み」</strong>にチェックを入れて、確認した日勤の人の名前を選びます。（「全て確認済み」を押したときの選択肢<strong>「日勤（夕方・引き継ぐ前）」</strong>からも同じように記録できます）<strong>「引き継ぎ」を記録したあと、また夕方18時に確認の対象が「明日」に切り替わったときに、このサインの画面が自動で出ます</strong>（明日の予約が全部チェック済みで、日勤のサインがまだのとき。「済」が残っていれば、先に済を入れるよう案内が出ます。18時の自動表示は、1つの端末で同じ日に1回だけです）。全部の「済」が入るまでは押せません。</p></div></li>
-    <li><div><p class="step-title">遅番：業務終了後に、二人でWチェック</p><p>CSVを0時以降に出力し、最新であることを確認してから、<strong>二人</strong>でWチェックします。完了した分は、紙の予約表と配車ボードの<strong>両方</strong>にレ点を入れます（未完了は、配車ボードにはレ点せず、紙のみ）。全部の「済」が入ったら、画面の一番上の<strong>「全て確認済み」</strong>にチェックを入れ、「Wチェックが完了した」のまま、<strong>電話番ではない側</strong>の人の名前を選びます。日勤のサインが無いと押せません。</p></div></li>
-    <li><div><p class="step-title">やむを得ない場合：紙のみ → 翌朝の日勤が完了</p><p>二人でWチェックできないとき（相方が急病・事故・緊急の呼び出し／終了時間が大きく違う／遅番が1名しかいない／システムの障害）は、<strong>紙の予約表のみ</strong>にチェックします。<strong>翌朝、日勤が全て完了</strong>して「全て確認済み」にチェックを入れ、「日勤が朝にチェックした」で<strong>日勤の人の名前</strong>を選びます（朝7時以降は最初からこの場面が選ばれます）。</p></div></li>
+    <li><div><p class="step-title">スマホ・タブレットのブラウザで開く</p><p>事務所から伝えられたURL（/haisha）を開きます。ログイン画面が出た場合は、上部の案内に従ってください。うまく入れないときは事務所に確認してください。</p></div></li>
+    <li><div><p class="step-title">ホーム画面に追加しておくと便利</p><p>ブラウザの共有メニューから「ホーム画面に追加」を選ぶと、アイコンから毎回すぐ開けます。</p></div></li>
+  </ol>
+  <div class="callout callout--ok">
+    <p class="callout__label">✓ 自動で更新される</p>
+    <p>画面を開いたままにしていても、<strong>30秒ごとに自動で最新の内容</strong>に更新されます。事務所側で担当が変わったり時刻が変わったりすると、自然に反映されます。プログラムが新しくなったときも、数分以内に自動で読み込み直されます。</p>
+  </div>
+</section>
+
+<section id="view">
+  <h2><span class="num">02</span>画面の見方</h2>
+  <p>上部のタブは「日別の配車ボード」「全体配車ボード」の2つが主に関係します（内容は同じで、全体配車ボードの方が1日分を横長の表でまとめて見られます）。表の各行が1件の予約です。左端の「№」は上からの通し番号です。</p>
+  <div class="ref-wrap">
+  <table class="ref">
+    <tr><th>列</th><th>内容</th></tr>
+    <tr><td>時刻</td><td>予約の時刻</td></tr>
+    <tr><td>状態</td><td>通常／変更あり／キャンセル／貸切／ジャンボ</td></tr>
+    <tr><td>担当者</td><td>その予約を担当する乗務員名。<strong>ここに自分の名前がある行が、自分が行く予約</strong>（名前は人ごとに決まった色で表示されます）</td></tr>
+    <tr><td>お客様名</td><td>お客様のお名前</td></tr>
+    <tr><td>迎車場所</td><td>お迎えする場所・住所</td></tr>
+    <tr><td>行き先・メモ</td><td>行き先や申し送り事項</td></tr>
+    <tr><td>済</td><td>確認の印（遅番の方のチェックに使います）。右端に固定されていて、横にスクロールしても見えます</td></tr>
+  </table>
+  </div>
+  <p>予約時刻から<strong>1時間経つと、その行は表から自動的に消えます</strong>（配車が終わったものを表示し続けないため）。<strong>「経過分も表示」</strong>で戻せます。</p>
+  <p>ページの一番下の「文字サイズ」で、<strong>小・標準・大・特大</strong>を切り替えられます。</p>
+</section>
+
+<section id="colors">
+  <h2><span class="num">03</span>色と表示の意味</h2>
+  <p>行全体の色と、行の左端の太い縦線で、状態が分かります。</p>
+  <div class="ref-wrap">
+  <table class="ref">
+    <tr><th>表示</th><th>意味</th></tr>
+    <tr><td><span class="bar" style="background:#0e7490"></span><span class="badge b-new">新着</span></td><td>前回の引き継ぎ以降に新しく入った予約（行は水色）</td></tr>
+    <tr><td><span class="bar" style="background:#d97706"></span><span class="badge b-changed">変更あり</span></td><td>予約の時刻や内容が変わった予約（行は黄）。時刻が変わったときは「← 07:45から変更」のように元の時刻が示される。<strong>変更後の時刻の行を見てください</strong></td></tr>
+    <tr><td><span class="bar" style="background:#db2777"></span><span class="badge b-charter">貸切</span></td><td>貸切の予約（行はピンク）</td></tr>
+    <tr><td><span class="bar" style="background:#16a34a"></span><span class="badge b-jumbo">ジャンボ</span></td><td>ジャンボタクシーの予約（行は緑）</td></tr>
+    <tr><td><span class="bar" style="background:#9ca3af"></span><span class="badge b-cancel">キャンセル</span></td><td>取り消された予約（灰色で打ち消し線）。時刻が変わった元の予約は、これになり「→ 07:50に変更」と示される</td></tr>
+    <tr><td><span class="badge b-none">— 未割当 —</span></td><td>まだ担当が決まっていない予約（担当者の欄がオレンジ）</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="check">
+  <h2><span class="num">04</span>日勤・遅番の方へ：予約チェックとサイン</h2>
+  <p>予約の確認は、<strong>日勤（夕方・引き継ぐ前）→ 遅番（業務終了後）</strong>の順に行います。<strong>それぞれ、予約受付表（紙）と配車ボードをWチェックして、全予約の「済」にチェックを入れ、確認した人の名前を選んでサイン</strong>します。<strong>日勤のサインは必須</strong>で、日勤が完了していないと、遅番も完了になりません。終わるまで画面の一番上に赤い警告が出ます。<strong>夕方18時から、画面の一番上の確認は「明日」の予約の分</strong>に切り替わるので、0時を待たずに確認できます。</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 720 440" role="img" aria-labelledby="dg-t dg-d">
+      <title id="dg-t">毎日の予約チェックの流れ</title>
+      <desc id="dg-d">日勤が夕方・引き継ぐ前に予約受付表（紙）と配車ボードをWチェックして、日勤（夕方）の確認済みにチェックし名前を選ぶ。その後、遅番が業務終了後に二人でWチェックし、予約受付表（紙）と配車ボードにレ点を入れ、全て確認済みにチェックして電話番ではない側の名前を選ぶと完了。日勤のサインが無いと遅番も完了にならない。朝7時までに終わらないと強い警告が出る。</desc>
+
+      <!-- 時間の帯 -->
+      <text class="d-m" x="210" y="20" font-size="13" text-anchor="middle">乗務終了</text>
+      <text class="d-m" x="520" y="20" font-size="13" text-anchor="middle">朝7:00</text>
+      <rect class="d-seg-a" x="20" y="30" width="190" height="34" rx="8"/>
+      <rect class="d-seg-b" x="210" y="30" width="310" height="34"/>
+      <rect class="d-seg-c" x="520" y="30" width="180" height="34" rx="8"/>
+      <text class="d-m" x="115" y="52" font-size="13" text-anchor="middle">前日の営業</text>
+      <text class="d-warn-ink" x="365" y="52" font-size="14" font-weight="700" text-anchor="middle">乗務終了後〜朝7時</text>
+      <text class="d-red-ink" x="610" y="52" font-size="13" font-weight="700" text-anchor="middle">未完了なら強い警告</text>
+      <line x1="210" y1="26" x2="210" y2="70" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="3 3"/>
+      <line x1="520" y1="26" x2="520" y2="70" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="3 3"/>
+
+      <!-- ① -->
+      <rect class="d-card" x="20" y="95" width="200" height="190" rx="12"/>
+      <circle class="d-num" cx="44" cy="120" r="14"/><text class="d-numt" x="44" y="125" font-size="14" text-anchor="middle">1</text>
+      <text class="d-t" x="66" y="125" font-size="15" font-weight="700">日勤（夕方）</text>
+      <text class="d-t" x="36" y="152" font-size="13">引き継ぐ前に、</text>
+      <text class="d-t" x="36" y="170" font-size="13">予約受付表（紙）と配車</text>
+      <text class="d-t" x="36" y="188" font-size="13">ボードをWチェックして</text>
+      <text class="d-t" x="36" y="206" font-size="13">「済」→名前を選ぶ</text>
+      <rect class="d-red" x="34" y="222" width="172" height="46" rx="8"/>
+      <text class="d-red-ink" x="120" y="242" font-size="12" font-weight="700" text-anchor="middle">日勤のサインは必須</text>
+      <text class="d-red-ink" x="120" y="259" font-size="12" font-weight="700" text-anchor="middle">（無いと遅番も未完了）</text>
+
+      <!-- → -->
+      <path class="d-arrow" d="M224 190 H252"/><path class="d-arrowhead" d="M262 190 L250 183 L250 197 Z"/>
+
+      <!-- ② -->
+      <rect class="d-card" x="262" y="95" width="200" height="190" rx="12"/>
+      <circle class="d-num" cx="286" cy="120" r="14"/><text class="d-numt" x="286" y="125" font-size="14" text-anchor="middle">2</text>
+      <text class="d-t" x="308" y="125" font-size="15" font-weight="700">遅番・全て確認済み</text>
+      <text class="d-t" x="278" y="152" font-size="13">業務終了後、二人で</text>
+      <text class="d-t" x="278" y="170" font-size="13">Wチェック。予約受付表</text>
+      <text class="d-t" x="278" y="188" font-size="13">（紙）と配車ボードに</text>
+      <text class="d-t" x="278" y="206" font-size="13">レ点→電話番でない側</text>
+      <rect class="d-red" x="276" y="222" width="172" height="46" rx="8"/>
+      <text class="d-red-ink" x="362" y="242" font-size="12" font-weight="700" text-anchor="middle">日勤のサインと</text>
+      <text class="d-red-ink" x="362" y="259" font-size="12" font-weight="700" text-anchor="middle">全ての「済」が必要</text>
+
+      <!-- → -->
+      <path class="d-arrow" d="M466 190 H494"/><path class="d-arrowhead" d="M504 190 L492 183 L492 197 Z"/>
+
+      <!-- ③ -->
+      <rect class="d-card" x="504" y="95" width="196" height="190" rx="12"/>
+      <circle class="d-num" cx="528" cy="120" r="14"/><text class="d-numt" x="528" y="125" font-size="14" text-anchor="middle">3</text>
+      <text class="d-t" x="550" y="125" font-size="15" font-weight="700">完了</text>
+      <text class="d-t" x="520" y="158" font-size="13">警告が消えて緑に。</text>
+      <text class="d-t" x="520" y="178" font-size="13">日勤と遅番の名前と</text>
+      <text class="d-t" x="520" y="198" font-size="13">時刻が記録される</text>
+      <rect class="d-ok" x="518" y="222" width="168" height="46" rx="8"/>
+      <text class="d-ok-ink" x="602" y="242" font-size="12" font-weight="700" text-anchor="middle">✓ 本日の予約は</text>
+      <text class="d-ok-ink" x="602" y="259" font-size="12" font-weight="700" text-anchor="middle">全て確認済み</text>
+
+      <!-- 7時を過ぎたら -->
+      <rect class="d-red-dark" x="20" y="320" width="680" height="96" rx="12"/>
+      <text class="d-red-ink" x="40" y="348" font-size="15" font-weight="900">🚨 朝7時を過ぎても終わっていないと</text>
+      <text class="d-red-ink" x="40" y="372" font-size="13" font-weight="700">「朝7時を過ぎても、本日の予約確認が終わっていません　再チェックしてください」</text>
+      <text class="d-t" x="40" y="396" font-size="13">太い赤枠・大きい文字になります。①の「済」の確認からやり直してください。</text>
+      <!-- 戻る矢印 -->
+      <path class="d-loop" d="M110 320 V302 H60 V288"/><path class="d-loophead" d="M60 285 L53 298 L67 298 Z"/>
+    </svg>
+    <figcaption>予約チェックの流れ。①日勤が夕方にサイン → ②遅番が業務終了後にWチェックしてサイン → ③朝7時までに緑にします。</figcaption>
+  </figure>
+  <ol class="steps">
+    <li><div><p class="step-title">日勤：夕方・引き継ぐ前</p><p>予約受付表（紙）と配車ボードをWチェックし、日別の配車ボードの右端の「済」に全部チェックを入れます（キャンセルは対象外）。全部入ったら、画面の一番上の<strong>「日勤（夕方）の確認済み」</strong>にチェックを入れて、確認した日勤の人の名前を選びます。（「全て確認済み」を押したときの選択肢<strong>「日勤（夕方・引き継ぐ前）」</strong>からも同じように記録できます）<strong>「引き継ぎ」を記録したあと、また夕方18時に確認の対象が「明日」に切り替わったときに、このサインの画面が自動で出ます</strong>（明日の予約が全部チェック済みで、日勤のサインがまだのとき。「済」が残っていれば、先に済を入れるよう案内が出ます。18時の自動表示は、1つの端末で同じ日に1回だけです）。全部の「済」が入るまでは押せません。</p></div></li>
+    <li><div><p class="step-title">遅番：業務終了後に、二人でWチェック</p><p>CSVを0時以降に出力し、最新であることを確認してから、<strong>二人</strong>でWチェックします。完了した分は、予約受付表（紙）と配車ボードの<strong>両方</strong>にレ点を入れます（未完了は、配車ボードの「済」にはせず、予約受付表（紙）のみ）。全部の「済」が入ったら、画面の一番上の<strong>「全て確認済み」</strong>にチェックを入れ、「Wチェックが完了した」のまま、<strong>電話番ではない側</strong>の人の名前を選びます。日勤のサインが無いと押せません。</p></div></li>
+    <li><div><p class="step-title">やむを得ない場合：予約受付表（紙）のみ → 翌朝の日勤が完了</p><p>二人でWチェックできないとき（相方が急病・事故・緊急の呼び出し／終了時間が大きく違う／遅番が1名しかいない／システムの障害）は、<strong>予約受付表（紙）のみ</strong>にチェックします。<strong>翌朝、日勤が全て完了</strong>して「全て確認済み」にチェックを入れ、「日勤が朝にチェックした」で<strong>日勤の人の名前</strong>を選びます（朝7時以降は最初からこの場面が選ばれます）。</p></div></li>
+    <li><div><p class="step-title">Wチェックできない予約は、「受付表」ボタンで「予約受付表（紙）のみ」にする</p><p>予約受付表（紙）にだけレ点を入れた予約は、配車ボードの「済」の下の小さな<strong>「受付表」ボタン</strong>を押します（セルが黄色になり、集計に「予約受付表（紙）のみ ○件」が出ます）。まだ何もしていない予約をまとめて同じにするには、画面上部の<strong>「未チェック ○件を全て『予約受付表（紙）のみ』にする」</strong>ボタンを押します（Wチェックできないときだけ）。日勤のサインは、「予約受付表（紙）のみ」が残っていても押せます（名前の後ろに「（予約受付表（紙）のみ ○件）」が付きます）。<strong>「全て確認済み」は、全部が「済」になってから</strong>押せます。Wチェックできたら、「済」のチェックボックスを押します（黄色が消えます）。</p></div></li>
     <li><div><p class="step-title">サインする人</p>
       <table class="ref"><tr><th>段階</th><th>サインする人</th><th>画面で選ぶ項目</th></tr>
       <tr><td><strong>日勤</strong>（夕方・引き継ぐ前）</td><td>確認した日勤の人</td><td>「日勤（夕方）の確認済み」、または「全て確認済み」→「日勤（夕方・引き継ぐ前）」</td></tr>
       <tr><td><strong>遅番</strong>（業務終了後、二人でWチェック完了後）</td><td><strong>電話番ではない側</strong>の人</td><td>「全て確認済み」→「Wチェックが完了した」</td></tr>
-      <tr><td><strong>やむを得ない場合</strong>（紙のみチェック）→<strong>翌朝の日勤</strong></td><td>日勤の人</td><td>「全て確認済み」→「日勤が朝にチェックした」</td></tr></table>
-      <p>サインできるのは、<strong>小林隼人・渡部晃・堀内洋伯・荒智章・目黒圭吾・中橋常郎・菅原元輝・小林結・佐藤賀子</strong>の9名だけです（どの場面でも、毎日この9名から選べます。シフトでは絞りません）日勤の候補に出ます）。サインした人は、責任をもって対応してください。</p></div></li>
+      <tr><td><strong>やむを得ない場合</strong>（予約受付表（紙）のみ）→<strong>翌朝の日勤</strong></td><td>日勤の人</td><td>「全て確認済み」→「日勤が朝にチェックした」</td></tr></table>
+      <p>サインできるのは、<strong>小林隼人・渡部晃・堀内洋伯・荒智章・目黒圭吾・中橋常郎・菅原元輝・小林結・佐藤賀子</strong>の9名だけです（どの場面でも、毎日この9名から選べます。シフトでは絞りません）。サインした人は、責任をもって対応してください。</p></div></li>
     <li><div><p class="step-title">緑の表示になれば完了</p><p>「✓ 本日の予約は全て確認済み　日勤（夕方）：○○　確認：△△」と出ます。押し間違えたときは、チェックを外すと取り消せます。この緑の表示は、朝8時になると自動で消えます。</p></div></li>
   </ol>
   <div class="callout callout--danger">

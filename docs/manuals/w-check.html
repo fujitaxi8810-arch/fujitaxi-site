@@ -174,6 +174,18 @@ header { margin-bottom:3px; }
 .wc-note { font-size:9.5pt; }
 .flow .col .body p { margin-bottom:2px; }
 .warnnote { margin:3px 0 0; padding:1px 10px; border:2px solid var(--line); border-radius:8px; font-weight:900; font-size:10pt; text-align:center; }
+.mx td { padding:0 8px; font-size:9.5pt; line-height:1.3; }
+.mx .rh small { display:none; }
+.rule-b { font-size:9pt; line-height:1.35; }
+.sg td { padding:0 8px; }
+.warnnote { font-size:9.5pt; padding:0 10px; line-height:1.3; }
+.resp { padding:0 10px; }
+.sheet { padding-top:3mm; padding-bottom:1mm; }
+h1 { font-size:19pt; }
+.csvband .big { font-size:15pt; }
+.person { padding:1px 8px; }
+.col .body { padding:1px 9px 2px; font-size:9pt; }
+.st .stb { font-size:9pt; padding:2px 8px 2px; }
 </style>
 </head>
 <body>
@@ -195,7 +207,7 @@ header { margin-bottom:3px; }
     <div class="mid"><span class="arrows">⇄</span> <b>声に出して確認</b></div>
     <div class="person"><b>遅番の相方</b><small>2人目（電話番ではない方）</small></div>
   </div>
-  <p class="wc-note">お互いに<span class="tag paper">予約表（紙）</span>と照合しながら、声に出して確認する</p>
+  <p class="wc-note">お互いに<span class="tag paper">予約受付表（紙）</span>と照合しながら、声に出して確認する</p>
 
   <h2 class="sec"><span class="n">2</span>ふだんの流れ（理想）</h2>
   <div class="flow">
@@ -203,7 +215,7 @@ header { margin-bottom:3px; }
       <div class="head">日勤<small>夕方・引き継ぐ前</small></div>
       <div class="body">
         <p class="big">Wチェックして、サイン</p>
-        <p><span class="tag paper">予約表（紙）</span>と<span class="tag">配車ボード</span>をWチェックしたのち、「全て確認」にチェックして、<b>確認した人の名前を選ぶ</b></p>
+        <p><span class="tag paper">予約受付表（紙）</span>と<span class="tag">配車ボード</span>をWチェックしたのち、「全て確認」にチェックして、<b>確認した人の名前を選ぶ</b></p>
       </div>
     </div>
     <div class="ar">▶</div>
@@ -211,15 +223,15 @@ header { margin-bottom:3px; }
       <div class="head">遅番<small>業務終了後</small></div>
       <div class="body">
         <p class="big">二人でWチェック</p>
-        <p><span class="hl">CSVは0時以降に出力</span>し、最新の確認後、二人でWチェック。完了後、<b>予約表と配車ボードの両方</b>にレ点を入れ、<b>電話番ではない側の名前</b>を選ぶ</p>
+        <p><span class="hl">CSVは0時以降に出力</span>し、最新の確認後、二人でWチェック。完了後、<b>予約受付表と配車ボードの両方</b>にレ点を入れ、<b>電話番ではない側の名前</b>を選ぶ</p>
       </div>
     </div>
     <div class="ar">▶</div>
     <div class="col">
       <div class="head">翌朝　日勤<small>やむを得ない場合</small></div>
       <div class="body">
-        <p class="big">紙のみチェック → 朝に完了</p>
-        <p>Wチェックできないときは<b>紙のみ</b>チェック。翌朝、日勤が全て完了して、<b>日勤の名前</b>を選ぶ</p>
+        <p class="big">予約受付表（紙）のみチェック → 朝に完了</p>
+        <p>Wチェックできないときは<b>予約受付表（紙）のみ</b>チェック。翌朝、日勤が全て完了して、<b>日勤の名前</b>を選ぶ</p>
       </div>
     </div>
   </div>
@@ -239,7 +251,7 @@ header { margin-bottom:3px; }
     <div class="steps3">
       <div class="st">
         <div class="sth"><span class="c">1</span>1人目<small>先に帰庫した人／遅番の1人</small></div>
-        <div class="stb"><span class="hl">CSVは0時以降に出力</span>し、<b>最新であること（ダウンロード時間）を確認</b>したうえで、予約確認を進める。レ点は<span class="tag paper">予約表（紙）</span><b>だけ</b>。配車ボードは<b>空欄のまま</b></div>
+        <div class="stb"><span class="hl">CSVは0時以降に出力</span>し、<b>最新であること（ダウンロード時間）を確認</b>したうえで、予約確認を進める。レ点は<span class="tag paper">予約受付表（紙）</span><b>だけ</b>。配車ボードは<b>「受付表」ボタン</b>（黄色）</div>
       </div>
       <div class="ar2">▶</div>
       <div class="st">
@@ -249,7 +261,7 @@ header { margin-bottom:3px; }
       <div class="ar2">▶</div>
       <div class="st done3">
         <div class="sth"><span class="c">✓</span>Wチェック完了</div>
-        <div class="stb">完了したら、<span class="tag paper">予約表</span>と<span class="tag">配車ボード</span>の<b>両方</b>にレ点</div>
+        <div class="stb">完了したら、<span class="tag paper">予約受付表</span>と<span class="tag">配車ボード</span>の<b>両方</b>にレ点</div>
       </div>
     </div>
   </div>
@@ -257,22 +269,22 @@ header { margin-bottom:3px; }
   <h2 class="sec"><span class="n">4</span>配車ボードにチェックするのは「Wチェックが完了した場合のみ」</h2>
   <p class="principle done-cond"><b>Wチェックが全て完了しないと「全て確認済み」（＝完了）にならず</b>、警告が残ります。</p>
   <table class="mx">
-    <tr><th></th><th>予約表（紙）</th><th>配車ボードの「済」</th></tr>
-    <tr class="ok-row"><td class="rh"><b>Wチェックが完了した予約</b><small>2人で確認できた</small></td><td class="yes"><span class="mk">○</span>レ点を入れる</td><td class="yes"><span class="mk">○</span>チェックする</td></tr>
-    <tr class="ng-row"><td class="rh"><b>Wチェックが未完了の予約</b><small>1人目のチェックのみ、など</small></td><td class="yes"><span class="mk">○</span>レ点を入れる</td><td class="no"><span class="mk">✗</span><b>チェックしない</b>（空欄のまま）</td></tr>
+    <tr><th></th><th>予約受付表（紙）</th><th>配車ボードの「済」</th></tr>
+    <tr class="ok-row"><td class="rh"><b>Wチェックが完了した予約</b><small>2人で確認できた</small></td><td class="yes"><span class="mk">○</span>レ点</td><td class="yes"><span class="mk">○</span>チェックする</td></tr>
+    <tr class="ng-row"><td class="rh"><b>Wチェックが未完了の予約</b><small>1人目のチェックのみ、など</small></td><td class="yes"><span class="mk">○</span>レ点</td><td class="no"><span class="mk">✗</span><b>「済」にしない</b>。「受付表」ボタンを押す（黄色）</td></tr>
   </table>
   <p class="mxnote">全てWチェック完了になったら、「全て確認済み」にチェックして警告を消す</p>
-  <div class="rule"><div class="rule-b"><b>なぜ、未完了はボードにレ点しないのか：</b>朝、ボードの「済」が<b>全てレ点だと警告が出ず</b>、未完了の予約に<u>気付けない</u>から。未完了をボードに残せば、<b>翌朝の警告で日勤が気付いて</b>朝にチェックできる。</div></div>
+  <div class="rule"><div class="rule-b"><b>なぜ、未完了は「済」にしないのか：</b>朝、ボードの「済」が<b>全てレ点だと警告が出ず</b>、未完了の予約に<u>気付けない</u>から。未完了は<b>「受付表」ボタン（黄色）</b>にしておけば、<b>翌朝の警告で日勤が気付いて</b>Wチェックできる。</div></div>
 
   <h2 class="sec"><span class="n">5</span>サイン（<span class="tag">配車ボード</span>で、名前を選ぶ）</h2>
   <table class="sg">
     <tr><th>場面</th><th>サインする人</th><th class="nm">配車ボードで選ぶ項目</th></tr>
     <tr><td><b>日勤</b>（夕方・引き継ぐ前）</td><td><b>確認した日勤の人</b></td><td class="nm">「日勤（夕方）の確認済み」</td></tr>
     <tr><td><b>遅番</b>（二人でWチェック完了後）</td><td><b>電話番ではない側</b></td><td class="nm">「Wチェックが完了した」</td></tr>
-    <tr><td><b>やむを得ない場合</b>（紙のみ）→翌朝</td><td><b>日勤の人</b></td><td class="nm">「日勤が朝にチェックした」</td></tr>
+    <tr><td><b>やむを得ない場合</b>→翌朝</td><td><b>日勤の人</b></td><td class="nm">「日勤が朝にチェックした」</td></tr>
   </table>
   <p class="resp">サインした人は、責任をもって対応してください。</p>
-  <p class="warnnote">【注意】日勤のサインは必須です。日勤が完了していないと、遅番（夜勤）も完了になりません。</p>
+  <p class="warnnote">【注意】日勤のサインは必須です。日勤が完了していないと、遅番（夜勤）も完了になりません。<br><span style="font-weight:500;font-size:9pt">日勤のサインは、「予約受付表（紙）のみ」が残っていても押せます（名前の後ろに「予約受付表（紙）のみ ○件」が付く）。「全て確認済み」は、全部が「済」になってから。</span></p>
 
   <p class="foot">富士タクシー　配車管理 / 事務所マニュアル：Wチェックの運用（2026年10月版）</p>
 </main>

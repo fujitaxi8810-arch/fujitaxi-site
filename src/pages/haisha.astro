@@ -2004,6 +2004,7 @@ import '../styles/kt-components.css';
     }
 
     /*
+     * ※2026-10-27から、候補は場面・シフトでは絞らず、サインできる9名を毎日出す（下の confirmerPools）。以下は当初の考え方。
      * 確認者（＝サインする人）は、場面で変わる（Wチェックの運用ルール。ユーザー指示：
      * 「遅番の電話番ではない方の名前を記載／遅番が二人でWチェックできない場合は次の日の朝の人がWチェック後にチェック」
      * 「選択する人がかわるはず」。docs §5.78）。流れ：日勤が夕方に1回目のチェック → 遅番がチェック（Wチェック）→
@@ -2017,51 +2018,24 @@ import '../styles/kt-components.css';
     // 「全て確認済み」を押せる（サインできる）のは、この9名だけ（ユーザー指定。2026-10-27に佐藤賀子を追加。docs §5.78）。
     // 氏名の空白（全角・半角）の違いで外れないよう、空白を除いて照合する。増減はここを書き換える
     const CONFIRMER_ALLOWED = ['小林隼人', '渡部晃', '堀内洋伯', '荒智章', '目黒圭吾', '中橋常郎', '菅原元輝', '小林結', '佐藤賀子'];
-    // シフトに入っていないが、日勤で出勤している人（小林結・佐藤賀子）。日勤の候補に加える
-    const WEEKDAY_DAY_STAFF = ['小林結', '佐藤賀子'];
-    // 平日に限らず、毎日（土・日・祝日も）候補に出す（ユーザー指示「全て毎日でるようにしていい」。2026-10-27）
-    const isWeekdayWork = (_dateKey: string) => true;
     const normName = (n: string) => String(n || '').split(' ').join('').split(String.fromCharCode(0x3000)).join('');
     const CONFIRM_CASES: Record<string, string> = { wcheck: '', morning: '（日勤・朝のチェック）' };
 
+    /*
+     * どの場面でも、候補は**サインできる9名を毎日そのまま**出す（シフトでは絞らない）。
+     * ユーザー指示「毎日選べるようにしてください」（2026-10-27）。場面ごとに誰が署名するかは、画面の注記で案内するだけで、
+     * 選択肢は制限しない（当初あった遅番・電話番・日勤シフトによる絞り込みは廃止。docs §5.78）。
+     */
     async function confirmerPools(targetDate: string) {
-      const prev = shiftDate(targetDate, -1);
-      const prevLabel = prev.slice(5).replace('-', '/');
-      const [shifts, daily, excluded, todayShifts] = await Promise.all([
-        fetchShiftsByDate(prev), fetchDailyDuties(prev), fetchDutyExclusionsSafe(prev), fetchShiftsByDate(targetDate),
-      ]);
-      const lateIds = new Set<string>(shifts.filter((x: any) => x.code === '③').map((x: any) => x.staffId));
-      for (const d of daily) if (d.category === 'late') lateIds.add(d.staffId);
-      for (const e of excluded) if (e.category === 'late') lateIds.delete(e.staffId);
-      const phoneIds = new Set<string>(shifts.filter((x: any) => x.phoneDuty).map((x: any) => x.staffId));
+      const prevLabel = shiftDate(targetDate, -1).slice(5).replace('-', '/');
       const order = (x: any) => x.shiftDisplayOrder ?? x.displayOrder;
-      const allowedIds = new Set<string>(staff.filter((x: any) => CONFIRMER_ALLOWED.includes(normName(x.name))).map((x: any) => x.id));
-      const pick = (ids: Set<string>) => [...staff.filter((x: any) => ids.has(x.id) && allowedIds.has(x.id))].sort((a, b) => order(a) - order(b)).map((x) => x.name);
-      const everyone = pick(allowedIds);
-      const lateAll = pick(lateIds);
-      const wc = pick(new Set([...lateIds].filter((id) => !phoneIds.has(id))));
-      const dayCodes = ['①', '①S', '①H', 'SH', 'SHS', 'S', '貸切'];
-      const dayIds = new Set<string>(todayShifts.filter((x: any) => dayCodes.includes(x.code)).map((x: any) => x.staffId));
-      if (isWeekdayWork(targetDate)) {
-        for (const x of staff) if (WEEKDAY_DAY_STAFF.includes(normName(x.name))) dayIds.add(x.id);
-      }
-      const dayNames = pick(dayIds);
-      // 日勤の1回目のチェックは、確認する日の前日の日勤（夕方に1回目をする人）がサインする
-      const prevDayIds = new Set<string>(shifts.filter((x: any) => dayCodes.includes(x.code)).map((x: any) => x.staffId));
-      if (isWeekdayWork(prev)) {
-        for (const x of staff) if (WEEKDAY_DAY_STAFF.includes(normName(x.name))) prevDayIds.add(x.id);
-      }
-      const prevDayNames = pick(prevDayIds);
-      const withFallback = (names: string[], fb: { names: string[]; note: string }[], note: string) => {
-        if (names.length > 0) return { names, note };
-        for (const f of fb) if (f.names.length > 0) return f;
-        return { names: everyone, note: '該当者がいないため、サインできる8名の全員から選べるようにしています。' };
-      };
+      const everyone = [...staff.filter((x: any) => CONFIRMER_ALLOWED.includes(normName(x.name)))]
+        .sort((a, b) => order(a) - order(b)).map((x) => x.name);
+      const all = (note: string) => ({ names: everyone, note });
       return {
-        wcheck: withFallback(wc, [{ names: lateAll, note: `${prevLabel}の遅番に「電話番ではない方」が見つからないため、遅番の人全員から選べるようにしています。` }],
-          `${prevLabel}の遅番の相方（電話番ではない方）から選んでください。`),
-        first: withFallback(prevDayNames, [], `${prevLabel}の日勤の人から、確認した人（日勤）を選んでください。`),
-        morning: withFallback(dayNames, [], `${targetDate.slice(5).replace('-', '/')}の日勤の人から、チェックした人を選んでください。`),
+        wcheck: all(`${prevLabel}の遅番の相方（電話番ではない方）の名前を選んでください。`),
+        first: all(`${prevLabel}の日勤で、確認した人の名前を選んでください。`),
+        morning: all(`${targetDate.slice(5).replace('-', '/')}の日勤で、チェックした人の名前を選んでください。`),
       } as Record<string, { names: string[]; note: string }>;
     }
 

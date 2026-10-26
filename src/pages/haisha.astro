@@ -1406,8 +1406,11 @@ import '../styles/kt-components.css';
     const isPaperOnly = (r: any) => !r.checked && r.paperChecked === true;
     /** 日勤が「紙のみ」を残したままサインするときは、名前の後ろに件数を付けて記録に残す（例：渡部　晃（予約受付表（紙）のみ 4件）） */
     const paperSuffix = (rows: any[]) => {
-      const n = rows.filter((r) => !isVoidStatus(r.status) && isPaperOnly(r)).length;
-      return n > 0 ? `（予約受付表（紙）のみ ${n}件）` : '';
+      const live = rows.filter((r) => !isVoidStatus(r.status));
+      if (live.length === 0 || live.some((r) => r.paperChecked === null || r.paperChecked === undefined)) return ''; // 列が無いDBでは付けない
+      const n = live.filter(isPaperOnly).length;
+      // 使わなかったときも「なし」と書く（ユーザー指示「追加なしの場合は追加なしで表記」）
+      return n > 0 ? `（予約受付表（紙）のみ ${n}件）` : '（予約受付表（紙）のみ なし）';
     };
 
     function applyRowStatus(tr: HTMLElement, r: any) {
@@ -2796,7 +2799,7 @@ import '../styles/kt-components.css';
       const fresh = live.filter(isNewSinceHandover).length;
 
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
-      if (paperOnlyN > 0) parts.push(`予約受付表（紙）のみ ${paperOnlyN}件`);
+      if (live.length > 0 && live.every((r) => r.paperChecked !== null && r.paperChecked !== undefined)) parts.push(paperOnlyN > 0 ? `予約受付表（紙）のみ ${paperOnlyN}件` : '予約受付表（紙）のみ なし');
       if (changed > 0) parts.push(`変更あり ${changed}件`);
       if (charter > 0) parts.push(`貸切 ${charter}件`);
       const jumbo = live.filter((r) => r.status === 'jumbo').length;
@@ -3114,7 +3117,7 @@ import '../styles/kt-components.css';
       const charterCount = live.filter((r) => r.status === 'charter').length;
       const cancelledCount = rows.filter((r) => r.status === 'cancelled').length;
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
-      if (paperOnlyCount > 0) parts.push(`予約受付表（紙）のみ ${paperOnlyCount}件`);
+      if (live.length > 0 && live.every((r) => r.paperChecked !== null && r.paperChecked !== undefined)) parts.push(paperOnlyCount > 0 ? `予約受付表（紙）のみ ${paperOnlyCount}件` : '予約受付表（紙）のみ なし');
       if (changedCount > 0) parts.push(`変更あり ${changedCount}件`);
       if (charterCount > 0) parts.push(`貸切 ${charterCount}件`);
       const jumboCount = live.filter((r) => r.status === 'jumbo').length;

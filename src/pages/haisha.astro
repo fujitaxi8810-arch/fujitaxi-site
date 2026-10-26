@@ -2017,13 +2017,10 @@ import '../styles/kt-components.css';
     // 「全て確認済み」を押せる（サインできる）のは、この9名だけ（ユーザー指定。2026-10-27に佐藤賀子を追加。docs §5.78）。
     // 氏名の空白（全角・半角）の違いで外れないよう、空白を除いて照合する。増減はここを書き換える
     const CONFIRMER_ALLOWED = ['小林隼人', '渡部晃', '堀内洋伯', '荒智章', '目黒圭吾', '中橋常郎', '菅原元輝', '小林結', '佐藤賀子'];
-    // シフトに入っていないが、平日（土・日・祝日を除く）は日勤で出勤している人。朝の日勤の候補に、平日だけ加える
-    // （ユーザー情報：「シフトにないので小林結は平日のみ。土・日・祝日は休みで日勤で出勤しています」）
+    // シフトに入っていないが、日勤で出勤している人（小林結・佐藤賀子）。日勤の候補に加える
     const WEEKDAY_DAY_STAFF = ['小林結', '佐藤賀子'];
-    const isWeekdayWork = (dateKey: string) => {
-      const dow = new Date(dateKey + 'T00:00:00Z').getUTCDay();
-      return dow >= 1 && dow <= 5 && !HOLIDAYS[dateKey];
-    };
+    // 平日に限らず、毎日（土・日・祝日も）候補に出す（ユーザー指示「全て毎日でるようにしていい」。2026-10-27）
+    const isWeekdayWork = (_dateKey: string) => true;
     const normName = (n: string) => String(n || '').split(' ').join('').split(String.fromCharCode(0x3000)).join('');
     const CONFIRM_CASES: Record<string, string> = { wcheck: '', morning: '（日勤・朝のチェック）' };
 

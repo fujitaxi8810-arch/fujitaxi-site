@@ -308,7 +308,7 @@ import '../styles/kt-components.css';
       <h2 class="kt-title" id="confirmModalTitle">全て確認済み</h2>
       <div class="ha-field ha-field--full" id="confirmCaseField">
         <span>どの場合ですか</span>
-        <label class="ha-confirm-case" id="confirmDayLabel"><input type="radio" name="confirmCase" value="day" /> <b>日勤（夕方・引き継ぐ前）</b>（紙と配車ボードをWチェックした日勤の人がサイン）</label>
+        <label class="ha-confirm-case" id="confirmDayLabel"><input type="radio" name="confirmCase" value="day" /> <b>日勤（夕方・引き継ぐ前）</b>（予約受付表（紙）と配車ボードをWチェックした日勤の人がサイン）</label>
         <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="wcheck" checked /> <b>Wチェックが完了した</b>（遅番の相方＝電話番ではない方がサイン）</label>
         <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="morning" /> <b>日勤が朝にチェックした</b>（遅番が二人でWチェックできなかったとき。Wチェック後にチェックした人がサイン）</label>
       </div>
@@ -1361,8 +1361,8 @@ import '../styles/kt-components.css';
         chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'ha-paper-chip';
-        chip.textContent = '紙';
-        chip.title = '紙の予約表にだけレ点（Wチェック待ち）。もう一度押すと外します';
+        chip.textContent = '受付表';
+        chip.title = '予約受付表（紙）にだけレ点（Wチェック待ち）。もう一度押すと外します';
         chip.onclick = async (e) => {
           e.stopPropagation();
           const next = !r.paperChecked;
@@ -1374,7 +1374,7 @@ import '../styles/kt-components.css';
             refreshCheckDay();
             after();
           } catch (err) {
-            alert(failMsg(err, '「紙のみ」の保存（データベースの準備が必要です）'));
+            alert(failMsg(err, '「予約受付表（紙）のみ」の保存（データベースの準備が必要です）'));
           } finally {
             chip!.disabled = false;
           }
@@ -1402,12 +1402,12 @@ import '../styles/kt-components.css';
       return wrap;
     }
 
-    /** 紙のみ（紙の予約表にだけレ点。Wチェック待ち）。済ではないが、未チェックとも区別する（docs §5.83） */
+    /** 予約受付表（紙）のみ（予約受付表にだけレ点。Wチェック待ち）。済ではないが、未チェックとも区別する（docs §5.83） */
     const isPaperOnly = (r: any) => !r.checked && r.paperChecked === true;
-    /** 日勤が「紙のみ」を残したままサインするときは、名前の後ろに件数を付けて記録に残す（例：渡部　晃（紙のみ 4件）） */
+    /** 日勤が「紙のみ」を残したままサインするときは、名前の後ろに件数を付けて記録に残す（例：渡部　晃（予約受付表（紙）のみ 4件）） */
     const paperSuffix = (rows: any[]) => {
       const n = rows.filter((r) => !isVoidStatus(r.status) && isPaperOnly(r)).length;
-      return n > 0 ? `（紙のみ ${n}件）` : '';
+      return n > 0 ? `（予約受付表（紙）のみ ${n}件）` : '';
     };
 
     function applyRowStatus(tr: HTMLElement, r: any) {
@@ -1668,7 +1668,7 @@ import '../styles/kt-components.css';
       customer_kana: '読み', phone: '電話番号', reservation_memo: '予約メモ',
       operator_memo: 'オペレーター用メモ', pickup_name: '迎車場所名', pickup_memo: '場所メモ',
       pickup_address: '迎車住所', dropoff_name: '降車場所名', dropoff_address: '降車住所',
-      staff_id: '担当者', checked: '確認', paper_checked: '紙のみ', app_memo: '申し送り', status: '状態',
+      staff_id: '担当者', checked: '確認', paper_checked: '予約受付表（紙）のみ', app_memo: '申し送り', status: '状態',
       registered_by: '登録オペレーター', registered_at: '登録日時', office_name: '事業所名',
     };
 
@@ -2229,7 +2229,7 @@ import '../styles/kt-components.css';
       if (missed.length > 0) {
         alert(`引き継ぎを記録しました。
 
-日勤（夕方）のサインがまだです。${label}の予約に、「済」が入っていない予約が${missed.length}件あります。紙と配車ボードをWチェックして「済」を入れてから、画面上部の「日勤（夕方）の確認済み」でサインしてください。`);
+日勤（夕方）のサインがまだです。${label}の予約に、「済」が入っていない予約が${missed.length}件あります。予約受付表（紙）と配車ボードをWチェックして「済」を入れてから、画面上部の「日勤（夕方）の確認済み」でサインしてください。`);
         return;
       }
       const pick = await chooseConfirmer(target, 'first');
@@ -2312,7 +2312,7 @@ import '../styles/kt-components.css';
       const paperOnlyRows = missed.filter(isPaperOnly);
       const untouched = missed.filter((r) => !isPaperOnly(r));
       const unTxt = paperOnlyRows.length > 0
-        ? `未チェック ${untouched.length}件・紙のみ（Wチェック待ち）${paperOnlyRows.length}件`
+        ? `未チェック ${untouched.length}件・予約受付表（紙）のみ（Wチェック待ち）${paperOnlyRows.length}件`
         : `未チェック ${missed.length}件`;
       const jstHour = new Date(Date.now() + 9 * 3600 * 1000).getUTCHours();
       const pastDeadline = isToday && jstHour >= CHECK_DEADLINE_HOUR;
@@ -2364,7 +2364,7 @@ import '../styles/kt-components.css';
         if (missed.length > 0) {
           const list = document.createElement('p');
           list.className = 'ha-checkbanner__list';
-          const names = missed.slice(0, 8).map((r) => `${isPaperOnly(r) ? '【紙のみ】' : ''}${jstTimeLabel(r.reservedAt)} ${r.customerName}`);
+          const names = missed.slice(0, 8).map((r) => `${isPaperOnly(r) ? '【受付表のみ】' : ''}${jstTimeLabel(r.reservedAt)} ${r.customerName}`);
           list.textContent = names.join('　／　') + (missed.length > 8 ? `　ほか${missed.length - 8}件` : '');
           box.appendChild(list);
 
@@ -2387,16 +2387,16 @@ import '../styles/kt-components.css';
           const bulk = document.createElement('button');
           bulk.type = 'button';
           bulk.className = 'kt-btn kt-btn--ghost ha-paper-bulk';
-          bulk.textContent = `未チェック ${untouched.length}件を全て「紙のみ」にする（Wチェックできないとき）`;
+          bulk.textContent = `未チェック ${untouched.length}件を全て「予約受付表（紙）のみ」にする（Wチェックできないとき）`;
           bulk.onclick = async () => {
-            if (!confirm(`未チェックの ${untouched.length}件を、全て「紙のみ」（紙の予約表にだけレ点。Wチェック待ち）にします。\n\nWチェックができないときだけ使ってください。よろしいですか？`)) return;
+            if (!confirm(`未チェックの ${untouched.length}件を、全て「予約受付表（紙）のみ」（予約受付表にだけレ点。Wチェック待ち）にします。\n\nWチェックができないときだけ使ってください。よろしいですか？`)) return;
             bulk.disabled = true;
             try {
               await setPaperCheckedMany(untouched.map((r) => r.id), true);
               await refreshCheckDay();
               loadBoard();
             } catch (e) {
-              alert(failMsg(e, '「紙のみ」の保存（データベースの準備が必要です）'));
+              alert(failMsg(e, '「予約受付表（紙）のみ」の保存（データベースの準備が必要です）'));
               bulk.disabled = false;
             }
           };
@@ -2419,7 +2419,7 @@ import '../styles/kt-components.css';
         const span1 = document.createElement('span');
         span1.textContent = checkFirst
           ? `日勤（夕方）の確認済み：${checkFirst.checkedBy || '—'}`
-          : (untouched.length > 0 ? '日勤（夕方）の確認済み（全ての予約に「済」か「紙」が入ると押せます）' : '日勤（夕方）の確認済み（日勤の人がサイン）');
+          : (untouched.length > 0 ? '日勤（夕方）の確認済み（全ての予約に「済」か「受付表」が入ると押せます）' : '日勤（夕方）の確認済み（日勤の人がサイン）');
         label1.appendChild(span1);
         box.appendChild(label1);
       } else {
@@ -2796,7 +2796,7 @@ import '../styles/kt-components.css';
       const fresh = live.filter(isNewSinceHandover).length;
 
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
-      if (paperOnlyN > 0) parts.push(`紙のみ ${paperOnlyN}件`);
+      if (paperOnlyN > 0) parts.push(`予約受付表（紙）のみ ${paperOnlyN}件`);
       if (changed > 0) parts.push(`変更あり ${changed}件`);
       if (charter > 0) parts.push(`貸切 ${charter}件`);
       const jumbo = live.filter((r) => r.status === 'jumbo').length;
@@ -3114,7 +3114,7 @@ import '../styles/kt-components.css';
       const charterCount = live.filter((r) => r.status === 'charter').length;
       const cancelledCount = rows.filter((r) => r.status === 'cancelled').length;
       const parts = [`要対応 ${live.length}件`, `未割当 ${unassigned}件`, `確認済 ${done}件`];
-      if (paperOnlyCount > 0) parts.push(`紙のみ ${paperOnlyCount}件`);
+      if (paperOnlyCount > 0) parts.push(`予約受付表（紙）のみ ${paperOnlyCount}件`);
       if (changedCount > 0) parts.push(`変更あり ${changedCount}件`);
       if (charterCount > 0) parts.push(`貸切 ${charterCount}件`);
       const jumboCount = live.filter((r) => r.status === 'jumbo').length;
@@ -3848,13 +3848,15 @@ import '../styles/kt-components.css';
     .ha-checkbanner__confirm input:disabled { cursor: not-allowed; opacity: 0.5; }
     /* 未チェックの行は、済のセルを赤く目立たせる */
     .ha-grid .ha-row--overdue td:nth-child(8), .ha-all-table .ha-all-card--overdue td:nth-child(8) { background: #fecaca; }
-    /* 済のセル：チェックボックス＋小さな「紙」ボタン（紙のみ＝Wチェック待ち。黄色）。docs §5.83 */
+    /* 済のセル：チェックボックス＋小さな「受付表」ボタン（予約受付表（紙）のみ＝Wチェック待ち。黄色）。docs §5.83 */
     .ha-check3 { display: flex; flex-direction: column; align-items: center; gap: 2px; }
     .ha-paper-chip {
       font-size: 0.62rem; font-weight: 800; line-height: 1.35; padding: 0 0.35rem; cursor: pointer;
       color: #92400e; background: #fff; border: 1px solid #92400e; border-radius: 4px;
     }
     .ha-paper-chip.is-on { background: #fde68a; font-weight: 900; }
+    .ha-paper-chip { white-space: nowrap; }
+    .ha-grid th:nth-child(8), .ha-grid td:nth-child(8), .ha-all-table th:nth-child(8), .ha-all-table td:nth-child(8) { min-width: 3.6rem; text-align: center; }
     .ha-paper-chip[hidden] { display: none; }
     .ha-grid .ha-row--paperonly td:nth-child(8), .ha-all-table .ha-all-card--paperonly td:nth-child(8) { background: #fef3c7; }
     .ha-row--paperonly td:first-child { box-shadow: inset 6px 0 0 #d97706; }

@@ -1000,16 +1000,25 @@ import '../styles/kt-components.css';
     /*
      * 「追加なし」：日勤から遅番へ引き継いだあと（基準時刻以降）に、予約の追加が1件もないとき**だけ**、見えやすい場所に出す
      * （ユーザー指示「追加なしは日勤から遅番に引き継いだあとに追加がない場合、見えやすいところに出してほしい／追加なしの場合のみ」
-     * 「あくまで翌日のみの予約を対象としてください」。docs §5.84）。追加＝新着（引き継ぎ以降に入った予約）。**対象は翌日の予約だけ**
-     * （今日や、それより先の日は数えない。0〜7時台は、サイン画面と同じく「その日（本日）」）。
+     * 「あくまで翌日のみの予約を対象としてください」「前日の遅番に追加がなかった場合のため」。docs §5.84）。追加＝新着（引き継ぎ以降に入った予約）。
+     * **対象は、引き継ぎの基準時刻の翌日の予約だけ**（夕方の引き継ぎ→翌日分。翌朝は、前日の遅番の間に追加がなかったかを見るので本日分）。
      * 追加が1件でもあれば出さない（その場合は従来どおり「新着 N件」）。
      */
     let addWatchRows: any[] | null = null;
     let addWatchKey = '';
-    const addWatchTarget = () => (jstHourNow() < CHECK_DEADLINE_HOUR ? todayJst() : shiftDate(todayJst(), 1));
+    // 対象は「引き継ぎの基準時刻の、翌日の予約」（日勤が夕方に確認して引き継ぐ予約）。夕方の引き継ぎなら翌日、翌朝まで基準が続くあいだは、
+    // 前日の遅番の間に追加がなかったかを見るので、本日の予約になる。0〜7時台の基準（日付をまたいだ引き継ぎ）は、その日の予約
+    const addWatchTarget = (): string | null => {
+      const base = newBaselineTime();
+      if (base === null) return null;
+      const iso = new Date(base).toISOString();
+      const hour = new Date(base + 9 * 3600 * 1000).getUTCHours();
+      return hour < CHECK_DEADLINE_HOUR ? jstDateKey(iso) : shiftDate(jstDateKey(iso), 1);
+    };
     let addWatchLast = 0;
     async function refreshAddWatch(force = false) {
       const key = addWatchTarget();
+      if (key === null) { addWatchRows = null; addWatchKey = ''; renderNoAdd(); return; }
       if (!force && key === addWatchKey && Date.now() - addWatchLast < 60 * 1000) { renderNoAdd(); return; }
       addWatchLast = Date.now();
       try {

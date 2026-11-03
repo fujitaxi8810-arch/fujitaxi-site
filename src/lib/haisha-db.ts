@@ -722,6 +722,36 @@ export async function clearFirstCheck(dateKey: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── 日勤のWチェック完了（②）・遅番のシングルチェック（③）のサイン ──
+// 予約チェックは4つの項目（①日勤・シングル ②日勤・Wチェック完了 ③遅番・シングル ④遅番・Wチェック完了＝全て確認済み）。
+// ①は dispatch_first_checks、④は dispatch_confirmations。②③はこの表に、日付×項目で1件ずつ（docs §5.87）。
+
+export type CheckStep = 'day_w' | 'late_single';
+export type CheckExtra = { workDate: string; step: CheckStep; checkedBy: string | null; checkedAt: string };
+
+export async function fetchCheckExtras(dateKey: string): Promise<Record<string, CheckExtra>> {
+  const { data, error } = await supabase
+    .from('dispatch_check_extras')
+    .select('work_date, step, checked_by, checked_at')
+    .eq('work_date', dateKey);
+  if (error) throw error;
+  const out: Record<string, CheckExtra> = {};
+  for (const r of data || []) out[r.step] = { workDate: r.work_date, step: r.step, checkedBy: r.checked_by, checkedAt: r.checked_at };
+  return out;
+}
+
+export async function setCheckExtra(dateKey: string, step: CheckStep, checkedBy: string): Promise<void> {
+  const { error } = await supabase
+    .from('dispatch_check_extras')
+    .upsert({ work_date: dateKey, step, checked_by: checkedBy, checked_at: new Date().toISOString() }, { onConflict: 'work_date,step' });
+  if (error) throw error;
+}
+
+export async function clearCheckExtra(dateKey: string, step: CheckStep): Promise<void> {
+  const { error } = await supabase.from('dispatch_check_extras').delete().eq('work_date', dateKey).eq('step', step);
+  if (error) throw error;
+}
+
 // ── CSV取り込み ──
 
 /**

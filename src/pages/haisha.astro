@@ -211,7 +211,7 @@ import '../styles/kt-components.css';
             <button type="button" class="kt-btn kt-btn--ghost" id="historyReloadBtn">更新</button>
           </div>
           <p class="ha-note">
-            予約の追加・変更・削除を新しい順に最大100件表示します。「元に戻す」で変更前の状態に戻せます。<br />
+            予約の追加・変更・削除を新しい順に最大100件表示します。管理者は、「元に戻す」で変更前の状態に戻せます（ロック中は「元に戻す」は表示されません）。<br />
             CSVの取り込みで<strong>中身が変わらなかった行は記録されません</strong>（毎回100件流れてしまうため）。
           </p>
           <div id="historyBody"></div>
@@ -306,12 +306,11 @@ import '../styles/kt-components.css';
   <!-- ── 「全て確認済み」の確認者を選ぶ（遅番対応者のみ。chooseConfirmer 参照） ── -->
   <div class="kt-modal-overlay" id="confirmModal" hidden>
     <div class="kt-modal ha-modal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
-      <h2 class="kt-title" id="confirmModalTitle">全て確認済み</h2>
+      <h2 class="kt-title" id="confirmModalTitle">全て確認済み（Wチェック完了）</h2>
       <div class="ha-field ha-field--full" id="confirmCaseField">
         <span>どの場合ですか</span>
-        <label class="ha-confirm-case" id="confirmDayLabel"><input type="radio" name="confirmCase" value="day" /> <b>日勤（夕方・引き継ぐ前）</b>（予約受付表（紙）と配車ボードをWチェックした日勤の人がサイン）</label>
-        <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="wcheck" checked /> <b>Wチェックが完了した</b>（遅番の相方＝電話番ではない方がサイン）</label>
-        <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="morning" /> <b>日勤が朝にチェックした</b>（遅番が二人でWチェックできなかったとき。Wチェック後にチェックした人がサイン）</label>
+        <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="wcheck" checked /> <b>Wチェック完了：遅番</b>（二人でWチェックした。遅番の相方＝電話番ではない方がサイン）</label>
+        <label class="ha-confirm-case"><input type="radio" name="confirmCase" value="morning" /> <b>Wチェック完了：翌朝の日勤</b>（遅番が二人でWチェックできなかったとき。Wチェック後にチェックした人がサイン）</label>
       </div>
       <p class="ha-note" id="confirmModalNote"></p>
       <div class="ha-field ha-field--full">
@@ -416,6 +415,7 @@ import '../styles/kt-components.css';
       fetchLatestHandover, recordHandover, deleteHandover, updateHandoverNote,
       fetchDispatchHistory, fetchDispatchHistoryFor, revertHistoryEntry,
       setPaperChecked, setPaperCheckedMany,
+      fetchCheckExtras, setCheckExtra, clearCheckExtra,
       fetchDeletedReservations,
       buildImportPlan, applyImportPlan, fetchLatestImportLog,
       jstDateKey, jstTimeLabel, todayJst, yesterdayJst,
@@ -2119,6 +2119,8 @@ import '../styles/kt-components.css';
     let checkConfirm: any = null;           // その日の「全て確認済み」の記録（無ければ null）
     let checkConfirmAvailable = true;       // 記録テーブルが使えるか
     let checkFirst: any = null;             // 日勤の1回目のチェックのサイン（無ければ null）
+    let checkExtras: Record<string, any> = {};    // ②日勤・Wチェック完了（day_w）／③遅番・シングルチェック（late_single）のサイン
+    let checkExtrasAvailable = true;                // そのテーブルが使えるか（未作成なら②③の欄を出さない）
     let checkFirstAvailable = true;         // そのテーブルが使えるか（未作成なら欄を出さない）
     let checkDayLoading = false;
     let checkDayLastTry = 0; // 通信失敗時に、描画のたびに取りにいって連打しないため
@@ -2129,16 +2131,19 @@ import '../styles/kt-components.css';
       checkDayLastTry = Date.now();
       const key = checkTargetKey();
       try {
-        const [rows, conf, first] = await Promise.all([
+        const [rows, conf, first, extras] = await Promise.all([
           fetchReservationsByDate(key),
           fetchConfirmation(key).then((c: any) => ({ ok: true, c })).catch(() => ({ ok: false, c: null })),
           fetchFirstCheck(key).then((c: any) => ({ ok: true, c })).catch(() => ({ ok: false, c: null })),
+          fetchCheckExtras(key).then((c: any) => ({ ok: true, c })).catch(() => ({ ok: false, c: {} as Record<string, any> })),
         ]);
         checkDayRows = rows;
         checkConfirm = conf.c;
         checkConfirmAvailable = conf.ok;
         checkFirst = first.c;
         checkFirstAvailable = first.ok;
+        checkExtras = extras.c || {};
+        checkExtrasAvailable = extras.ok;
         checkDayKey = key;
       } catch (e) {
         // 失敗しても本体の表示には影響させない（日付が変わっていれば出さない）
@@ -2185,28 +2190,32 @@ import '../styles/kt-components.css';
       const all = (note: string) => ({ names: everyone, note });
       return {
         wcheck: all(`${prevLabel}の遅番の相方（電話番ではない方）の名前を選んでください。`),
-        first: all(`${prevLabel}の日勤で、確認した人の名前を選んでください。`),
+        first: all(`${prevLabel}の日勤で、シングルチェック（1人目としてチェック）した人の名前を選んでください。`),
+        day_w: all(`${prevLabel}の日勤で、Wチェック（二人で確認）を完了した人の名前を選んでください。`),
+        late_single: all(`${prevLabel}の遅番で、シングルチェック（1人目としてチェック）した人の名前を選んでください。`),
         morning: all(`${targetDate.slice(5).replace('-', '/')}の日勤で、チェックした人の名前を選んでください。`),
       } as Record<string, { names: string[]; note: string }>;
     }
 
     // 確認者を選ぶ小さなモーダル。選んで確定した名前（やめたら null）を返す。
     // 日勤の朝のチェックは、名前のあとに場面を付けて記録する（バナーにそのまま出る）
-    async function chooseConfirmer(targetDate: string, mode: 'final' | 'first' = 'final'): Promise<{ name: string; kind: string } | null> {
+    async function chooseConfirmer(targetDate: string, mode: 'final' | 'first' | 'day_w' | 'late_single' = 'final'): Promise<{ name: string; kind: string } | null> {
+      if (!$('confirmModal').hidden) return null; // すでに開いているとき（自動表示と手動が重なったとき）は、タイトルが混ざらないよう開かない
       let pools: Record<string, { names: string[]; note: string }>;
       try {
         pools = await confirmerPools(targetDate);
-        pools.day = pools.first;
       } catch (e) {
         alert(failMsg(e, '確認する人の読み込み'));
         return null;
       }
       const sel = $('confirmBy') as HTMLSelectElement;
       const radios = Array.from(document.querySelectorAll('input[name="confirmCase"]')) as HTMLInputElement[];
-      const currentCase = () => (mode === 'first' ? 'first' : (radios.find((r) => r.checked) || radios[0]).value);
-      $('confirmCaseField').hidden = mode === 'first';
-      $('confirmDayLabel').hidden = !checkFirstAvailable;
-      $('confirmModalTitle').textContent = mode === 'first' ? '日勤（夕方）の確認済み' : '全て確認済み';
+      const currentCase = () => (mode !== 'final' ? mode : (radios.find((r) => r.checked) || radios[0]).value);
+      $('confirmCaseField').hidden = mode !== 'final';
+      $('confirmModalTitle').textContent = {
+        first: '① 日勤・シングルチェック済み', day_w: '② 日勤・Wチェック完了', late_single: '③ 遅番・シングルチェック済み',
+        final: '④ 遅番・Wチェック完了（全て確認済み）',
+      }[mode];
       const fill = () => {
         const p = pools[currentCase()];
         const prevSel = sel.value;
@@ -2225,9 +2234,7 @@ import '../styles/kt-components.css';
       };
       // 朝7時（日勤が出勤する時間）以降に「本日」の確認をするのは、遅番でWチェックが終わらなかった分を日勤が朝に
       // チェックする場面なので、最初から「日勤が朝にチェックした」（日勤の人の名前）を選んでおく（ユーザー指示。docs §5.78）
-      // 夕方〜夜で、日勤（夕方）のサインがまだなら「日勤（夕方・引き継ぐ前）」を最初に選んでおく
-      const first = targetDate === todayJst() && jstHourNow() >= CHECK_DEADLINE_HOUR ? 'morning'
-        : (checkFirstAvailable && !checkFirst ? 'day' : 'wcheck');
+      const first = targetDate === todayJst() && jstHourNow() >= CHECK_DEADLINE_HOUR ? 'morning' : 'wcheck';
       radios.forEach((r) => { r.checked = r.value === first; r.onchange = fill; });
       fill();
       $('confirmModal').hidden = false;
@@ -2255,16 +2262,12 @@ import '../styles/kt-components.css';
         if (box.checked) {
           const pick = await chooseConfirmer(key);
           if (!pick) { box.checked = false; return; }
-          if (pick.kind === 'day') {
-            // 日勤（夕方）のサイン。記録は別テーブル（dispatch_first_checks）。「全て確認済み」の記録ではない
-            await setFirstCheck(key, pick.name);
-          } else if (checkFirstAvailable && !checkFirst) {
-            alert('先に、日勤（夕方・引き継ぐ前）のサインが必要です。日勤が完了しないと、遅番も完了になりません。');
+          if (!dayChecked()) {
+            alert('先に、日勤のチェック（① シングルチェック済み、または ② Wチェック完了）が必要です。どちらかが入るまで、③④には進めません。');
             box.checked = false;
             return;
-          } else {
-            await setConfirmation(key, pick.name);
           }
+          await setConfirmation(key, pick.name);
         } else {
           if (!confirm('「全て確認済み」を取り消します。よろしいですか？')) { box.checked = true; return; }
           await clearConfirmation(key);
@@ -2296,6 +2299,7 @@ import '../styles/kt-components.css';
         return; // 記録テーブル未作成など。引き継ぎ自体は済んでいるので、黙って何もしない
       }
       if (first) return;
+      if ((await fetchCheckExtras(target).catch(() => ({} as Record<string, any>))).day_w) return; // ②日勤・Wチェック完了が入っていれば出さない
       const live = rows.filter((r) => !isVoidStatus(r.status));
       if (live.length === 0) return;
       const label = `${h < CHECK_DEADLINE_HOUR ? '本日' : '明日'}(${target.slice(5).replace('-', '/')})`;
@@ -2303,7 +2307,7 @@ import '../styles/kt-components.css';
       if (missed.length > 0) {
         alert(`引き継ぎを記録しました。
 
-日勤（夕方）のサインがまだです。${label}の予約に、「済」が入っていない予約が${missed.length}件あります。予約受付表（紙）と配車ボードをWチェックして「済」を入れてから、画面上部の「日勤（夕方）の確認済み」でサインしてください。`);
+日勤（夕方）のサインがまだです。${label}の予約に、「済」が入っていない予約が${missed.length}件あります。予約受付表（紙）と配車ボードをWチェックして「済」を入れてから、画面上部の「シングルチェック済み（日勤・夕方）」でサインしてください。`);
         return;
       }
       const pick = await chooseConfirmer(target, 'first');
@@ -2312,7 +2316,7 @@ import '../styles/kt-components.css';
         await setFirstCheck(target, pick.name + paperSuffix(rows));
         await refreshCheckDay();
       } catch (e) {
-        alert(failMsg(e, '日勤（夕方）の確認済みの保存'));
+        alert(failMsg(e, 'シングルチェック済み（日勤・夕方）の保存'));
       }
     }
 
@@ -2324,7 +2328,7 @@ import '../styles/kt-components.css';
      */
     let autoSignBusy = false;
     async function maybeAutoOpenDaySign(isToday: boolean, missedCount: number) {
-      if (isToday || autoSignBusy || !checkFirstAvailable || checkFirst || missedCount > 0) return;
+      if (isToday || autoSignBusy || !checkFirstAvailable || checkFirst || (checkExtras && checkExtras.day_w) || missedCount > 0) return;
       if (jstHourNow() < CHECK_EVENING_HOUR) return;
       if (document.querySelector('.kt-modal-overlay:not([hidden])')) return;
       const flagKey = 'fuji-haisha-autosign-' + checkDayKey;
@@ -2334,15 +2338,47 @@ import '../styles/kt-components.css';
         const key = checkDayKey;
         // 複数の端末が同時に開くので、開く直前にもう一度、サイン済みでないか確かめる
         const already = await fetchFirstCheck(key).catch(() => null);
-        if (already) { await refreshCheckDay(); return; }
+        const alreadyW = (await fetchCheckExtras(key).catch(() => ({} as Record<string, any>))).day_w;
+        if (already || alreadyW) { await refreshCheckDay(); return; }
         const pick = await chooseConfirmer(key, 'first');
         if (!pick) return;
         await setFirstCheck(key, pick.name + paperSuffix(checkDayRows));
         await refreshCheckDay();
       } catch (e) {
-        alert(failMsg(e, '日勤（夕方）の確認済みの保存'));
+        alert(failMsg(e, 'シングルチェック済み（日勤・夕方）の保存'));
       } finally {
         autoSignBusy = false;
+      }
+    }
+
+    /** ①日勤・シングルチェック済み、または ②日勤・Wチェック完了 のどちらかが入っているか（③④に進む条件。docs §5.87） */
+    const dayChecked = () => !checkFirstAvailable || !!checkFirst || (checkExtrasAvailable && !!checkExtras.day_w);
+
+    /** ②日勤・Wチェック完了、③遅番・シングルチェック済み の切り替え */
+    async function onExtraToggle(box: HTMLInputElement, step: 'day_w' | 'late_single') {
+      const key = checkDayKey;
+      const title = step === 'day_w' ? '② 日勤・Wチェック完了' : '③ 遅番・シングルチェック済み';
+      box.disabled = true;
+      try {
+        if (box.checked) {
+          if (step === 'late_single' && !dayChecked()) {
+            alert('先に、日勤のチェック（① シングルチェック済み、または ② Wチェック完了）が必要です。');
+            box.checked = false;
+            return;
+          }
+          const pick = await chooseConfirmer(key, step);
+          if (!pick) { box.checked = false; return; }
+          await setCheckExtra(key, step, pick.name);
+        } else {
+          if (!confirm(`${title}を取り消します。よろしいですか？`)) { box.checked = true; return; }
+          await clearCheckExtra(key, step);
+        }
+        await refreshCheckDay();
+      } catch (e) {
+        alert(failMsg(e, `${title}の保存`));
+        box.checked = !box.checked;
+      } finally {
+        box.disabled = false;
       }
     }
 
@@ -2355,12 +2391,12 @@ import '../styles/kt-components.css';
           if (!pick) { box.checked = false; return; }
           await setFirstCheck(key, pick.name + paperSuffix(checkDayRows));
         } else {
-          if (!confirm('日勤（夕方）の確認済みを取り消します。よろしいですか？')) { box.checked = true; return; }
+          if (!confirm('シングルチェック済み（日勤・夕方）を取り消します。よろしいですか？')) { box.checked = true; return; }
           await clearFirstCheck(key);
         }
         await refreshCheckDay();
       } catch (e) {
-        alert(failMsg(e, '日勤（夕方）の確認済みの保存'));
+        alert(failMsg(e, 'シングルチェック済み（日勤・夕方）の保存'));
         box.checked = !box.checked;
       } finally {
         box.disabled = false;
@@ -2392,9 +2428,10 @@ import '../styles/kt-components.css';
       const pastDeadline = isToday && jstHour >= CHECK_DEADLINE_HOUR;
       // 「全て確認済み」の記録があり、かつ未チェックが無いときだけ完了
       const signed = !!checkConfirm && missed.length === 0;
-      // 日勤（夕方）の確認済みのサインは必須（ユーザー指示「日勤のサインは必須／日勤も完了していないと夜勤も完了にならない」。
+      // シングルチェック済み（日勤・夕方）のサインは必須（ユーザー指示「日勤のサインは必須／日勤も完了していないと夜勤も完了にならない」。
       // docs §5.79）。テーブルが未作成のとき（checkFirstAvailable=false）だけは求めない
-      const firstOk = !checkFirstAvailable || !!checkFirst;
+      const firstOk = dayChecked(); // ①または②（日勤のチェック）。これが無いと③④に進めない
+      const dayW = !!checkExtras.day_w;
       const complete = missed.length === 0 && firstOk && (!checkConfirmAvailable || signed);
       // 完了（全て確認済み）の緑の表示は、朝8時（CHECK_RESET_HOUR）になったら消す。確認は0時以降の1回きりなので、
       // 日中まで緑が残ると「リセットされていない」ように見えるため（ユーザー指摘・指定「確認した朝8時にリセット」。docs §5.76）。0時で新しい日の分に切り替わる
@@ -2406,11 +2443,19 @@ import '../styles/kt-components.css';
 
       if (complete) {
         box.className = 'ha-checkbanner ha-checkbanner--ok';
-        const by = checkConfirm
-          ? `　確認：${checkConfirm.confirmedBy || '—'}（${jstTimeLabel(checkConfirm.confirmedAt)}）` : '';
-        const firstTxt = checkFirst ? `　日勤（夕方）：${checkFirst.checkedBy || '—'}（${jstTimeLabel(checkFirst.checkedAt)}）` : '';
-        head.textContent = `✓ ${label}の予約は全て確認済み（全${rows.length}件）${firstTxt}${by}`;
+        head.textContent = `✓ ${label}の予約は全て確認済み（全${rows.length}件）`;
         box.appendChild(head);
+        // どのチェックを、誰が・いつしたか（4つの項目のうち、入っているもの）
+        const stamp = (c: any, name: string) => c ? `${name}：${c.checkedBy || '—'}（${jstTimeLabel(c.checkedAt)}）` : '';
+        const lines = [
+          stamp(checkFirst, '① 日勤・シングルチェック'), stamp(checkExtras.day_w, '② 日勤・Wチェック完了'),
+          stamp(checkExtras.late_single, '③ 遅番・シングルチェック'),
+          checkConfirm ? `④ 遅番・Wチェック完了：${checkConfirm.confirmedBy || '—'}（${jstTimeLabel(checkConfirm.confirmedAt)}）` : '',
+        ].filter(Boolean);
+        const stampEl = document.createElement('p');
+        stampEl.className = 'ha-checkbanner__note';
+        stampEl.textContent = lines.join('　／　');
+        box.appendChild(stampEl);
       } else {
         const urgent = pastDeadline;
         box.className = 'ha-checkbanner ' + (urgent ? 'ha-checkbanner--urgent' : 'ha-checkbanner--warn');
@@ -2421,18 +2466,20 @@ import '../styles/kt-components.css';
             ? `🚨 朝${CHECK_DEADLINE_HOUR}時を過ぎても、${label}の予約確認が終わっていません　${unTxt}（全${rows.length}件中）　再チェックしてください`
             : `⚠ ${label}の予約確認が終わっていません　${unTxt}（全${rows.length}件中）`;
         } else if (!firstOk) {
-          head.textContent = `${urgent ? '🚨 ' : '⚠ '}${label}の予約は全てチェック済みですが、日勤（夕方）の確認済みが入っていません。日勤が完了しないと、遅番も完了になりません`;
+          head.textContent = `${urgent ? '🚨 ' : '⚠ '}${label}の予約は全てチェック済みですが、日勤のチェック（① シングルチェック済み、または ② Wチェック完了）が入っていません。どちらかが入るまで、③遅番・④Wチェック完了には進めません`;
         } else {
           head.textContent = urgent
             ? `🚨 朝${CHECK_DEADLINE_HOUR}時を過ぎても、${label}の「全て確認済み」が入っていません　再チェックして、最後にチェックを入れてください`
-            : `${label}の予約は全てチェック済みです。最後に「全て確認済み」にチェックを入れてください`;
+            : (checkFirst
+              ? `${label}の予約は、日勤のチェックまで終わっています。遅番のチェック（③シングル→④Wチェック完了）を進めてください`
+              : `${label}の予約は全てチェック済みです。最後に「全て確認済み」にチェックを入れてください`);
         }
         box.appendChild(head);
 
         const note = document.createElement('p');
         note.className = 'ha-checkbanner__note';
-        note.textContent = '乗務終了後に、すべての予約の「済」にチェックを入れ、最後に「全て確認済み」にチェックを入れてください。'
-          + (checkFirstAvailable ? '　※日勤（夕方）の確認済みが入っていないと、遅番も完了になりません。' : '');
+        note.textContent = '乗務終了後に、すべての予約の「済」にチェックを入れます。チェック項目は全部で4つ：① 日勤・シングルチェック／② 日勤・Wチェック完了／③ 遅番・シングルチェック／④ 遅番・Wチェック完了（全て確認済み）。'
+          + (checkFirstAvailable ? '　※①か②のどちらかが入らないと、③④には進めません。' : '');
         box.appendChild(note);
 
         if (missed.length > 0) {
@@ -2478,49 +2525,56 @@ import '../styles/kt-components.css';
         }
       }
 
-      // 日勤の1回目のチェックのサイン欄（テーブルが使えるときだけ）。日勤は夕方に1回目のチェックをして、
-      // 配車ボードにもレ点を入れるので、サインを残す。全件チェックを待たずにいつでも押せる
-      if (checkFirstAvailable) {
-        const label1 = document.createElement('label');
-        label1.className = 'ha-checkbanner__confirm';
-        const cb1 = document.createElement('input');
-        cb1.type = 'checkbox';
-        cb1.className = 'ha-check';
-        cb1.checked = !!checkFirst;
-        cb1.disabled = untouched.length > 0;
-        cb1.onchange = () => onFirstToggle(cb1);
-        label1.appendChild(cb1);
-        const span1 = document.createElement('span');
-        span1.textContent = checkFirst
-          ? `日勤（夕方）の確認済み：${checkFirst.checkedBy || '—'}`
-          : (untouched.length > 0 ? '日勤（夕方）の確認済み（全ての予約に「済」か「受付表」が入ると押せます）' : '日勤（夕方）の確認済み（日勤の人がサイン）');
-        label1.appendChild(span1);
-        box.appendChild(label1);
-      } else {
-        // テーブル dispatch_first_checks が未作成（SQL未実行）。欄が出ない理由が分からず「日勤の確認が無い」と
-        // 見えるため、理由を画面に出す（SQLを実行すると消える。docs §5.79）
-        const miss = document.createElement('p');
-        miss.className = 'ha-checkbanner__note';
-        miss.textContent = '※「日勤（夕方）の確認済み」の欄は、データベースの準備（SQLの実行）がまだのため表示されていません。';
-        box.appendChild(miss);
-      }
-
-      // 「全て確認済み」のチェック欄（記録テーブルが使えるときだけ）。全件チェックが済むまでは押せない
-      if (checkConfirmAvailable) {
-        const label2 = document.createElement('label');
-        label2.className = 'ha-checkbanner__confirm';
+      // チェック項目（4つ）。①日勤・シングルチェック済み ②日勤・Wチェック完了 ③遅番・シングルチェック済み ④遅番・Wチェック完了（全て確認済み）。
+      // ①か②のどちらかが入らないと、③④には進めない（ユーザー指示。docs §5.87）。
+      //  ①：未チェック（何もしていない予約）が無いと押せる（「済」か「受付表」が入っている）
+      //  ②：全予約が「済」で押せる（Wチェックを完了した）
+      //  ③：①か②が入り、未チェックが無いと押せる
+      //  ④：①か②が入り、全予約が「済」で押せる
+      const addItem = (num: string, text: string, checked: boolean, disabled: boolean, onChange: (cb: HTMLInputElement) => void) => {
+        const label = document.createElement('label');
+        label.className = 'ha-checkbanner__confirm';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.className = 'ha-check';
-        cb.checked = signed;
-        cb.disabled = missed.length > 0;
-        cb.onchange = () => onConfirmToggle(cb);
-        label2.appendChild(cb);
-        const span = document.createElement('span');
-        span.textContent = missed.length > 0 ? '全て確認済み（全ての予約にチェックが入ると押せます）'
-          : (!signed && !firstOk ? '全て確認済み（先に日勤（夕方）のサイン。選択肢から選べます）' : '全て確認済み');
-        label2.appendChild(span);
-        box.appendChild(label2);
+        cb.checked = checked;
+        cb.disabled = disabled && !checked;
+        cb.onchange = () => onChange(cb);
+        label.appendChild(cb);
+        const sp = document.createElement('span');
+        sp.textContent = `${num} ${text}`;
+        label.appendChild(sp);
+        box.appendChild(label);
+      };
+      const by = (c: any) => (c ? `：${c.checkedBy || '—'}` : '');
+      if (checkFirstAvailable) {
+        addItem('①', checkFirst ? `日勤・シングルチェック済み${by(checkFirst)}`
+          : `日勤・シングルチェック済み（日勤が1人目としてチェック。Wチェックはまだ）${untouched.length > 0 ? '　※全予約に「済」か「受付表」が入ると押せます' : ''}`,
+          !!checkFirst, untouched.length > 0, (cb) => onFirstToggle(cb));
+      } else {
+        const miss = document.createElement('p');
+        miss.className = 'ha-checkbanner__note';
+        miss.textContent = '※「① 日勤・シングルチェック済み」の欄は、データベースの準備（SQLの実行）がまだのため表示されていません。';
+        box.appendChild(miss);
+      }
+      if (checkExtrasAvailable) {
+        addItem('②', dayW ? `日勤・Wチェック完了${by(checkExtras.day_w)}`
+          : `日勤・Wチェック完了（日勤が二人でWチェックして完了）${missed.length > 0 ? '　※全予約が「済」になると押せます' : ''}`,
+          dayW, missed.length > 0, (cb) => onExtraToggle(cb, 'day_w'));
+        const late = !!checkExtras.late_single;
+        addItem('③', late ? `遅番・シングルチェック済み${by(checkExtras.late_single)}`
+          : `遅番・シングルチェック済み（遅番が1人目としてチェック）${!firstOk ? '　※先に①か②が必要です' : (untouched.length > 0 ? '　※全予約に「済」か「受付表」が入ると押せます' : '')}`,
+          late, !firstOk || untouched.length > 0, (cb) => onExtraToggle(cb, 'late_single'));
+      } else {
+        const miss2 = document.createElement('p');
+        miss2.className = 'ha-checkbanner__note';
+        miss2.textContent = '※「② 日勤・Wチェック完了」「③ 遅番・シングルチェック済み」の欄は、データベースの準備（SQLの実行）がまだのため表示されていません。';
+        box.appendChild(miss2);
+      }
+      if (checkConfirmAvailable) {
+        addItem('④', signed ? `遅番・Wチェック完了（全て確認済み）${by(checkConfirm)}`
+          : `遅番・Wチェック完了（全て確認済み）${missed.length > 0 ? '　※全予約が「済」になると押せます' : (!firstOk ? '　※先に①か②が必要です' : '')}`,
+          signed, missed.length > 0 || !firstOk, (cb) => onConfirmToggle(cb));
       }
 
       document.title = complete ? BASE_TITLE : `⚠未確認 ${BASE_TITLE}`;
@@ -4692,6 +4746,8 @@ import '../styles/kt-components.css';
     .ha-readonly .ha-grid th:nth-child(9),
     .ha-readonly .ha-all-table th:nth-child(9),
     .ha-readonly #newBtn { display: none; }
+    /* 変更履歴の「元に戻す」は管理者のみ（ユーザー指示「元に戻す表示は管理者のみにしてください」。docs §5.86）。ロック中は出さない */
+    .ha-readonly .ha-hist__revert { display: none; }
     .ha-readonly .ha-row--click { cursor: default; }
 
     /* ── 全体配車ボード（横長の1枚表） ── */

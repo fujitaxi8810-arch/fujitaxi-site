@@ -1916,6 +1916,61 @@ alter table dispatch_reservations
 対応：紐付けが無い「変更あり」の行にも、**「変更内容を見る（変更履歴）」ボタン**を出す。押すと、その予約の履歴だけを変更履歴の欄に出す
 （§5.82の「変更履歴で見る」と同じ。足跡がたどれる）。紐付けがある行は従来どおり（`→ 〇〇に変更 ▾`／`← 〇〇から変更`）。DBの変更なし。
 
+## 5.86 変更履歴の「元に戻す」を管理者だけに表示する（2026-11-04）
+
+ユーザー指示「元に戻す表示は管理者のみにしてください」。「元に戻す」で予約を復元すると、変更前後の紐付け（`superseded_by`）が
+失われて足跡が消える（§5.85）ことがあるため、誰でも押せる状態をやめた。
+
+- 変更履歴の各行の「元に戻す」ボタンは、**管理者のロックを解除しているときだけ**表示（ロック中は非表示。`.ha-readonly .ha-hist__revert`）。
+  ロック解除（管理者）→ 表示、ロック → 非表示は、画面の切り替えにその場で追従する
+- 変更履歴の閲覧と、「変更履歴で見る」「変更内容を見る」（§5.82・§5.85）は、これまでどおり誰でもできる
+- 画面の説明文も「管理者は、『元に戻す』で…」に直した。**DBの権限（RLS）の変更はなし**（表示を隠しただけ。本当の権限は従来どおりSupabase側）
+
+## 5.87 予約チェックを4つの項目にする（2026-11-04）
+
+ユーザー指示「表記があいまいなので、一番上の部分はシングルチェックしか終わっていないチェック項目と分かるように」
+「全部で4つ必要。日勤と遅番のWチェックが完了したものは追加しないといけない」「案Yで、①②のどちらかを☑しないと③④に進めない仕組みで」。
+
+画面上部のチェック項目は**4つ**（案Y）：
+| 項目 | 意味 | 押せる条件 | 記録 |
+|---|---|---|---|
+| ① 日勤・シングルチェック済み | 日勤が1人目としてチェック。Wチェックはまだ | 未チェック（何もしていない予約）が無い（「済」か「受付表」が入っている） | `dispatch_first_checks`（従来） |
+| ② 日勤・Wチェック完了 | 日勤が二人でWチェックして完了 | 全予約が「済」 | `dispatch_check_extras`（step=`day_w`）**新設** |
+| ③ 遅番・シングルチェック済み | 遅番が1人目としてチェック | **①か②が入っている**＋未チェックが無い | `dispatch_check_extras`（step=`late_single`）**新設** |
+| ④ 遅番・Wチェック完了（＝全て確認済み） | 遅番（または翌朝の日勤）が二人でWチェックして完了 | **①か②が入っている**＋全予約が「済」 | `dispatch_confirmations`（従来） |
+
+- **①か②のどちらかが入らないと、③④には進めない**（押せず、押そうとすると案内が出る）
+- 完了（緑）の条件：全予約が「済」＋①か②＋④。**③は必須にしていない**（土曜日は日勤がシングル→遅番がWチェック、のように③を通らない日があるため。必須にするなら言ってもらう）
+- 完了の表示は、入っている項目を、誰が・いつ、で並べる（「① 日勤・シングルチェック：○○（18:14）／② …／④ 遅番・Wチェック完了：△△（00:21）」）
+- 名前を選ぶ画面は、項目ごとにタイトルが変わる（①〜④）。④は従来どおり「Wチェック完了：遅番」「Wチェック完了：翌朝の日勤」の2択（最初の選択は朝7時以降の本日分なら翌朝の日勤）。
+  サインできるのは、これまでどおり9名（§5.78）
+- 引き継ぎのあとの自動のサイン画面・18時の自動表示は、①のサイン画面（①か②が入っていれば出さない）
+- 表記：従来の「日勤（夕方）の確認済み」を「① 日勤・シングルチェック済み（日勤が1人目としてチェック。Wチェックはまだ）」に改めた
+- 名前を選ぶ画面が複数同時に開いて、タイトルと選択肢が混ざらないよう、すでに開いているときは開かない
+
+**DB（要マイグレーション）**：②③用の表を新設する。未実行でも画面は動く（②③の欄を出さず、従来どおり①④で進める。①④は①が必要）。
+```sql
+create table dispatch_check_extras (
+  work_date date not null,
+  step text not null check (step in ('day_w', 'late_single')),
+  checked_by text,
+  checked_at timestamptz not null default now(),
+  primary key (work_date, step)
+);
+
+alter table dispatch_check_extras enable row level security;
+
+create policy dispatch_check_extras_select on dispatch_check_extras
+  for select to authenticated using (true);
+create policy dispatch_check_extras_insert on dispatch_check_extras
+  for insert to authenticated with check (true);
+create policy dispatch_check_extras_update on dispatch_check_extras
+  for update to authenticated using (true) with check (true);
+create policy dispatch_check_extras_delete on dispatch_check_extras
+  for delete to authenticated using (true);
+```
+- 検証：表が無い状態で、①④が出て④は①が入るまで押せないこと、②③の欄の代わりに注意書きが出ること、画面にエラーが出ないことを確認した
+
 ## 6. 想定していないこと（将来の課題）
 
 - **DSコネクトによるAPI直結**。実現すればCSVの手作業が消える。電脳交通への問い合わせが前提

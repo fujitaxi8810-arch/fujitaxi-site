@@ -1234,6 +1234,24 @@ import '../styles/kt-components.css';
      * 無いので、何も付けない。
      */
     function buildSupersededNote(r: any) {
+      // 「変更あり」なのに、変更前後の紐付け（時刻変更のペア）が無い予約（中身だけの変更、手動で付けた、元に戻す操作で紐付けが
+      // 失われた、など）は、何が変わったのか画面に出せない。そこで、変更履歴でその予約の足跡を見るボタンだけ出す
+      // （ユーザー指摘「変更ありの際に変更ありしかでてこない」。docs §5.85）
+      if (r.status === 'changed' && !r.supersededByRaw) {
+        const w = document.createElement('span');
+        w.className = 'ha-superseded-wrap';
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ha-superseded-note';
+        b.textContent = '変更内容を見る（変更履歴）';
+        b.title = 'この予約の変更履歴だけを、変更履歴の欄に出します';
+        b.onclick = (e) => {
+          e.stopPropagation();
+          openHistoryFor([r.id], `${jstTimeLabel(r.reservedAt)} ${r.customerName || ''}`.trim());
+        };
+        w.appendChild(b);
+        return w;
+      }
       // 元の予約（時刻変更で「キャンセル」になったもの）に、変更後への行き先リンクを出す
       if ((r.status !== 'changed' && r.status !== 'cancelled') || !r.supersededByRaw) return null;
       const wrap = document.createElement('span');

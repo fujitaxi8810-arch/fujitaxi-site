@@ -2482,6 +2482,17 @@ import '../styles/kt-components.css';
           + (checkFirstAvailable ? '　※①か②のどちらかが入らないと、③④には進めません。' : '');
         box.appendChild(note);
 
+        // 遅番が1人でWチェックできず、③（シングルチェック）まででとまっているとき：翌朝の日勤がWチェックして④にサインする
+        // （ユーザー回答「案B」「日勤の名前で④にサイン（そのまま）」。docs §5.88）
+        if (!!checkExtras.late_single && !checkConfirm) {
+          const wait = document.createElement('p');
+          wait.className = 'ha-checkbanner__wait';
+          wait.textContent = isToday
+            ? '【日勤の方へ】前夜の遅番は1人のため、シングルチェック（③）までです。日勤がWチェックして、④「遅番・Wチェック完了（全て確認済み）」に日勤の名前でサインしてください。'
+            : '遅番は1人のため、③（シングルチェック）までです。④のWチェックは、翌朝の日勤が行います。';
+          box.appendChild(wait);
+        }
+
         if (missed.length > 0) {
           const list = document.createElement('p');
           list.className = 'ha-checkbanner__list';
@@ -2572,8 +2583,9 @@ import '../styles/kt-components.css';
         box.appendChild(miss2);
       }
       if (checkConfirmAvailable) {
+        const lateWait = !!checkExtras.late_single && !signed; // 遅番が1人で③まで → 翌朝の日勤がWチェック待ち
         addItem('④', signed ? `遅番・Wチェック完了（全て確認済み）${by(checkConfirm)}`
-          : `遅番・Wチェック完了（全て確認済み）${missed.length > 0 ? '　※全予約が「済」になると押せます' : (!firstOk ? '　※先に①か②が必要です' : '')}`,
+          : `遅番・Wチェック完了（全て確認済み）${lateWait ? (isToday ? '　→ 遅番は1人のため、日勤がWチェックして日勤の名前でサイン（待ち）' : '　→ 遅番は1人のため、翌朝の日勤がWチェック（待ち）') : ''}${missed.length > 0 ? '　※全予約が「済」になると押せます' : (!firstOk ? '　※先に①か②が必要です' : '')}`,
           signed, missed.length > 0 || !firstOk, (cb) => onConfirmToggle(cb));
       }
 
@@ -3995,6 +4007,8 @@ import '../styles/kt-components.css';
     .ha-grid .ha-row--paperonly td:nth-child(8), .ha-all-table .ha-all-card--paperonly td:nth-child(8) { background: #fef3c7; }
     .ha-row--paperonly td:first-child { box-shadow: inset 6px 0 0 #d97706; }
     .ha-paper-bulk { margin-top: 0.4rem; }
+    /* 遅番が1人で③までのとき、翌朝の日勤にWチェックを促す（docs §5.88） */
+    .ha-checkbanner__wait { margin: 0.4rem 0 0.2rem; padding: 0.35rem 0.6rem; border: 2px solid #d97706; border-radius: var(--radius-md); background: #fffbeb; color: #7c2d12; font-weight: 900; font-size: 0.95rem; }
     /* 追加なし（引き継ぎ以降に予約の追加がないとき）。緑で目立たせる */
     .ha-badge--noadd { background: #ecfdf5; border: 2px solid #047857; color: #065f46; font-weight: 900; font-size: 0.95rem; padding: 0.1rem 0.6rem; }
     .ha-summary-noadd { display: inline-block; background: #ecfdf5; border: 1px solid #047857; border-radius: var(--radius-md); color: #065f46; font-weight: 900; padding: 0.05rem 0.55rem; }

@@ -203,6 +203,9 @@ h2.sec { margin:2px 0 1px; }
 .col .head small { font-size:8pt; line-height:1.2; }
 .principle { padding:0 10px; }
 .csvband .big { font-size:14pt; }
+.sg td { font-size:9.2pt; padding:0 8px; }
+.sg .nm { width:30%; font-weight:500; }
+.warnnote { font-size:9.5pt; line-height:1.3; }
 </style>
 </head>
 <body>
@@ -294,15 +297,15 @@ h2.sec { margin:2px 0 1px; }
   <p class="mxnote">全てWチェック完了になったら、「全て確認済み」にチェックして警告を消す</p>
   <div class="rule"><div class="rule-b"><b>なぜ「済」にしないのか：</b>ボードの「済」が<b>全てレ点だと警告が出ず</b>、未完了に<u>気付けない</u>から。「受付表」ボタン（黄色）なら、<b>翌朝の警告で日勤が気付ける</b>。</div></div>
 
-  <h2 class="sec"><span class="n">5</span>サイン（<span class="tag">配車ボード</span>で、名前を選ぶ）</h2>
+  <h2 class="sec"><span class="n">5</span>チェック項目は4つ（<span class="tag">配車ボード</span>で、名前を選ぶ）</h2>
   <table class="sg">
-    <tr><th>場面</th><th>サインする人</th><th class="nm">配車ボードで選ぶ項目</th></tr>
-    <tr><td><b>日勤</b>（夕方・引き継ぐ前）</td><td><b>確認した日勤の人</b></td><td class="nm">「日勤（夕方）の確認済み」</td></tr>
-    <tr><td><b>遅番</b>（二人でWチェック完了後）</td><td><b>電話番ではない側</b></td><td class="nm">「Wチェックが完了した」</td></tr>
-    <tr><td><b>やむを得ない場合</b>→翌朝</td><td><b>日勤の人</b></td><td class="nm">「日勤が朝にチェックした」</td></tr>
+    <tr><th>項目</th><th>サインする人</th><th class="nm">押せる条件</th></tr>
+    <tr><td><b>① 日勤・シングルチェック済み</b></td><td>日勤が1人目としてチェックした人</td><td class="nm">全予約に「済」か「受付表」</td></tr>
+    <tr><td><b>② 日勤・Wチェック完了</b></td><td>日勤が二人でWチェックした人</td><td class="nm">全予約が「済」</td></tr>
+    <tr><td><b>③ 遅番・シングルチェック済み</b></td><td>遅番が1人目としてチェックした人</td><td class="nm">①か②が入っている</td></tr>
+    <tr><td><b>④ 遅番・Wチェック完了（全て確認済み）</b></td><td>電話番ではない側（遅番が1人の日は翌朝の日勤）</td><td class="nm">①か②＋全予約が「済」</td></tr>
   </table>
-  <p class="resp">サインした人は、責任をもって対応してください。</p>
-  <p class="warnnote">【注意】日勤のサインは必須です。日勤が完了していないと、遅番（夜勤）も完了になりません。<br><span style="font-weight:500;font-size:9pt">日勤のサインは「予約受付表（紙）のみ」が残っていても押せる。「全て確認済み」は全部「済」になってから。</span></p>
+  <p class="warnnote">【注意】<b>①か②のどちらかが入らないと、③④には進めません。</b>遅番が1人の日は③まで、翌朝の日勤が④にサインします。サインした人は、責任をもって対応してください。</p>
 
   <p class="foot">富士タクシー　配車管理 / 事務所マニュアル：Wチェックの運用（2026年10月版）</p>
 </main>

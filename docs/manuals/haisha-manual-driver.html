@@ -208,6 +208,11 @@ table.ref tr:last-child td { border-bottom: none; }
     <tr><td><span class="bar" style="background:#16a34a"></span><span class="badge b-jumbo">ジャンボ</span></td><td>ジャンボタクシーの予約（行は緑）</td></tr>
     <tr><td><span class="bar" style="background:#9ca3af"></span><span class="badge b-cancel">キャンセル</span></td><td>取り消された予約（灰色で打ち消し線）。時刻が変わった元の予約は、これになり「→ 07:50に変更」と示される</td></tr>
     <tr><td><span class="badge b-none">— 未割当 —</span></td><td>まだ担当が決まっていない予約（担当者の欄がオレンジ）</td></tr>
+    <tr><td><strong>→ 08:00に変更 ▾</strong></td><td>時刻が変わった元の予約に出ます。押すと開閉して、変わった項目（迎車場所・メモなどの前→後）が見られます。「変更履歴で見る」を押すと、その予約の履歴だけが下の変更履歴に出ます（見るだけで、元に戻す操作は管理者のみです）。</td></tr>
+    <tr><td><strong>← 08:00から変更</strong></td><td>新しい予約に出ます。押すと、変更前の予約がある日が開きます。</td></tr>
+    <tr><td><strong>変更内容を見る（変更履歴）</strong></td><td>「変更あり」の予約で、何が変わったか画面に出ないときに出ます。押すと、その予約の履歴だけが出ます。</td></tr>
+    <tr><td><strong>黄色の「受付表」ボタン</strong>（済のセル）</td><td>Wチェックできず、予約受付表（紙）にだけレ点を入れた予約（Wチェック待ち）。Wチェックできたら「済」にします。</td></tr>
+    <tr><td><strong>✓ 追加なし（明日○/○の予約・19:00以降）</strong></td><td>引き継ぎのあと、その翌日の予約が1件も追加されていないときだけ出ます（「前回の引き継ぎ」の帯と集計行）。翌朝は「本日○/○の予約」と出て、前日の遅番の間に追加がなかったと分かります。追加があれば出ず、「新着 ○件」になります。</td></tr>
   </table>
   </div>
 </section>

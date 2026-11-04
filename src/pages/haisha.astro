@@ -2125,26 +2125,54 @@ import '../styles/kt-components.css';
     let checkDayLoading = false;
     let checkDayLastTry = 0; // 通信失敗時に、描画のたびに取りにいって連打しないため
 
+    /** ある日のチェック状態（予約・④・①・②③のサイン）をまとめて取る */
+    async function loadCheckData(key: string) {
+      const [rows, conf, first, extras] = await Promise.all([
+        fetchReservationsByDate(key),
+        fetchConfirmation(key).then((c: any) => ({ ok: true, c })).catch(() => ({ ok: false, c: null })),
+        fetchFirstCheck(key).then((c: any) => ({ ok: true, c })).catch(() => ({ ok: false, c: null })),
+        fetchCheckExtras(key).then((c: any) => ({ ok: true, c })).catch(() => ({ ok: false, c: {} as Record<string, any> })),
+      ]);
+      return { key, rows, conf, first, extras };
+    }
+    /** その日の確認が完了しているか（renderCheckBanner の complete と同じ条件。予約が0件なら、確認するものが無いので完了扱い） */
+    function checkDataComplete(d: any) {
+      const live = d.rows.filter((r: any) => !isVoidStatus(r.status));
+      if (live.length === 0) return true;
+      if (live.some((r: any) => !r.checked)) return false;
+      const dayOk = !d.first.ok || !!d.first.c || (d.extras.ok && !!(d.extras.c || {}).day_w);
+      return dayOk && (!d.conf.ok || !!d.conf.c);
+    }
+
+    /*
+     * 確認の対象の日：18時より前は本日、18時から明日。**ただし、本日の確認が完了し、朝8時（リセット）を過ぎていたら、
+     * 18時を待たずに明日の確認を出す**（ユーザー報告「チェック項目の表示が出てこない」。日勤は引き継ぐ前の夕方（18時より前）に
+     * 明日の予約を確認してサインするため、本日分が終わって緑を消したあとは、すぐ明日分の①〜④を出す。docs §5.89）。
+     * 本日分が未完了のうちは、本日分を出し続ける（新しい予約が入って未チェックが出たときも、本日分に戻る）。
+     */
     async function refreshCheckDay() {
       if (checkDayLoading) return;
       checkDayLoading = true;
       checkDayLastTry = Date.now();
-      const key = checkTargetKey();
       try {
-        const [rows, conf, first, extras] = await Promise.all([
-          fetchReservationsByDate(key),
-          fetchConfirmation(key).then((c: any) => ({ ok: true, c })).catch(() => ({ ok: false, c: null })),
-          fetchFirstCheck(key).then((c: any) => ({ ok: true, c })).catch(() => ({ ok: false, c: null })),
-          fetchCheckExtras(key).then((c: any) => ({ ok: true, c })).catch(() => ({ ok: false, c: {} as Record<string, any> })),
-        ]);
-        checkDayRows = rows;
-        checkConfirm = conf.c;
-        checkConfirmAvailable = conf.ok;
-        checkFirst = first.c;
-        checkFirstAvailable = first.ok;
-        checkExtras = extras.c || {};
-        checkExtrasAvailable = extras.ok;
-        checkDayKey = key;
+        const h = jstHourNow();
+        const today = todayJst();
+        const tomorrow = shiftDate(today, 1);
+        let d: any;
+        if (h >= CHECK_EVENING_HOUR) {
+          d = await loadCheckData(tomorrow);
+        } else {
+          d = await loadCheckData(today);
+          if (h >= CHECK_RESET_HOUR && checkDataComplete(d)) d = await loadCheckData(tomorrow);
+        }
+        checkDayRows = d.rows;
+        checkConfirm = d.conf.c;
+        checkConfirmAvailable = d.conf.ok;
+        checkFirst = d.first.c;
+        checkFirstAvailable = d.first.ok;
+        checkExtras = d.extras.c || {};
+        checkExtrasAvailable = d.extras.ok;
+        checkDayKey = d.key;
       } catch (e) {
         // 失敗しても本体の表示には影響させない（日付が変わっていれば出さない）
       } finally {
@@ -2405,8 +2433,11 @@ import '../styles/kt-components.css';
 
     function renderCheckBanner() {
       const box = $('checkBanner');
-      if (checkDayKey !== checkTargetKey()) {
-        // 0時・18時を過ぎて確認の対象の日が変わった。新しい日の予約を取り直す
+      // 日付が変わった（0時）、または18時を過ぎて、いまの対象（本日／明日）と合わなくなった。取り直す
+      const staleKey = jstHourNow() >= CHECK_EVENING_HOUR
+        ? checkDayKey !== shiftDate(todayJst(), 1)
+        : (checkDayKey !== todayJst() && checkDayKey !== shiftDate(todayJst(), 1));
+      if (staleKey) {
         box.hidden = true;
         document.title = BASE_TITLE;
         if (!checkDayLoading && Date.now() - checkDayLastTry > 30 * 1000) refreshCheckDay();
@@ -2435,7 +2466,12 @@ import '../styles/kt-components.css';
       const complete = missed.length === 0 && firstOk && (!checkConfirmAvailable || signed);
       // 完了（全て確認済み）の緑の表示は、朝8時（CHECK_RESET_HOUR）になったら消す。確認は0時以降の1回きりなので、
       // 日中まで緑が残ると「リセットされていない」ように見えるため（ユーザー指摘・指定「確認した朝8時にリセット」。docs §5.76）。0時で新しい日の分に切り替わる
-      if (complete && isToday && jstHour >= CHECK_RESET_HOUR) { box.hidden = true; document.title = BASE_TITLE; return; }
+      if (complete && isToday && jstHour >= CHECK_RESET_HOUR) {
+        box.hidden = true; document.title = BASE_TITLE;
+        // 本日分が終わったので、明日の確認（①〜④）に切り替える（18時を待たない）
+        if (!checkDayLoading && Date.now() - checkDayLastTry > 30 * 1000) refreshCheckDay();
+        return;
+      }
 
       box.innerHTML = '';
       const head = document.createElement('p');
@@ -2589,7 +2625,9 @@ import '../styles/kt-components.css';
           signed, missed.length > 0 || !firstOk, (cb) => onConfirmToggle(cb));
       }
 
-      document.title = complete ? BASE_TITLE : `⚠未確認 ${BASE_TITLE}`;
+      // 18時より前に出している「明日」の確認は、まだ急がないので、タブ名に ⚠ は付けない
+      const earlyNext = !isToday && jstHour < CHECK_EVENING_HOUR;
+      document.title = (complete || earlyNext) ? BASE_TITLE : `⚠未確認 ${BASE_TITLE}`;
       box.hidden = false;
       void maybeAutoOpenDaySign(isToday, untouched.length);
     }

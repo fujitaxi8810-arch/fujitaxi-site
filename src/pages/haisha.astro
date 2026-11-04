@@ -2444,7 +2444,23 @@ import '../styles/kt-components.css';
         return;
       }
       const rows = checkDayRows.filter((r) => !isVoidStatus(r.status));
-      if (rows.length === 0) { box.hidden = true; document.title = BASE_TITLE; return; }
+      if (rows.length === 0) {
+        // 予約が0件のとき、黙って消すと「チェック項目が出てこない」と見える（11/4の報告と同じ種類の見落とし）。
+        // 明日の予約がまだ取り込まれていない場合は、理由を一行で出す（docs §5.90）。本日分が0件のときは出さない
+        if (checkDayKey !== todayJst()) {
+          box.className = 'ha-checkbanner ha-checkbanner--info';
+          box.innerHTML = '';
+          const info = document.createElement('p');
+          info.className = 'ha-checkbanner__head';
+          info.textContent = `明日(${checkDayKey.slice(5).replace('-', '/')})の予約は、まだ取り込まれていません（0件）。CSVを取り込むと、明日の確認項目（①〜④）が出ます。`;
+          box.appendChild(info);
+          box.hidden = false;
+        } else {
+          box.hidden = true;
+        }
+        document.title = BASE_TITLE;
+        return;
+      }
 
       const isToday = checkDayKey === todayJst();
       const label = `${isToday ? '本日' : '明日'}(${checkDayKey.slice(5).replace('-', '/')})`;
@@ -4017,6 +4033,8 @@ import '../styles/kt-components.css';
     .ha-checkbanner__note { font-size: 1rem; font-weight: 700; flex-basis: 100%; }
     .ha-checkbanner__list { font-size: 0.95rem; font-weight: 700; flex-basis: 100%; }
     .ha-checkbanner--ok { background: #ecfdf5; border-color: #047857; color: #065f46; }
+    /* お知らせ（確認する予約がまだ無いとき）。警告ではないので落ち着いた色 */
+    .ha-checkbanner--info { background: #eff6ff; border-color: #1d4ed8; color: #1e3a8a; }
     .ha-checkbanner--warn { background: #fef2f2; border-color: #b91c1c; color: #7f1d1d; }
     /* 朝7時を過ぎても未完了：さらに強く（太い枠・濃い地色・大きい文字） */
     .ha-checkbanner--urgent { background: #fee2e2; border-color: #7f1d1d; border-width: 5px; color: #7f1d1d; }
@@ -4498,6 +4516,9 @@ import '../styles/kt-components.css';
       margin-bottom: 0.75rem;
     }
     .ha-field { display: flex; flex-direction: column; gap: 0.25rem; }
+    /* display:flex が hidden 属性（ブラウザ標準の display:none）に勝ってしまい、確認者の選択画面で、①②③のときも
+       「どの場合ですか（Wチェック完了：遅番／翌朝の日勤）」が出てしまっていた（ユーザー指摘「日勤ではなく遅番になっている」。docs §5.91） */
+    .ha-field[hidden] { display: none; }
     .ha-field > span { color: rgba(255,255,255,0.75); font-size: 0.8rem; font-weight: 700; }
     .ha-field--grow { flex: 1 1 14rem; }
     .ha-field--full { grid-column: 1 / -1; }

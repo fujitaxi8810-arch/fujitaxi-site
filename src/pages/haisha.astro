@@ -198,6 +198,7 @@ import '../styles/kt-components.css';
       <div class="kt-adminbar" id="adminBar" hidden>
         <span class="kt-adminbar__label" id="adminState">🔒 閲覧・編集は可能／削除は管理者のみ</span>
         <button type="button" class="kt-btn kt-btn--ghost" id="adminToggleBtn">管理者ロック解除</button>
+        <button type="button" class="kt-btn kt-btn--ghost" id="backupBtn" hidden title="配車の記録を、ファイルにダウンロードします（復旧用）">バックアップをダウンロード</button>
       </div>
 
       <!-- ── 変更履歴（DBトリガーが自動記録。普段は畳んでおく） ── -->
@@ -415,7 +416,7 @@ import '../styles/kt-components.css';
       fetchLatestHandover, recordHandover, deleteHandover, updateHandoverNote,
       fetchDispatchHistory, fetchDispatchHistoryFor, revertHistoryEntry,
       setPaperChecked, setPaperCheckedMany,
-      fetchCheckExtras, setCheckExtra, clearCheckExtra,
+      fetchCheckExtras, setCheckExtra, clearCheckExtra, fetchBackupData,
       fetchDeletedReservations,
       buildImportPlan, applyImportPlan, fetchLatestImportLog,
       jstDateKey, jstTimeLabel, todayJst, yesterdayJst,
@@ -771,8 +772,38 @@ import '../styles/kt-components.css';
         : '🔒 予約の編集・削除は管理者のみ（担当者・状態・済は操作できます）';
       $('adminToggleBtn').textContent = unlocked ? 'ロックする' : '管理者ロック解除';
       $('staffAdminPanel').hidden = !unlocked;
+      $('backupBtn').hidden = !unlocked; // バックアップは管理者のみ
       if (unlocked) renderStaffAdmin();
     }
+
+    // ── バックアップ（管理者のみ。復旧用。docs §5.93・docs/haisha-recovery.md） ──
+    // 配車の記録（予約・変更履歴・引き継ぎ・取り込み履歴・乗務割・確認のサインなど）を、1つのJSONファイルにダウンロードする。
+    // 不具合や操作ミスでデータが壊れたときに、元の内容を確かめて戻すために使う。
+    $('backupBtn').onclick = async () => {
+      const btn = $('backupBtn') as HTMLButtonElement;
+      const label = btn.textContent;
+      btn.disabled = true;
+      try {
+        const data = await fetchBackupData((t: string) => { btn.textContent = `取得中… ${t}`; });
+        const stamp = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-');
+        const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `haisha-backup-${stamp}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+        const counts = Object.entries(data.tables).map(([k, v]) => `${k}：${(v as any[]).length}件`).join('\n');
+        const failedTxt = data.failed.length ? '\n\n取得できなかった表：' + data.failed.join('、') : '';
+        alert('バックアップをダウンロードしました。\n\n' + counts + failedTxt);
+      } catch (e) {
+        alert(failMsg(e, 'バックアップ'));
+      } finally {
+        btn.textContent = label;
+        btn.disabled = false;
+      }
+    };
 
     // ── 配車担当者の設定（管理者のみ） ──
     // 誰を担当者候補に出すかをこの画面で切り替える。

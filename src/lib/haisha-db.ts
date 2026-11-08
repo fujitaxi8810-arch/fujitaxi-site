@@ -752,6 +752,47 @@ export async function clearCheckExtra(dateKey: string, step: CheckStep): Promise
   if (error) throw error;
 }
 
+// ── バックアップ（管理者がダウンロードする。復旧用。docs/haisha-recovery.md） ──
+
+/** バックアップに含める表。配車の記録と、その参照先（担当者・シフト）。 */
+export const BACKUP_TABLES = [
+  'dispatch_reservations', 'dispatch_history', 'dispatch_handovers', 'dispatch_imports',
+  'dispatch_duties', 'dispatch_duty_exclusions',
+  'dispatch_confirmations', 'dispatch_first_checks', 'dispatch_check_extras',
+  'staff', 'shifts',
+];
+
+/** 1表の全行を取る（1000件の上限を超えるため、ページを分けて取る）。表が無い・読めないときは null */
+async function fetchAllRows(table: string): Promise<any[] | null> {
+  const orders = ['id', 'work_date', null]; // 主キーの名前が表で違うので、順に試す（並びを固定しないと、ページの切れ目で重複・欠落する）
+  for (const col of orders) {
+    const rows: any[] = [];
+    let ok = true;
+    for (let from = 0; ; from += 1000) {
+      let q: any = supabase.from(table).select('*').range(from, from + 999);
+      if (col) q = q.order(col, { ascending: true });
+      const { data, error } = await q;
+      if (error) { ok = false; break; }
+      rows.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+    if (ok) return rows;
+  }
+  return null;
+}
+
+/** バックアップ一式。onProgress で進み具合を知らせる。表ごとの件数と、取れなかった表も返す */
+export async function fetchBackupData(onProgress?: (table: string) => void) {
+  const tables: Record<string, any[]> = {};
+  const failed: string[] = [];
+  for (const t of BACKUP_TABLES) {
+    onProgress?.(t);
+    const rows = await fetchAllRows(t);
+    if (rows === null) failed.push(t); else tables[t] = rows;
+  }
+  return { exportedAt: new Date().toISOString(), tables, failed };
+}
+
 // ── CSV取り込み ──
 
 /**

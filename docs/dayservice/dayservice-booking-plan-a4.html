@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>送迎予約の仕組み 検討案</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap">
+<style>
+:root{--ink:#1B1A17;--body:#35332E;--muted:#5F5C54;--paper:#FFFFFF;--line:#C9C6BC;--tint:#EFEDE6;--pale:#FBF1C2;--pale-ink:#3F3200;--desk:#D9D7D0;--serif:'Noto Serif JP','Yu Mincho',serif}
+@page{size:A4 portrait;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--desk)}
+body{font-family:'Noto Sans JP','Yu Gothic',sans-serif;color:var(--body);font-size:9.8pt;line-height:1.6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:210mm;height:297mm;background:var(--paper);padding:15mm 16mm 18mm;position:relative;overflow:hidden;margin:16px auto;display:flex;flex-direction:column;gap:6.5mm;break-after:page}
+.page:last-child{break-after:auto}
+.foot{position:absolute;left:16mm;right:16mm;bottom:8mm;display:flex;justify-content:space-between;font-size:8pt;color:var(--muted)}
+h1{font-family:var(--serif);font-size:17.5pt;font-weight:700;line-height:1.4;color:var(--ink)}
+h2{font-family:var(--serif);font-size:14pt;font-weight:700;line-height:1.4;color:var(--ink);border-bottom:1.2pt solid var(--ink);padding-bottom:1mm}
+h3{font-size:9.8pt;font-weight:700;line-height:1.45;color:var(--ink)}
+section{display:flex;flex-direction:column;gap:3mm}
+.tag{font-size:9pt;font-weight:700;color:var(--muted)}
+.note{font-size:8.5pt;color:var(--muted)}
+b.k{color:var(--ink)}
+
+/* 流れ */
+.lanes{display:grid;grid-template-columns:22mm 1fr 6mm 1fr 6mm 1fr;row-gap:2.5mm;align-items:stretch}
+.lanes .who{font-size:8.8pt;font-weight:700;color:var(--ink);display:flex;align-items:center;line-height:1.35}
+.lanes .s{border:.6pt solid var(--line);padding:2mm 2.5mm;font-size:8.8pt;line-height:1.45}
+.lanes .s b{display:block;color:var(--ink);font-size:9.3pt}
+.lanes .web{background:var(--pale);border-color:var(--pale);color:var(--pale-ink)}
+.lanes .web b{color:var(--pale-ink)}
+.ar{display:flex;align-items:center;justify-content:center}
+.ar svg{width:5mm;height:5mm}
+.down{display:flex;justify-content:center}
+.down svg{width:5mm;height:5mm;transform:rotate(90deg)}
+
+/* 空き枠 */
+.calc{display:flex;align-items:center;gap:3mm;font-size:9.5pt;flex-wrap:nowrap}
+.calc span{border:.6pt solid var(--line);padding:1.5mm 3mm;text-align:center;line-height:1.35;flex:1}
+.calc i{font-style:normal;font-weight:700;color:var(--ink);font-size:13pt}
+.calc .res{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:700}
+
+/* 比較 */
+table{width:100%;border-collapse:collapse}
+th,td{border:.6pt solid var(--line);padding:1.5mm 2mm;font-size:8.8pt;line-height:1.45;vertical-align:top}
+th{background:var(--tint);color:var(--ink);font-weight:700;text-align:left}
+tr.rec td{background:var(--pale);color:var(--pale-ink)}
+tr.rec td b{color:var(--pale-ink)}
+td b{color:var(--ink)}
+.steps{display:grid;grid-template-columns:1fr 8mm 1fr 8mm 1fr;align-items:stretch}
+.steps .st{border-top:2pt solid var(--ink);padding-top:1.5mm;font-size:8.8pt;line-height:1.5}
+.steps .st b{display:block;color:var(--ink);font-size:9.5pt}
+.steps .ar svg{width:4.5mm;height:4.5mm}
+
+/* 画面イメージ */
+.screens{display:grid;grid-template-columns:72mm 1fr;gap:7mm;align-items:start}
+.cap{font-size:9pt;font-weight:700;color:var(--ink);margin-bottom:1.5mm}
+.phone{border:1.4pt solid var(--ink);border-radius:5mm;padding:3mm;background:#fff;font-size:8.8pt;line-height:1.4}
+.ph-h{font-weight:700;color:var(--ink);border-bottom:.6pt solid var(--line);padding-bottom:1.5mm;margin-bottom:2mm;display:flex;justify-content:space-between;font-size:8.8pt}
+.ph-h span{font-weight:400;color:var(--muted)}
+.cal{display:grid;grid-template-columns:9mm 1fr 1fr;gap:1mm;align-items:center;margin-bottom:2mm}
+.cal .h{font-size:8pt;color:var(--muted);text-align:center}
+.cal .d{font-weight:700;color:var(--ink)}
+.chip{appearance:none;border:.6pt solid var(--ink);background:#fff;font:inherit;font-size:8.3pt;padding:1.1mm 0;text-align:center;color:var(--ink);cursor:pointer;width:100%}
+.chip.few{background:var(--pale);border-color:var(--pale);color:var(--pale-ink)}
+.chip.full{background:var(--tint);border-color:var(--tint);color:var(--muted);cursor:default}
+.chip.sel{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:700}
+.field{display:flex;justify-content:space-between;border-top:.6pt solid var(--line);padding:1mm 0}
+.field b{color:var(--ink)}
+.send{appearance:none;display:block;width:100%;background:var(--ink);color:#fff;border:0;font:inherit;font-weight:700;padding:2mm;margin-top:1.5mm;cursor:pointer}
+.msg{min-height:4mm;font-size:8pt;color:var(--pale-ink);margin-top:1mm;text-align:center}
+.desk{border:1pt solid var(--ink);font-size:8.8pt}
+.desk .bar{background:var(--ink);color:#fff;font-weight:700;padding:1.3mm 2.5mm}
+.desk .row{display:grid;grid-template-columns:1fr auto;gap:2mm;padding:1.8mm 2.5mm;border-top:.6pt solid var(--line);line-height:1.4}
+.desk .row b{color:var(--ink)}
+.acts{display:flex;gap:1mm;align-items:center}
+.acts span{border:.6pt solid var(--ink);padding:.5mm 1.5mm;font-size:8pt;color:var(--ink)}
+.acts .ok{background:var(--ink);color:#fff}
+.legend{display:flex;gap:3mm;font-size:8pt;color:var(--muted);margin-top:1mm}
+.sw{display:inline-block;width:3mm;height:3mm;border:.6pt solid var(--ink);vertical-align:-.4mm;margin-right:.8mm}
+ul.dec{list-style:none;display:grid;grid-template-columns:1fr 1fr;column-gap:7mm;row-gap:1.5mm;font-size:9pt}
+ul.dec li{border-top:.6pt solid var(--line);padding-top:1mm}
+ul.dec b{display:block;color:var(--ink)}
+@media screen{body{padding:1px 0}.page{box-shadow:0 1px 6px rgba(27,26,23,.2)}}
+@media print{html,body{background:none}.page{margin:0;box-shadow:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="ar" viewBox="0 0 24 24"><path d="M3 10h11V5l8 7-8 7v-5H3z" fill="#1B1A17"/></symbol></defs></svg>
+
+<div class="page">
+  <div>
+    <p class="tag">社内検討用　有限会社 富士タクシー</p>
+    <h1>介護事業所が空いている日を予約できる仕組み（検討案）</h1>
+  </div>
+
+  <section>
+    <h2>図1　予約の流れ</h2>
+    <div class="lanes">
+      <div class="who">介護事業所</div>
+      <div class="s"><b>1　予約画面を開く</b>スマホやパソコンから</div>
+      <div class="ar"><svg><use href="#ar"/></svg></div>
+      <div class="s web"><b>2　空いている日を見る</b>日と時間枠ごとに表示</div>
+      <div class="ar"><svg><use href="#ar"/></svg></div>
+      <div class="s web"><b>3　選んで予約を送る</b>日、時間枠、車種、人数</div>
+
+      <div class="who">富士タクシー<br>事務所</div>
+      <div class="s"><b>6　配車ボードへ反映</b>担当乗務員を割り当て</div>
+      <div class="ar"><svg style="transform:rotate(180deg)"><use href="#ar"/></svg></div>
+      <div class="s"><b>5　確定を事業所へ通知</b>相談が必要なら電話</div>
+      <div class="ar"><svg style="transform:rotate(180deg)"><use href="#ar"/></svg></div>
+      <div class="s"><b>4　内容を確認して確定</b>新しい予約を通知で受ける</div>
+    </div>
+    <p class="note">3から4へは画面上で予約が届きます。自動確定にせず、はじめは事務所の確認を挟む案です。</p>
+  </section>
+
+  <section>
+    <h2>図2　「空き」の決め方</h2>
+    <div class="calc">
+      <span>その時間に<br>動かせる車両</span><i>と</i>
+      <span>その日に勤務する<br>乗務員</span><i>−</i>
+      <span>すでに入っている<br>予約・貸切</span><i>=</i>
+      <span class="res">予約を受けられる<br>空き</span>
+    </div>
+    <p>車両が空いていても、乗務員がいなければ運行できません。勤務は今の <b class="k">/shift</b>、予約は <b class="k">/haisha</b> にあるため、空きの計算に活かせる見込みです。ただし、電話などで入る一般の配車分をどれだけ残すかは、事前に決める必要があります。</p>
+  </section>
+
+  <section>
+    <h2>図3　実現方法の比較</h2>
+    <table>
+      <tr><th style="width:39mm">方法</th><th style="width:20mm">始めやすさ</th><th style="width:40mm">空き日の見せ方</th><th>配車管理とのつながり／注意点</th></tr>
+      <tr class="rec"><td><b>A　自社の予約ページ</b><br>（おすすめ）スマホのホーム画面に追加して使う形</td><td>比較的早い</td><td>自由に作れる。カレンダーで表示できる</td><td>/haisha と同じ基盤でつなげやすい。事業所ごとのログインと保守は自社で管理</td></tr>
+      <tr><td><b>B　富士タクシーアプリ</b><br>2027年4月開始予定</td><td>2027年4月以降</td><td>要確認。貸切枠の予約ができるか不明</td><td>電脳交通への確認が必要。DSとつながれば配車の二重入力を減らせる可能性あり</td></tr>
+      <tr><td><b>C　LINE公式アカウント</b><br>既存のアカウントを活用</td><td>比較的早い</td><td>文章だけでは見せにくい。A のページをLINEから開く形なら可能</td><td>事業所が使い慣れている点が利点。配車管理へは別途の仕組みが必要</td></tr>
+      <tr><td><b>D　Googleフォームと表計算</b></td><td>最も早い</td><td>受付はできるが、空きのリアルタイム表示は苦手</td><td>配車管理へは手入力。共有設定の誤りによる情報漏れに注意</td></tr>
+    </table>
+    <p class="note">比較は現時点の見立てです。費用と開発期間は、内容が固まってから見積もります。</p>
+  </section>
+
+  <section>
+    <h2>図4　進め方の案</h2>
+    <div class="steps">
+      <div class="st"><b>第1段階　試作</b>A の画面を作り、1〜2事業所に実際に触ってもらう</div>
+      <div class="ar"><svg><use href="#ar"/></svg></div>
+      <div class="st"><b>第2段階　試験運用</b>事務所の確認付きで受付し、空きの決め方を調整</div>
+      <div class="ar"><svg><use href="#ar"/></svg></div>
+      <div class="st"><b>第3段階　アプリと整理</b>電脳交通の回答を踏まえ、2027年4月のアプリとの役割を決める</div>
+    </div>
+  </section>
+  <div class="foot"><span>有限会社 富士タクシー</span><span>1</span></div>
+</div>
+
+<div class="page">
+  <section>
+    <h2>図5　画面のイメージ（見本）</h2>
+    <p>公開ページでは、事業所の画面の「空き」を押して動きを試せます。表示内容はすべて見本で、実際の予約は送られません。</p>
+    <div class="screens">
+      <div>
+        <p class="cap">介護事業所の画面</p>
+        <div class="phone">
+          <div class="ph-h">送迎の予約<span>○○デイサービス様（見本）</span></div>
+          <div class="cal" id="cal">
+            <div></div><div class="h">朝の部 8-10時</div><div class="h">夕の部 16-18時</div>
+            <div class="d">月</div><button class="chip full" disabled>満</button><button class="chip few" data-s="月 朝の部">残り1</button>
+            <div class="d">火</div><button class="chip" data-s="火 朝の部">空き</button><button class="chip" data-s="火 夕の部">空き</button>
+            <div class="d">水</div><button class="chip sel" data-s="水 朝の部">選択中</button><button class="chip full" disabled>満</button>
+            <div class="d">木</div><button class="chip" data-s="木 朝の部">空き</button><button class="chip few" data-s="木 夕の部">残り1</button>
+            <div class="d">金</div><button class="chip few" data-s="金 朝の部">残り1</button><button class="chip" data-s="金 夕の部">空き</button>
+          </div>
+          <div class="field"><span>日時</span><b id="picked">水 朝の部</b></div>
+          <div class="field"><span>車種</span><b>ジャンボタクシー</b></div>
+          <div class="field"><span>人数</span><b>6名</b></div>
+          <button class="send" id="send">予約を送る</button>
+          <p class="msg" id="msg"></p>
+        </div>
+        <div class="legend"><span><i class="sw"></i>空き</span><span><i class="sw" style="background:#FBF1C2;border-color:#FBF1C2"></i>残り少し</span><span><i class="sw" style="background:#EFEDE6;border-color:#EFEDE6"></i>満</span></div>
+      </div>
+      <div>
+        <p class="cap">富士タクシー事務所の画面</p>
+        <div class="desk">
+          <div class="bar">届いた予約（見本）</div>
+          <div class="row"><div><b>○○デイサービス様</b><br>水 朝の部／ジャンボ／6名</div><div class="acts"><span class="ok">確定</span><span>相談</span></div></div>
+          <div class="row"><div><b>△△デイサービス様</b><br>木 夕の部／普通／3名</div><div class="acts"><span class="ok">確定</span><span>相談</span></div></div>
+          <div class="row"><div><b>□□デイサービス様</b><br>金 朝の部／ジャンボ／8名</div><div class="acts"><span>確定済み</span></div></div>
+        </div>
+        <p style="margin-top:3mm">「確定」を押すと事業所へ通知され、配車ボードに予約として入る想定です。乗務員の割り当ては、今と同じ配車ボードで行います。</p>
+        <p style="margin-top:2mm">利用者様のお名前や介護情報は扱わず、はじめは<b class="k">人数と時間枠だけ</b>を受ける案です。個人情報を預からずに始められます。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>決めること</h2>
+    <ul class="dec">
+      <li><b>月極契約との関係</b>定額の月極は曜日固定です。空き日の予約は、追加分や振替に使うか、都度の貸切も受けるか</li>
+      <li><b>料金の考え方</b>追加予約の料金を、月極の定額に含めるか、1回ごとに請求するか</li>
+      <li><b>予約の締切</b>前日の何時まで受けるか。当日分は電話のみにするか</li>
+      <li><b>キャンセルの決まり</b>いつまで無料で、それ以降をどう扱うか</li>
+      <li><b>一般配車の確保</b>電話の配車用に、車両と乗務員を何台分残すか</li>
+      <li><b>事業所の登録</b>誰に利用者IDを発行し、誰が管理するか</li>
+      <li><b>電脳交通への確認</b>2027年4月のアプリで貸切枠の予約ができるか。DSとつなげられるか</li>
+      <li><b>運賃の確認</b>時間貸切・定額の料金が、届出済みの運賃の範囲で設定できるか</li>
+    </ul>
+  </section>
+  <div class="foot"><span>有限会社 富士タクシー</span><span>2</span></div>
+</div>
+
+<script>
+(function(){
+  function fit(){var w=document.documentElement.clientWidth,z=w<810?(w-16)/794:1;document.querySelectorAll('.page').forEach(function(p){p.style.zoom=z===1?'':z;});}
+  fit();addEventListener('resize',fit);addEventListener('beforeprint',function(){document.querySelectorAll('.page').forEach(function(p){p.style.zoom='';});});addEventListener('afterprint',fit);
+  var labels=new Map(),chips=document.querySelectorAll('#cal .chip[data-s]');
+  chips.forEach(function(c){labels.set(c,c.textContent);c.addEventListener('click',function(){
+    chips.forEach(function(o){o.classList.remove('sel');o.textContent=labels.get(o);});
+    c.classList.add('sel');c.textContent='選択中';
+    document.getElementById('picked').textContent=c.dataset.s;document.getElementById('msg').textContent='';
+  });});
+  labels.set(document.querySelector('#cal .chip.sel'),'空き');
+  document.getElementById('send').addEventListener('click',function(){
+    document.getElementById('msg').textContent='見本のため送信されません（'+document.getElementById('picked').textContent+'）';
+  });
+})();
+</script>
+</body>
+</html>

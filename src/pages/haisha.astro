@@ -4920,7 +4920,9 @@ import '../styles/kt-components.css';
     .ha-all-card--new.ha-all-card--cancelled td:first-child { box-shadow: inset 6px 0 0 #0e7490, inset 12px 0 0 #9ca3af; }
     .ha-all-rownum { color: #1f2937; font-size: 1.05rem; font-weight: 900; font-variant-numeric: tabular-nums; text-align: center; min-width: 2.2rem; white-space: nowrap; }
     .ha-all-time { font-weight: 700; white-space: nowrap; }
-    .ha-all-name { font-weight: 700; white-space: nowrap; }
+    /* 全体配車ボードの幅が枠に収まらなくなった、というユーザー指摘（2026-11-09「前のように修正」。§5.80と同じ対応）。
+       お客様名が長いと、折り返さないため列が広がっていたので、一定の幅（11rem）で折り返す（省略はしない） */
+    .ha-all-name { font-weight: 700; white-space: normal; overflow-wrap: anywhere; max-width: 11rem; }
     /*
      * 迎車場所・行き先メモが省略されて見えない、という指摘への対応。
      * max-widthで省略していたのをやめ、内容の長さなりに表を横に伸ばす。
@@ -4950,6 +4952,8 @@ import '../styles/kt-components.css';
     .ha-all-table .ha-check { width: 1rem; height: 1rem; }
     .ha-all-table .ha-linkbtn--icon { min-height: 1.5rem; min-width: 1.5rem; padding: 0.02rem 0.25rem; font-size: 0.85rem; }
     .ha-all-table .ha-superseded-note { display: block; margin-top: 0.1rem; font-size: 0.78rem; }
+    /* 状態の列の「変更内容を見る（変更履歴）」「→ 08:10に変更 ▾」が折り返されず、状態の列を広げていた。状態の選択の幅に合わせて折り返す */
+    .ha-all-table .ha-superseded-wrap { max-width: 7.5rem; white-space: normal; }
 
     /* ── モーダル ── */
     .ha-modal { max-width: 680px; }

@@ -2266,12 +2266,35 @@ import '../styles/kt-components.css';
         .sort((a, b) => order(a) - order(b)).map((x) => x.name);
       const exNote = exclude.length > 0 ? `（同じ日の前のチェックをした人は、別の人がチェックするため、選べません）` : '';
       const all = (note: string) => ({ names: everyone, note: note + exNote });
+
+      /*
+       * 日曜日・祝日の**次の日の朝**のチェック（翌朝の日勤が④でWチェックを完了する）は、**前日の日勤だった人以外**が行う
+       * （ユーザー指示「日曜日と祝日の次の日の朝チェックは前日の日勤以外でなくてはならない」。月曜日ではなく日曜日と祝日。docs §5.95）。
+       * 前日が日曜日・祝日のときだけ。前日の日勤＝前日のシフトの①・①S・①H（日曜日の日勤など）。
+       * この除外は、④の「Wチェック完了：翌朝の日勤」の選択のときだけ（遅番が④を行う選択には付けない）。
+       */
+      const prevKey = shiftDate(targetDate, -1);
+      const prevDow = new Date(prevKey + 'T00:00:00Z').getUTCDay();
+      let morning = all(`${targetDate.slice(5).replace('-', '/')}の日勤で、チェックした人の名前を選んでください。`);
+      if (prevDow === 0 || HOLIDAYS[prevKey]) {
+        try {
+          const prevShifts = await fetchShiftsByDate(prevKey);
+          const prevDayIds = new Set<string>(prevShifts.filter((x: any) => ['①', '①S', '①H'].includes(x.code)).map((x: any) => x.staffId));
+          const prevDayNames = staff.filter((x: any) => prevDayIds.has(x.id)).map((x: any) => normName(x.name));
+          const kept = everyone.filter((n: string) => !prevDayNames.includes(normName(n)));
+          const dayLabel = HOLIDAYS[prevKey] ? '祝日' : '日曜日';
+          morning = {
+            names: kept.length > 0 ? kept : everyone, // 候補が空にならないように（全員が前日の日勤のときだけ）
+            note: `${targetDate.slice(5).replace('-', '/')}の朝に、日勤で、Wチェックを完了した人の名前を選んでください。前日（${prevKey.slice(5).replace('-', '/')}・${dayLabel}）の日勤だった人は、別の人がチェックするため、選べません。` + exNote,
+          };
+        } catch (e) { /* シフトが取れないときは、前の項目にサインした人だけを外す */ }
+      }
       return {
         wcheck: all(`${prevLabel}の遅番の相方（電話番ではない方）の名前を選んでください。`),
         first: all(`${prevLabel}の日勤で、シングルチェック（1人目としてチェック）した人の名前を選んでください。`),
         day_w: all(`${prevLabel}の日勤で、Wチェック（二人で確認）を完了した人の名前を選んでください。`),
         late_single: all(`${prevLabel}の遅番で、シングルチェック（1人目としてチェック）した人の名前を選んでください。`),
-        morning: all(`${targetDate.slice(5).replace('-', '/')}の日勤で、チェックした人の名前を選んでください。`),
+        morning,
       } as Record<string, { names: string[]; note: string }>;
     }
 
@@ -2339,7 +2362,7 @@ import '../styles/kt-components.css';
       try {
         if (box.checked) {
           if (wCheckStopDay()) {
-            alert('日曜日・祝日は、日勤・遅番とも1人のため、シングルチェック（①③）までです。④のWチェックは、翌日（月曜日の朝）の日勤が行います。');
+            alert('日曜日・祝日は、日勤が1人・遅番が1人のため、二人でのWチェックはできません。\n\n遅番は ③ シングルチェック までです。\n④ Wチェック完了は、翌日（月曜日の朝）に、①③にサインした人とは別の日勤の人が行います。');
             box.checked = false;
             return;
           }
@@ -2445,7 +2468,7 @@ import '../styles/kt-components.css';
       const k = bizDateKey();
       return new Date(k + 'T00:00:00Z').getUTCDay() === 0 || !!HOLIDAYS[k];
     };
-    const STOP_NOTE = '　※日曜日・祝日は日勤・遅番とも1人のため、シングルチェック（①③）まで。Wチェックは翌日の日勤が行います';
+    const STOP_NOTE = '　※日曜日・祝日は人が1人しかいないため、できません';
 
     /** ①日勤・シングルチェック済み、または ②日勤・Wチェック完了 のどちらかが入っているか（③④に進む条件。docs §5.87） */
     const dayChecked = () => !checkFirstAvailable || !!checkFirst || (checkExtrasAvailable && !!checkExtras.day_w);
@@ -2458,7 +2481,7 @@ import '../styles/kt-components.css';
       try {
         if (box.checked) {
           if (step === 'day_w' && wCheckStopDay()) {
-            alert('日曜日・祝日は、日勤が1人のため、Wチェック（②）はできません。シングルチェック（①）までです。Wチェックは、翌日の日勤が行います。');
+            alert('日曜日・祝日は、日勤が1人しかいないため、日勤のWチェック（②）はできません。\n\n日勤は ① シングルチェック までです。\nWチェックは、翌日（月曜日の朝）に、別の日勤の人が④で行います。');
             box.checked = false;
             return;
           }
@@ -2606,6 +2629,17 @@ import '../styles/kt-components.css';
         note.textContent = '乗務終了後に、すべての予約の「済」にチェックを入れます。チェック項目は全部で4つ：① 日勤・シングルチェック／② 日勤・Wチェック完了／③ 遅番・シングルチェック／④ 遅番・Wチェック完了（全て確認済み）。'
           + (checkFirstAvailable ? '　※①か②のどちらかが入らないと、③④には進めません。' : '');
         box.appendChild(note);
+
+        // 日曜日・祝日は、日勤と遅番が1人ずつで、二人でのWチェックができない。何が起きるのかを、はっきり書く
+        // （ユーザー指摘「わかりにくい。日曜日・祝日の場合は日勤と遅番が一人づつになるため」。docs §5.96）
+        if (wCheckStopDay()) {
+          const sun = document.createElement('div');
+          sun.className = 'ha-checkbanner__sunday';
+          sun.innerHTML = '<b>【日曜日・祝日】日勤が1人、遅番が1人のため、二人でのWチェックはできません。</b><br>'
+            + '・日勤は <b>① シングルチェック</b>、遅番は <b>③ シングルチェック</b> までです（② と ④ は押せません）。<br>'
+            + '・<b>④ Wチェック完了</b>は、翌日の朝に、日勤が行います。<b>前日（日曜日・祝日）の日勤だった人以外</b>で、<b>①③にサインした人とも別の人</b>が行います。';
+          box.appendChild(sun);
+        }
 
         // 遅番が1人でWチェックできず、③（シングルチェック）まででとまっているとき：翌朝の日勤がWチェックして④にサインする
         // （ユーザー回答「案B」「日勤の名前で④にサイン（そのまま）」。docs §5.88）
@@ -4137,6 +4171,8 @@ import '../styles/kt-components.css';
     .ha-row--paperonly td:first-child { box-shadow: inset 6px 0 0 #d97706; }
     .ha-paper-bulk { margin-top: 0.4rem; }
     /* 遅番が1人で③までのとき、翌朝の日勤にWチェックを促す（docs §5.88） */
+    /* 日曜日・祝日の説明（日勤1人・遅番1人のため、シングルチェックで止まる） */
+    .ha-checkbanner__sunday { margin: 0.4rem 0 0.2rem; padding: 0.4rem 0.7rem; border: 2px solid #1d4ed8; border-radius: var(--radius-md); background: #eff6ff; color: #1e3a8a; font-weight: 700; font-size: 0.95rem; line-height: 1.6; }
     .ha-checkbanner__wait { margin: 0.4rem 0 0.2rem; padding: 0.35rem 0.6rem; border: 2px solid #d97706; border-radius: var(--radius-md); background: #fffbeb; color: #7c2d12; font-weight: 900; font-size: 0.95rem; }
     /* 追加なし（引き継ぎ以降に予約の追加がないとき）。緑で目立たせる */
     .ha-badge--noadd { background: #ecfdf5; border: 2px solid #047857; color: #065f46; font-weight: 900; font-size: 0.95rem; padding: 0.1rem 0.6rem; }

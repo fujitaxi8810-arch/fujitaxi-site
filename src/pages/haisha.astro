@@ -2716,7 +2716,8 @@ import '../styles/kt-components.css';
         label.appendChild(sp);
         box.appendChild(label);
       };
-      const by = (c: any) => (c ? `：${c.checkedBy || '—'}` : '');
+      // ①②③の記録は checkedBy、④（全て確認済み）の記録は confirmedBy に名前が入っている。④の名前が「—」になっていた不具合の修正（docs §5.96）
+      const by = (c: any) => (c ? `：${c.checkedBy || c.confirmedBy || '—'}` : '');
       if (checkFirstAvailable) {
         addItem('①', checkFirst ? `日勤・シングルチェック済み${by(checkFirst)}`
           : `日勤・シングルチェック済み（日勤が1人目としてチェック。Wチェックはまだ）${untouched.length > 0 ? '　※全予約に「済」か「受付表」が入ると押せます' : ''}`,

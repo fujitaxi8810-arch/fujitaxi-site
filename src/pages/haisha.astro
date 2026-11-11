@@ -2319,6 +2319,11 @@ import '../styles/kt-components.css';
       box.disabled = true;
       try {
         if (box.checked) {
+          if (wCheckStopDay()) {
+            alert('日曜日・祝日は、日勤・遅番とも1人のため、シングルチェック（①③）までです。④のWチェックは、翌日（月曜日の朝）の日勤が行います。');
+            box.checked = false;
+            return;
+          }
           const pick = await chooseConfirmer(key);
           if (!pick) { box.checked = false; return; }
           if (!dayChecked()) {
@@ -2410,6 +2415,19 @@ import '../styles/kt-components.css';
       }
     }
 
+    /*
+     * 日曜日（と祝日）は、シングルチェックで止める（ユーザー指示「日曜日のシングルで止めるように設定してください」。docs §5.94）。
+     * 日曜日は日勤・遅番とも1人で、二人でのWチェックができない（2枚目のPDFと同じ決まり）ため、②（日勤・Wチェック完了）と
+     * ④（遅番・Wチェック完了）は押せない。①③（シングルチェック）までで、Wチェックは翌日（月曜日の朝）の日勤が④で行う。
+     * 「日曜日」は営業日で数える：朝7時〜翌朝7時（日曜日の夜の遅番が0時を過ぎても、日曜日のまま）。
+     */
+    const bizDateKey = () => (jstHourNow() < CHECK_DEADLINE_HOUR ? shiftDate(todayJst(), -1) : todayJst());
+    const wCheckStopDay = () => {
+      const k = bizDateKey();
+      return new Date(k + 'T00:00:00Z').getUTCDay() === 0 || !!HOLIDAYS[k];
+    };
+    const STOP_NOTE = '　※日曜日・祝日は日勤・遅番とも1人のため、シングルチェック（①③）まで。Wチェックは翌日の日勤が行います';
+
     /** ①日勤・シングルチェック済み、または ②日勤・Wチェック完了 のどちらかが入っているか（③④に進む条件。docs §5.87） */
     const dayChecked = () => !checkFirstAvailable || !!checkFirst || (checkExtrasAvailable && !!checkExtras.day_w);
 
@@ -2420,6 +2438,11 @@ import '../styles/kt-components.css';
       box.disabled = true;
       try {
         if (box.checked) {
+          if (step === 'day_w' && wCheckStopDay()) {
+            alert('日曜日・祝日は、日勤が1人のため、Wチェック（②）はできません。シングルチェック（①）までです。Wチェックは、翌日の日勤が行います。');
+            box.checked = false;
+            return;
+          }
           if (step === 'late_single' && !dayChecked()) {
             alert('先に、日勤のチェック（① シングルチェック済み、または ② Wチェック完了）が必要です。');
             box.checked = false;
@@ -2653,8 +2676,8 @@ import '../styles/kt-components.css';
       }
       if (checkExtrasAvailable) {
         addItem('②', dayW ? `日勤・Wチェック完了${by(checkExtras.day_w)}`
-          : `日勤・Wチェック完了（日勤が二人でWチェックして完了）${missed.length > 0 ? '　※全予約が「済」になると押せます' : ''}`,
-          dayW, missed.length > 0, (cb) => onExtraToggle(cb, 'day_w'));
+          : `日勤・Wチェック完了（日勤が二人でWチェックして完了）${wCheckStopDay() ? STOP_NOTE : (missed.length > 0 ? '　※全予約が「済」になると押せます' : '')}`,
+          dayW, missed.length > 0 || wCheckStopDay(), (cb) => onExtraToggle(cb, 'day_w'));
         const late = !!checkExtras.late_single;
         addItem('③', late ? `遅番・シングルチェック済み${by(checkExtras.late_single)}`
           : `遅番・シングルチェック済み（遅番が1人目としてチェック）${!firstOk ? '　※先に①か②が必要です' : (untouched.length > 0 ? '　※全予約に「済」か「受付表」が入ると押せます' : '')}`,
@@ -2668,8 +2691,8 @@ import '../styles/kt-components.css';
       if (checkConfirmAvailable) {
         const lateWait = !!checkExtras.late_single && !signed; // 遅番が1人で③まで → 翌朝の日勤がWチェック待ち
         addItem('④', signed ? `遅番・Wチェック完了（全て確認済み）${by(checkConfirm)}`
-          : `遅番・Wチェック完了（全て確認済み）${lateWait ? (isToday ? '　→ 遅番は1人のため、日勤がWチェックして日勤の名前でサイン（待ち）' : '　→ 遅番は1人のため、翌朝の日勤がWチェック（待ち）') : ''}${missed.length > 0 ? '　※全予約が「済」になると押せます' : (!firstOk ? '　※先に①か②が必要です' : '')}`,
-          signed, missed.length > 0 || !firstOk, (cb) => onConfirmToggle(cb));
+          : `遅番・Wチェック完了（全て確認済み）${wCheckStopDay() ? STOP_NOTE : ''}${lateWait ? (isToday ? '　→ 遅番は1人のため、日勤がWチェックして日勤の名前でサイン（待ち）' : '　→ 遅番は1人のため、翌朝の日勤がWチェック（待ち）') : ''}${missed.length > 0 ? '　※全予約が「済」になると押せます' : (!firstOk ? '　※先に①か②が必要です' : '')}`,
+          signed, missed.length > 0 || !firstOk || wCheckStopDay(), (cb) => onConfirmToggle(cb));
       }
 
       // 18時より前に出している「明日」の確認は、まだ急がないので、タブ名に ⚠ は付けない

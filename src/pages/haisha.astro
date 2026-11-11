@@ -2241,12 +2241,31 @@ import '../styles/kt-components.css';
      * ユーザー指示「毎日選べるようにしてください」（2026-10-27）。場面ごとに誰が署名するかは、画面の注記で案内するだけで、
      * 選択肢は制限しない（当初あった遅番・電話番・日勤シフトによる絞り込みは廃止。docs §5.78）。
      */
-    async function confirmerPools(targetDate: string) {
+    /*
+     * 同じ日の確認は、**別の人**がチェックする（ユーザー指示「日曜日の日勤と月曜日の朝日勤のチェックを同じ人がして、チェック漏れが
+     * あったため、別な人がチェックをするようにしたい」。docs §5.95）。前の項目にサインした人は、あとの項目では選べない：
+     *   ① 日勤・シングル → （なし）／② 日勤・Wチェック完了 → ①の人を除く／③ 遅番・シングル → ①②の人を除く／
+     *   ④ 遅番・Wチェック完了（翌朝の日勤を含む） → ①②③の人を除く
+     * 記録の名前の後ろの「（予約受付表（紙）のみ ○件）」「（日勤・朝のチェック）」は外して、名前だけで比べる。
+     */
+    const signerBase = (n: any) => normName(String(n || '').split('（')[0]);
+    function earlierSigners(upTo: 'first' | 'day_w' | 'late_single' | 'final'): string[] {
+      const order = ['first', 'day_w', 'late_single', 'final'];
+      const idx = order.indexOf(upTo);
+      const by: Record<string, any> = {
+        first: checkFirst && checkFirst.checkedBy, day_w: checkExtras.day_w && checkExtras.day_w.checkedBy,
+        late_single: checkExtras.late_single && checkExtras.late_single.checkedBy,
+      };
+      return order.slice(0, idx).map((k) => signerBase(by[k])).filter(Boolean);
+    }
+
+    async function confirmerPools(targetDate: string, exclude: string[] = []) {
       const prevLabel = shiftDate(targetDate, -1).slice(5).replace('-', '/');
       const order = (x: any) => x.shiftDisplayOrder ?? x.displayOrder;
-      const everyone = [...staff.filter((x: any) => CONFIRMER_ALLOWED.includes(normName(x.name)))]
+      const everyone = [...staff.filter((x: any) => CONFIRMER_ALLOWED.includes(normName(x.name)) && !exclude.includes(normName(x.name)))]
         .sort((a, b) => order(a) - order(b)).map((x) => x.name);
-      const all = (note: string) => ({ names: everyone, note });
+      const exNote = exclude.length > 0 ? `（同じ日の前のチェックをした人は、別の人がチェックするため、選べません）` : '';
+      const all = (note: string) => ({ names: everyone, note: note + exNote });
       return {
         wcheck: all(`${prevLabel}の遅番の相方（電話番ではない方）の名前を選んでください。`),
         first: all(`${prevLabel}の日勤で、シングルチェック（1人目としてチェック）した人の名前を選んでください。`),
@@ -2258,11 +2277,11 @@ import '../styles/kt-components.css';
 
     // 確認者を選ぶ小さなモーダル。選んで確定した名前（やめたら null）を返す。
     // 日勤の朝のチェックは、名前のあとに場面を付けて記録する（バナーにそのまま出る）
-    async function chooseConfirmer(targetDate: string, mode: 'final' | 'first' | 'day_w' | 'late_single' = 'final'): Promise<{ name: string; kind: string } | null> {
+    async function chooseConfirmer(targetDate: string, mode: 'final' | 'first' | 'day_w' | 'late_single' = 'final', exclude: string[] = []): Promise<{ name: string; kind: string } | null> {
       if (!$('confirmModal').hidden) return null; // すでに開いているとき（自動表示と手動が重なったとき）は、タイトルが混ざらないよう開かない
       let pools: Record<string, { names: string[]; note: string }>;
       try {
-        pools = await confirmerPools(targetDate);
+        pools = await confirmerPools(targetDate, exclude);
       } catch (e) {
         alert(failMsg(e, '確認する人の読み込み'));
         return null;
@@ -2324,7 +2343,7 @@ import '../styles/kt-components.css';
             box.checked = false;
             return;
           }
-          const pick = await chooseConfirmer(key);
+          const pick = await chooseConfirmer(key, 'final', earlierSigners('final'));
           if (!pick) { box.checked = false; return; }
           if (!dayChecked()) {
             alert('先に、日勤のチェック（① シングルチェック済み、または ② Wチェック完了）が必要です。どちらかが入るまで、③④には進めません。');
@@ -2448,7 +2467,7 @@ import '../styles/kt-components.css';
             box.checked = false;
             return;
           }
-          const pick = await chooseConfirmer(key, step);
+          const pick = await chooseConfirmer(key, step, earlierSigners(step));
           if (!pick) { box.checked = false; return; }
           await setCheckExtra(key, step, pick.name);
         } else {

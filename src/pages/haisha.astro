@@ -2335,7 +2335,7 @@ import '../styles/kt-components.css';
       };
       // 朝7時（日勤が出勤する時間）以降に「本日」の確認をするのは、遅番でWチェックが終わらなかった分を日勤が朝に
       // チェックする場面なので、最初から「日勤が朝にチェックした」（日勤の人の名前）を選んでおく（ユーザー指示。docs §5.78）
-      const first = targetDate === todayJst() && jstHourNow() >= CHECK_DEADLINE_HOUR ? 'morning' : 'wcheck';
+      const first = targetDate === todayJst() && jstHourNow() >= BIZ_DAY_START_HOUR ? 'morning' : 'wcheck'; // 朝5時から、最初の選択は「翌朝の日勤」（§5.97）
       radios.forEach((r) => { r.checked = r.value === first; r.onchange = fill; });
       fill();
       $('confirmModal').hidden = false;
@@ -2461,9 +2461,12 @@ import '../styles/kt-components.css';
      * 日曜日（と祝日）は、シングルチェックで止める（ユーザー指示「日曜日のシングルで止めるように設定してください」。docs §5.94）。
      * 日曜日は日勤・遅番とも1人で、二人でのWチェックができない（2枚目のPDFと同じ決まり）ため、②（日勤・Wチェック完了）と
      * ④（遅番・Wチェック完了）は押せない。①③（シングルチェック）までで、Wチェックは翌日（月曜日の朝）の日勤が④で行う。
-     * 「日曜日」は営業日で数える：朝7時〜翌朝7時（日曜日の夜の遅番が0時を過ぎても、日曜日のまま）。
+     * 「日曜日」は営業日で数える：朝5時〜翌朝5時（日曜日の夜の遅番が0時を過ぎても、日曜日のまま）。
      */
-    const bizDateKey = () => (jstHourNow() < CHECK_DEADLINE_HOUR ? shiftDate(todayJst(), -1) : todayJst());
+    // 営業日の切り替えは朝5時（日勤が朝に出勤してから④でWチェックを完了できるよう、朝7時ではなく5時。
+    // 月曜日の朝6:30に④が押せなかった、というユーザー報告「④がチェックできない」への対応。docs §5.97）
+    const BIZ_DAY_START_HOUR = 5;
+    const bizDateKey = () => (jstHourNow() < BIZ_DAY_START_HOUR ? shiftDate(todayJst(), -1) : todayJst());
     const wCheckStopDay = () => {
       const k = bizDateKey();
       return new Date(k + 'T00:00:00Z').getUTCDay() === 0 || !!HOLIDAYS[k];

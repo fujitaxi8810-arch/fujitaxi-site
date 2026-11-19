@@ -1596,6 +1596,12 @@ import '../styles/kt-components.css';
       } else if (status === 'done') {
         b.classList.add('ha-duty-name--done');
         b.title = '本日はすでに退勤の打刻があります';
+      } else if (status === 'working' && staffColorMap.get(st.id)?.bg === '#f5f5f4') {
+        // 灰色の人は、打刻済みでも「無効」のように見えた（ユーザー指摘：森田さん）。出勤中だけ黄色にして、はっきり見せる
+        b.style.background = '#fef08a';
+        b.style.color = '#713f12';
+        b.style.borderColor = '#a16207';
+        b.title = '本日、出勤の打刻があります';
       }
       b.appendChild(document.createTextNode(st.name));
       if (opts.phoneDuty) {

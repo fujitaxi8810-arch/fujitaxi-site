@@ -532,13 +532,13 @@ import '../styles/kt-components.css';
       { bg: '#ecfeff', fg: '#0e7490' }, // 青緑
       { bg: '#f7fee7', fg: '#4d7c0f' }, // 黄緑
       { bg: '#faf5ff', fg: '#a21caf' }, // 赤紫
-      { bg: '#f5f5f4', fg: '#57534e' }, // 灰（暖色）
+      { bg: '#ffe4e6', fg: '#9f1239' }, // ローズ（灰は「未打刻」専用なので、人の色には使わない）
       { bg: '#e0f2fe', fg: '#0369a1' }, // 空色
       { bg: '#eef2ff', fg: '#4338ca' }, // 藍
       { bg: '#d1fae5', fg: '#047857' }, // 翡翠
       { bg: '#f0fdfa', fg: '#115e59' }, // 深緑青
-      { bg: '#f1f5f9', fg: '#334155' }, // 灰（寒色）
-      { bg: '#eceff1', fg: '#37474f' }, // 青灰
+      { bg: '#dbeafe', fg: '#1e3a8a' }, // 紺
+      { bg: '#ede9fe', fg: '#5b21b6' }, // ラベンダー
     ];
 
     let staffColorMap = new Map();
@@ -553,10 +553,22 @@ import '../styles/kt-components.css';
       staffColorMap = new Map(sorted.map((s, i) => [s.id, STAFF_COLORS[i % STAFF_COLORS.length]]));
     }
 
-    /** 要素にその人の色を当てる。未割当なら既定の見た目に戻す */
-    function applyStaffColor(el: HTMLElement, staffId: string | null) {
+    /** 本日、まだ出勤の打刻が無い人の色（全員共通の灰色。打刻すると、その人の色に変わる） */
+    const NOT_YET_COLOR = { bg: '#e5e7eb', fg: '#4b5563', border: '#6b7280' };
+
+    /** 要素にその人の色を当てる。未割当なら既定の見た目に戻す。
+     * 本日分を見ていて、その人の出勤打刻がまだなら、人の色ではなく灰色にする
+     * （乗務割も担当者も同じ。ユーザー要望：「タイムカードをおしてない人は灰色に統一」）。
+     * useAttendance=false は、色の確認用の画面（出勤の状況に関係なく本人の色を出す） */
+    function applyStaffColor(el: HTMLElement, staffId: string | null, useAttendance = true) {
       // 未割当の色は、行の状態に関わらず常に同じ（CSSの .ha-staff--none）
       if (el instanceof HTMLSelectElement) el.classList.toggle('ha-staff--none', !staffId);
+      if (staffId && useAttendance && attendanceStatusFor(staffId) === 'none') {
+        el.style.background = NOT_YET_COLOR.bg;
+        el.style.color = NOT_YET_COLOR.fg;
+        el.style.borderColor = NOT_YET_COLOR.border;
+        return;
+      }
       const c = staffId ? staffColorMap.get(staffId) : null;
       if (c) {
         el.style.background = c.bg;
@@ -849,7 +861,7 @@ import '../styles/kt-components.css';
         // 管理画面でも本人の色を出して、どの色が誰かを確認できるようにする
         const name = document.createElement('span');
         name.className = 'ha-badge ha-assign-name';
-        applyStaffColor(name, s.id);
+        applyStaffColor(name, s.id, false);
         name.textContent = s.name;
         label.appendChild(name);
 
@@ -1586,12 +1598,8 @@ import '../styles/kt-components.css';
       applyStaffColor(b, st.id);
       const status = attendanceStatusFor(st.id);
       if (status === 'none') {
-        // applyStaffColor が背景・文字・枠線をインラインstyleで設定しているため、
-        // CSSクラスだけでは勝てない（インラインが常に優先される）。ここで明示的に上書きする
+        // 色（灰色）は applyStaffColor が当てている。クラスは目印として残す
         b.classList.add('ha-duty-name--notyet');
-        b.style.background = '#fee2e2';
-        b.style.color = '#991b1b';
-        b.style.borderColor = '#991b1b';
         b.title = '本日、まだ出勤の打刻がありません';
       } else if (status === 'done') {
         b.classList.add('ha-duty-name--done');
@@ -4386,11 +4394,11 @@ import '../styles/kt-components.css';
       align-items: center;
       gap: 0.4rem;
     }
-    /* 本日、まだ出勤の打刻が無い人（要注意なので目立つ配色に切り替える） */
+    /* 本日、まだ出勤の打刻が無い人は灰色（実際の色は applyStaffColor がインラインで当てる。担当者の欄と共通） */
     .ha-badge.ha-duty-name.ha-duty-name--notyet {
-      background: #fee2e2;
-      color: #991b1b;
-      border-color: #991b1b;
+      background: #e5e7eb;
+      color: #4b5563;
+      border-color: #6b7280;
     }
     /* 本日すでに退勤済みの人（乗務割から消えるわけではないので、控えめに分かるようにする） */
     .ha-badge.ha-duty-name.ha-duty-name--done {

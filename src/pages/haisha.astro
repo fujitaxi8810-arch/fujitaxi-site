@@ -90,6 +90,8 @@ import '../styles/kt-components.css';
         <summary class="ha-details__summary">
           <span class="kt-title" id="dutyTitle">乗務割</span>
           <span class="ha-details__hint">クリックで開く</span>
+          <!-- 閉じていても見えるように、見出しの行にも凡例を出す（本日分を見ているときだけ） -->
+          <span class="ha-duty-attlegend" id="dutyAttLegend" hidden><span class="ha-duty-attlegend__sw"></span>灰色＝出勤（タイムカード）がまだ</span>
           <!-- 「シフトを編集」は見出しの行に置く。専用の行を作ると、ボタン1つのために
                約49px使ってしまい、その分だけ配車ボードが下に押し下げられるため -->
           <a
@@ -101,6 +103,10 @@ import '../styles/kt-components.css';
           >シフトを編集</a>
         </summary>
         <div class="ha-details__body">
+          <p class="ha-duty-attbar" id="dutyAttBar" hidden>
+            <span class="ha-duty-attlegend__sw"></span>
+            <span><strong>グレーの人は、出勤（タイムカード）をまだ押していません。</strong>押すと、その人の色になります。薄い表示の人は、すでに退勤しています。</span>
+          </p>
           <div id="dutyBody" class="ha-duty"></div>
           <p class="ha-note ha-duty-legend" id="dutyNote"></p>
         </div>
@@ -1766,9 +1772,11 @@ import '../styles/kt-components.css';
         body.appendChild(names);
       }
 
-      const attendanceNote = dutyDateKey() === todayJst()
-        ? '　名前が赤い人は、まだ出勤の打刻がありません。薄い人はすでに退勤しています。'
-        : '';
+      // 出勤（タイムカード）の凡例。本日分を見ているときだけ出す（過去・未来の日には意味がない）
+      const isTodayView = dutyDateKey() === todayJst();
+      $('dutyAttLegend').hidden = !isTodayView;
+      $('dutyAttBar').hidden = !isTodayView;
+      const attendanceNote = '';
       $('dutyNote').textContent = (shiftShown === 0
         ? 'この日のシフトが未入力です。/shift で作成すると、普通・遅番・スクール・スクール原町・交流・貸切・乗合がここに出ます。'
         : '× を押すと、その人をこの日だけ表示から外せます（/shift のシフト自体は変更されません。「＋追加」で選び直すと戻せます）。基本の担当を変えたい場合は /shift で行ってください。') + attendanceNote;
@@ -4378,6 +4386,41 @@ import '../styles/kt-components.css';
     }
 
     .ha-duty-none { color: rgba(255,255,255,0.3); font-size: 0.95rem; }
+    /* 出勤（タイムカード）がまだ＝灰色、の凡例。見出しの行（閉じていても見える）と、開いた中の先頭に出す */
+    .ha-duty-attlegend__sw {
+      flex: none;
+      width: 1.6rem;
+      height: 1rem;
+      border-radius: 4px;
+      background: #e5e7eb;
+      border: 1.5px solid #6b7280;
+    }
+    .ha-duty-attlegend {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #e5e7eb;
+      white-space: nowrap;
+    }
+    .ha-duty-attlegend[hidden], .ha-duty-attbar[hidden] { display: none; }
+    /* 開いているときは、中の帯に同じ説明が出るので、見出しの凡例は隠す */
+    .ha-duty-panel[open] .ha-duty-attlegend { display: none; }
+    .ha-duty-attbar {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin: 0 0 0.6rem;
+      padding: 0.45rem 0.7rem;
+      border-radius: var(--radius-md);
+      background: rgba(229,231,235,0.12);
+      border: 1px solid rgba(229,231,235,0.35);
+      color: #f3f4f6;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .ha-duty-attbar strong { color: #fff; }
     .ha-duty-legend { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid rgba(255,255,255,0.1); }
     /* .ha-badge が後ろで定義されているので、クラス2つ分の詳細度で上書きする */
     .ha-badge.ha-duty-name {
